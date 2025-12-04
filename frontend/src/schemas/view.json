@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "View Schema",
+
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "oneOf": [
+      {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["physical_layer", "type", "file_type"],
+        "not": { "required": ["thematic_layer"] },
+        "properties": {
+          "physical_layer": {
+            "type": "object",
+            "required": ["ref"],
+            "additionalProperties": false,
+            "properties": {
+              "ref": { "type": "string", "minLength": 1 }
+            }
+          },
+          "type": { "type": "string" },
+          "file_type": { "type": "string" },
+          "zoom_level": { "type": "number" },
+          "layers": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["tag", "geom-type", "style"],
+              "additionalProperties": true,
+              "properties": {
+                "tag": { "type": "string", "minLength": 1 },
+                "geom-type": {
+                  "type": "string",
+                  "enum": ["polygon", "multipolygon", "linestring", "point"]
+                },
+                "style": { "type": "object" }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["thematic_layer", "type", "file_type"],
+        "not": { "required": ["physical_layer"] },
+        "properties": {
+          "thematic_layer": {
+            "type": "object",
+            "required": ["ref"],
+            "additionalProperties": false,
+            "properties": {
+              "ref": {
+                "oneOf": [
+                  { "type": "string", "minLength": 1 },
+                  {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1 },
+                    "minItems": 2
+                  }
+                ]
+              }
+            }
+          },
+          "type": { "type": "string" },
+          "file_type": { "type": "string" },
+          "zoom_level": { "type": "number" },
+          "layers": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["tag", "geom-type", "style"],
+              "additionalProperties": true,
+              "properties": {
+                "tag": { "type": "string", "minLength": 1 },
+                "geom-type": {
+                  "type": "string",
+                  "enum": ["polygon", "multipolygon", "linestring", "point"]
+                },
+                "style": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

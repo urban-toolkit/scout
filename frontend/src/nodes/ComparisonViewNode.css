@@ -1,0 +1,117 @@
+.cvnode {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  overflow: visible;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.cvnode__header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  /* font-weight: 500; */
+  font-size: 16px;
+  background: #d2e4f0;
+  border: 1.5px solid #1f78b4;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.cvnode__headerBtns {
+  display: flex;
+  align-items: center;
+}
+
+.cvnode__iconBtn {
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: #000;
+  width: 24px;
+  height: 24px;
+  text-align: center;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+}
+.cvnode__iconBtn--close {
+  margin-left: 6px;
+}
+
+.cvnode__actionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.cvnode__actionIcon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  pointer-events: none;
+}
+
+.cvnode__title {
+  color: #000;
+}
+
+.cvnode__body {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 8px 12px;
+  background: transparent;
+  overflow: hidden;
+}
+
+.cvnode__footer {
+  border-top: 1px solid #eee;
+  padding: 6px 8px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  background: #fafafa;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.cvnode__handle__source {
+  width: 10px !important;
+  height: 10px !important;
+  background: #ff7043 !important;
+  border: 2px solid #fff !important;
+  border-radius: 50%;
+  z-index: 5;
+}
+
+.cvnode__handle__target {
+  width: 10px !important;
+  height: 10px !important;
+  background: #5c6bc0 !important;
+  border: 2px solid #fff !important;
+  border-radius: 50%;
+  z-index: 5;
+}

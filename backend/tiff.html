@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Leaflet + GeoTIFF Overlay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      #map {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/geotiff/dist-browser/geotiff.js"></script>
+    <script src="https://unpkg.com/georaster/dist/georaster.browser.min.js"></script>
+    <script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v3.min.js"></script>
+    <script>
+      const tiffUrl = "./data/served/raster/flood-scenario-1.tif";
+
+      // Map in EPSG:4326
+      const map = L.map("map", {}).setView([41.5, -90.55], 9);
+      let colormapName = "Reds";
+
+      // Map names to d3 interpolator functions
+      const colormaps = {
+        Reds: d3.interpolateReds,
+        Blues: d3.interpolateBlues,
+        Greens: d3.interpolateGreens,
+        Viridis: d3.interpolateViridis,
+        Inferno: d3.interpolateInferno,
+        Magma: d3.interpolateMagma,
+        Plasma: d3.interpolatePlasma,
+        Cividis: d3.interpolateCividis,
+      };
+
+      const colormapFn = colormaps[colormapName] || d3.interpolateReds;
+
+      // Basemap that supports EPSG:4326 (WMS)
+      L.tileLayer(
+        "https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png",
+        {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors",
+          opacity: 1, // fully invisible
+        }
+      ).addTo(map);
+
+      fetch(tiffUrl)
+        .then((res) => res.arrayBuffer())
+        .then((buffer) => parseGeoraster(buffer))
+        .then((georaster) => {
+          const layer = new GeoRasterLayer({
+            georaster,
+            opacity: 1,
+            pixelValuesToColorFn: (values) => {
+              const v = values[0];
+
+              console.log("Pixel value:", v);
+              if (v == null) return null;
+
+              // Normalize v → t in [0,1]
+              let t =
+                (v - georaster.mins[0]) /
+                (georaster.maxs[0] - georaster.mins[0]);
+
+              t = Math.max(0, Math.min(1, t)); // clamp
+
+              // d3 interpolators return a CSS color string like "rgb(…)” or "#…"
+              const color = colormapFn(t);
+
+              return color;
+            },
+          });
+
+          layer.addTo(map);
+          map.fitBounds(layer.getBounds());
+        })
+        .catch((err) => console.error(err));
+    </script>
+  </body>
+</html>

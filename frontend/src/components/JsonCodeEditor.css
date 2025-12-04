@@ -1,0 +1,72 @@
+/* --- Global editor look --- */
+.cm-editor {
+  /* background-color: #f7f5ff !important; your light purple */
+  font-size: 13px !important; /* a bit larger font overall */
+}
+
+/* --- Find bar styling only --- */
+.cm-search {
+  /* background: #f7f5ff !important; same color as editor */
+  border: 1px solid #6a51a3 !important; /* purple border */
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  padding: 4px 6px;
+  color: #111 !important;
+}
+
+.cm-search input[type="checkbox"] + label,
+.cm-search label {
+  font-size: 13px !important;
+  color: #333 !important;
+}
+
+.cm-search input,
+.cm-search button {
+  font-size: 13px !important;
+}
+
+/* make buttons purple + consistent size */
+.cm-search button {
+  background: #6a51a3 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 4px;
+  padding: 4px 8px;
+  height: 24px;
+  line-height: 1.2;
+}
+
+.cm-search button:hover {
+  background: #5a4493 !important;
+}
+
+/* align checkbox + text nicely */
+.cm-search input[type="checkbox"] {
+  transform: translateY(1px);
+  margin-right: 3px;
+}
+
+/* close (×) button alignment and color */
+.cm-search button[name="close"] {
+  background: transparent !important;
+  color: #6a51a3 !important;
+  font-size: 16px !important;
+  font-weight: bold;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Nudge label text up */
+.cm-search label {
+  position: relative;
+  top: -2px; /* tweak: -1px to -3px */
+}
+
+/* Counter-nudge the checkbox so it doesn't move */
+.cm-search label > input[type="checkbox"] {
+  position: relative;
+  top: 2px; /* must match the magnitude above */
+  margin-right: 4px; /* keeps spacing tidy */
+}

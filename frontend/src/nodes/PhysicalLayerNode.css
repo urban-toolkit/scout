@@ -1,0 +1,35 @@
+.gnode__actionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.gnode__spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: gnode-spin 0.8s linear infinite;
+}
+
+@keyframes gnode-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.gnode__actionBtn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}

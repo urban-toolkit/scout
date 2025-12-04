@@ -1,0 +1,301 @@
+.pcenode {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  overflow: visible;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+.pcenode__header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  font-weight: 500;
+  font-size: 14px;
+  background: #f5d1d2;
+  border: 1.5px solid #cb181d;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+.pcenode__headerBtns {
+  display: flex;
+  align-items: center;
+}
+.pcenode__iconBtn {
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: #000;
+  width: 24px;
+  height: 24px;
+  text-align: center;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+}
+.pcenode__iconBtn--close {
+  margin-left: 6px;
+}
+.pcenode__actionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.pcenode__actionIcon {
+  width: 18px;
+  height: 18px;
+  display: block; /* removes baseline gap */
+  pointer-events: none;
+}
+.pcenode__title {
+  color: #fff;
+}
+.pcenode__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #fff; /* border: 1px solid #e5e7eb; */
+  overflow: hidden;
+}
+.pcenode__footer {
+  border-top: 1px solid #eee;
+  padding: 6px 8px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  background: #fafafa;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+.pcenode__handle {
+  width: 10px !important;
+  height: 10px !important;
+  background: #5c6bc0 !important;
+  border: 2px solid #fff !important;
+  border-radius: 50%;
+  z-index: 5;
+}
+.pcenode__handle--left {
+  top: 55% !important;
+  left: -7px !important;
+  background: #5c6bc0 !important;
+  transform: translateY(-50%) !important;
+}
+.pcenode__handle--right {
+  top: 55% !important;
+  right: -7px !important;
+  background: #ff7043 !important;
+  transform: translateY(-50%) !important;
+}
+.pcenode__editor {
+  position: relative;
+  min-height: 100px;
+  z-index: 1;
+  flex: 1;
+  margin: 12px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 0 0 1px #f1f5f9 inset;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.pcenode__editor-inner {
+  flex: 1;
+  overflow: hidden;
+}
+.pcenode__editor .cm-editor {
+  /* background-color: #f7f5ff; */
+  font-size: 13px;
+  text-align: left !important;
+}
+.pcenode__editor .cm-editor {
+  text-align: left !important;
+} /* Output panel container */
+.pcenode__output {
+  margin: 12px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  height: 60px;
+  overflow-y: auto;
+  text-align: left !important;
+} /* stdout styling */
+.pcenode__stdout {
+  margin: 0;
+  padding: 0px;
+  white-space: pre-wrap;
+  color: #1e293b;
+  font-size: 10px;
+} /* stderr in red */
+.pcenode__stderr {
+  margin: 0;
+  padding: 6px;
+  white-space: pre-wrap;
+  color: #dc2626;
+  font-weight: 500;
+  font-size: 10px;
+} /* Explicitly left-align pre blocks */
+.pcenode__stdout,
+.pcenode__stderr {
+  text-align: left !important;
+  display: block !important;
+}
+.pcenode__spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: pcenode-spin 0.8s linear infinite;
+}
+@keyframes pcenode-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.pcenode__actionBtn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+.pcenode__titleWrapper {
+  flex: 1;
+  min-width: 0;
+}
+.pcenode__titleInput {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #000;
+  font: inherit;
+  padding: 0;
+}
+
+/* Minimized state */
+.pcenode--minimized {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+.pcenode__minimized {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  /* padding: 7px 11.5px; */
+}
+.pcenode__minimizedRunBtn {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px; /* was 4px 8px */
+  background: #1b9e77;
+  color: #fff;
+  font-size: 16px; /* was 13px */
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center; /* center icon + text */
+  gap: 8px;
+}
+
+.pcenode__minimizedRunBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* center icon + text */
+  gap: 8px; /* spacing between icon and title */
+}
+
+.pcenode__minimizedRunIcon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  pointer-events: none;
+}
+
+.pcenode__minimizedRunText {
+  display: inline-block;
+  pointer-events: none;
+}
+
+/* RESTORE button (circle) */
+.pcenode__minimizedRestoreCircle_1,
+.pcenode__minimizedRestoreCircle_2 {
+  width: 28px;
+  height: 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: white;
+
+  cursor: pointer;
+  padding: 0;
+}
+
+.pcenode__minimizedRestoreCircle_1 img {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+.pcenode__minimizedRestoreCircle_2 img {
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.pcenode--minimized {
+  height: auto;
+  padding: 7px 11.5px;
+}
+
+/* floating restore buttons */
+.pcenode__minimizedRestoreCircle--topLeft {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+}
+
+.pcenode__minimizedRestoreCircle--bottomRight {
+  position: absolute;
+  bottom: -10px;
+  right: -10px;
+}
+
+.pcenode__handle--hidden {
+  opacity: 0;
+  pointer-events: none;
+}

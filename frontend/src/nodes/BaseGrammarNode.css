@@ -1,0 +1,323 @@
+.gnode {
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  display: grid;
+  grid-template-rows: 40px 1fr auto;
+  overflow: visible;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  position: relative;
+}
+
+/* Header */
+.gnode__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  /* font-weight: 500; */
+  font-size: 16px;
+  border: 1.5px solid #cb181d;
+  background: #f5d1d2;
+  color: #fff;
+  user-select: none;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.gnode__title {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.gnode__kind {
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.gnode__headerActions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.gnode__badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #999; /* fallback */
+}
+.gnode__badge.is-valid {
+  background: #2ca25f;
+}
+.gnode__badge.is-invalid {
+  background: #de2d26;
+}
+
+.gnode__iconBtn {
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: #000;
+  width: 24px;
+  height: 24px;
+  text-align: center;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+}
+/* .gnode__iconBtn--close {
+  margin-left: 6px;
+} */
+
+/* Editor */
+.gnode__editor {
+  padding: 8px;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  gap: 6px;
+}
+.gnode__editorInner {
+  flex: 1;
+  min-height: 0;
+}
+
+.gnode__errors {
+  font-size: 12px;
+  line-height: 1.3;
+  color: #7f1d1d;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+}
+.gnode__errorsTitle {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #9a3412;
+}
+
+/* Footer actions */
+.gnode__footer {
+  border-top: 1px solid #eee;
+  padding: 6px 8px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  background: #fafafa;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.gnode__actionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.gnode__actionIcon {
+  width: 18px;
+  height: 18px;
+  display: block; /* removes baseline gap */
+  pointer-events: none;
+}
+
+/* Connectors (handles) */
+.gnode__handle {
+  background: #5c6bc0 !important;
+  border: 2px solid #fff !important;
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.gnode__handle__target {
+  background: #5c6bc0 !important;
+  border: 2px solid #fff !important;
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.gnode__handle__source {
+  background: #ff7043 !important;
+  border: 2px solid #fff !important;
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.gnode__handle--left {
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  transform: translateX(30%) !important;
+  background: #5c6bc0 !important;
+}
+.gnode__handle--right {
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  transform: translateX(-30%) !important;
+  background: #ff7043 !important;
+}
+
+.interactionnode__handle {
+  background: #ff7043 !important;
+  border: 2px solid #fff !important;
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.gnode__titleInput {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #000;
+  font: inherit;
+  padding: 0;
+}
+
+/* Minimized version css */
+
+/* Minimized state container */
+.gnode--minimized {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+/* Inner layout for minimized bar */
+.gnode__minimized {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+/* Big fetch button */
+.gnode__minimizedFetchBtn {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  background: #6a51a3; /* or #1b9e77 if you want it to match header */
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.gnode__minimizedIcon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  pointer-events: none;
+}
+
+.gnode__minimizedText {
+  display: inline-block;
+  pointer-events: none;
+}
+
+/* Floating restore / update circles */
+.gnode__minimizedRestoreCircle_1,
+.gnode__minimizedRestoreCircle_2 {
+  width: 28px;
+  height: 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+
+  cursor: pointer;
+  padding: 0;
+}
+
+.gnode__minimizedRestoreCircle_1 img {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+.gnode__minimizedRestoreCircle_2 img {
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.gnode__minimizedRestoreCircle--topLeft {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+}
+
+.gnode__minimizedRestoreCircle--bottomRight {
+  position: absolute;
+  bottom: -10px;
+  right: -10px;
+}
+
+/* Optional: disabled state for big button */
+.gnode__minimizedFetchBtn:disabled {
+  opacity: 0.8;
+  cursor: default;
+}
+
+.gnode__handle--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gnode__minimizedNodeTtitleBtn {
+  flex: 1;
+  border-radius: 8px;
+  border: 1px solid #6a51a3;
+  padding: 8px 12px;
+  background: #fff; /* or #1b9e77 if you want it to match header */
+  color: #6a51a3;
+  font-size: 16px;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.gnode--minimized {
+  height: auto;
+  padding: 7px 11.5px;
+}
