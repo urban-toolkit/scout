@@ -10,7 +10,7 @@ SCOUT is a decision-support toolkit shaped by requirements from experts across m
 
 ## Installation Guide
 
-To setup backend functionalities of SCOUT:
+To setup SCOUT:
 
 - Follow this [guide](https://docs.anaconda.com/free/anaconda/install/index.html) to install Anaconda.
 - Follow this [link](https://nodejs.org/en/download/) to install Node. Prebuilt binaries/installer is the easiest way to perform installation.
