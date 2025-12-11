@@ -2,6 +2,8 @@ envs
 cache
 .DS_Store
 geoenvs
-__pycache__
+__pycache__/
 *.pyc
 envs_
+env/
+data/served

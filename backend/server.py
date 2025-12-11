@@ -9,7 +9,7 @@ from pathlib import Path
 import geopandas as gpd
 # from shapely.geometry import Polygon
 from flask import send_from_directory, abort
-from convert_to_raster import convert_raster
+# from backend.transformations.raster_conversion.scripts.convert_to_raster import convert_raster
 # from deep_umbra import run_shadow_model
 # from download_data import download_osm_data, extract_roads, extract_buildings
 import osmnx as ox
@@ -19,7 +19,7 @@ import pandas as pd
 import numpy as np
 import cv2
 
-from weather_routing import *
+# from weather_routing import *
 import subprocess
 # import tempfile
 
@@ -350,32 +350,32 @@ def convert_to_raster():
 
     return jsonify({"status": "success"}), 200
 
-@app.route('/weather', methods=["POST"])
-def calculate_weather_aware_route():
-    data = request.get_json()
-    datafile = data["city"]
-    origin = data["origin"]
-    destination = data["destination"]
-    bbox = data["bbox"] # Bounding box, assuming its sent as [ymax, ymin, xmax, xmin]
-    map_view_mode = data["map_view_mode"]
-    K_variable_paths = data["paths"]
-    weather_conditions = data["weather"]
-    weather_weights = data["weights"]
-    time = data["time"]
+# @app.route('/weather', methods=["POST"])
+# def calculate_weather_aware_route():
+#     data = request.get_json()
+#     datafile = data["city"]
+#     origin = data["origin"]
+#     destination = data["destination"]
+#     bbox = data["bbox"] # Bounding box, assuming its sent as [ymax, ymin, xmax, xmin]
+#     map_view_mode = data["map_view_mode"]
+#     K_variable_paths = data["paths"]
+#     weather_conditions = data["weather"]
+#     weather_weights = data["weights"]
+#     time = data["time"]
     
     
-    route_coords = calculate_weather_route(datafile, 
-                            origin, 
-                            destination,
-                            bbox, 
-                            map_view_mode,
-                            K_variable_paths,
-                            weather_conditions,
-                            weather_weights,
-                            time)
+#     route_coords = calculate_weather_route(datafile, 
+#                             origin, 
+#                             destination,
+#                             bbox, 
+#                             map_view_mode,
+#                             K_variable_paths,
+#                             weather_conditions,
+#                             weather_weights,
+#                             time)
 
 
-    return jsonify({"route_coords": route_coords}), 200
+#     return jsonify({"route_coords": route_coords}), 200
 
 @app.post("/api/run-python")
 def run_python():
