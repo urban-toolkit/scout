@@ -52,8 +52,8 @@ def calculate_weather_route(datafile,
                             wind=None,
                             humidity=None):
     
-    BASE_PATH = "../weather_data/"
-    input_path = "../../../data/served/vector/%s_roads.geojson" % input
+    BASE_PATH = "./models/routing/weather_data/"
+    input_path = "./data/served/vector/%s_roads.geojson" % input
     # get ymin, ymax, xmin, xmax from bbox from input
 
     # bbox from input area file: -87.6600, 41.8600, -87.6000, 41.9000
@@ -332,7 +332,7 @@ def calculate_weather_route(datafile,
     # return route_coords
 
 
-    out_dir = "../../../data/served/vector" # ./data/served/vector/
+    out_dir = "./data/served/vector" # ./data/served/vector/
     by_weight = defaultdict(list)
 
     for fname in os.listdir(out_dir):
@@ -368,7 +368,7 @@ def calculate_weather_route(datafile,
             },
         }
 
-        metric_path = f"../../../data/served/metric/{outputs[j]}.csv" # ./data/served/metric/{outputs[j]}.csv
+        metric_path = f"./data/served/metric/{outputs[j]}.csv" # ./data/served/metric/{outputs[j]}.csv
 
         df = pd.DataFrame([{
             "distance": route["distance"],

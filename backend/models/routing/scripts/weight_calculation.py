@@ -214,9 +214,9 @@ def GNN_weight_calculations(G,
     print("Node features and edges prepared")
 
 
-    if os.path.exists("../gnn/rain_model.pth"): # Pre trained model included in repo
+    if os.path.exists("./models/routing/gnn/rain_model.pth"): # Pre trained model included in repo
         model = NodeRegressor(x.shape[1], hidden_channels=64).to(device)
-        checkpoint = torch.load("../gnn/rain_model.pth", map_location=device)
+        checkpoint = torch.load("./models/routing/gnn/rain_model.pth", map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
         print("Loaded trained GNN model.")
     else:
@@ -400,7 +400,7 @@ def train_GNN_model(G, rain_grid, heat_grid, wind_speed_grid, wind_dir_grid, hum
                 val_loss = loss_fn(val_out[val_idx], data.y[val_idx])
             print(f"Epoch {epoch:04d} train_loss={loss.item():.6f} val_loss={val_loss.item():.6f}")
     
-    model_path = "../gnn/rain_model.pth"
+    model_path = "./models/routing/gnn/rain_model.pth"
     torch.save({
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),

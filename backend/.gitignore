@@ -7,3 +7,5 @@ __pycache__/
 envs_
 env/
 data/served
+north-america-latest.osm.pbf
+nyc.osm.pbf

@@ -138,7 +138,7 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
 
 # Utility functions
 def resolve_feather_path(datafile: str, tag: str) -> Path:
-    feather_filename = f"{datafile}/{tag}.feather"
+    feather_filename = f"osm/processed/{datafile}/{tag}.feather"
     return DATA_DIR / feather_filename
 
 def load_roi_mask(roi: dict) -> tuple[str, object]:
@@ -268,7 +268,6 @@ def ingest_physical_layer():
     print(f"Processing physical layer ID: {pl_id} with datafile: {datafile}")
 
     for lyr in (pl.get("layers") or []):
-        print(lyr)
         tag = lyr.get("tag")
         features = lyr.get("features") or []
         try:
@@ -336,19 +335,19 @@ def update_physical_layer():
 
     return jsonify({"status": "success"}), 200
 
-@app.route("/api/convert-to-raster", methods=["POST"])
-def convert_to_raster():
-    # Using code node instead of using this api from grammar!
-    data = request.get_json()
-    pl_id = data["physical_layer"]["ref"]
-    id = data["id"]
-    tag = data["layer"]["tag"]
-    feature = data["layer"]["feature"]
-    zoom = data["zoom"]
+# @app.route("/api/convert-to-raster", methods=["POST"])
+# def convert_to_raster():
+#     # Using code node instead of using this api from grammar!
+#     data = request.get_json()
+#     pl_id = data["physical_layer"]["ref"]
+#     id = data["id"]
+#     tag = data["layer"]["tag"]
+#     feature = data["layer"]["feature"]
+#     zoom = data["zoom"]
 
-    convert_raster(pl_id, tag, feature, zoom, id)
+#     convert_raster(pl_id, tag, feature, zoom, id)
 
-    return jsonify({"status": "success"}), 200
+#     return jsonify({"status": "success"}), 200
 
 # @app.route('/weather', methods=["POST"])
 # def calculate_weather_aware_route():

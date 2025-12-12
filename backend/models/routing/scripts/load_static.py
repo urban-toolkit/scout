@@ -46,7 +46,7 @@ class DataLoader:
 
         if not self.isGraphLoaded:
             print("Graph not loaded, loading now")
-            with gzip.open("../../../data/%s/roads.pkl.gz" % graph_path, "rb") as f:
+            with gzip.open("./data/osm/processed/%s/roads.pkl.gz" % graph_path, "rb") as f:
                 G_temp = pickle.load(f)
             if bbox is not None:
                 self.lat_max, self.lat_min = bbox[0], bbox[1] # ymax, ymin
