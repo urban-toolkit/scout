@@ -1,9 +1,9 @@
 import osmnx as ox
 import networkx as nx
 import geopandas as gpd
-from load_static import DataLoader
-from calculate_isochrones import calculate_isochrones
-from weight_calculation import GNN_weight_calculations
+from .load_static import DataLoader
+from .calculate_isochrones import calculate_isochrones
+from .weight_calculation import GNN_weight_calculations
 from datetime import datetime
 from shapely.geometry import LineString, mapping
 import json
