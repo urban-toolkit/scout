@@ -17,14 +17,17 @@ import mapPng from "../assets/map.png";
 import checkPng from "../assets/check-mark.png";
 import * as d3 from "d3";
 import { ViewDef, InteractionDef } from "./utils/types";
-import { parseInteraction, parseView } from "./utils/parser";
+import {
+  parseInteraction,
+  // parseView
+} from "./utils/parser";
 import { renderLayers } from "./utils/renderViewLayers";
 // import { TransformationNodeData } from "./TransformationNode";
 
 export type ViewportNodeData = {
   title?: string;
   center?: [number, number];
-  zoom?: number;
+  // zoom?: number;
   onClose?: (id: string) => void;
   onRun?: (srcId: string, trgId?: string) => void;
   view?: ViewDef[];
@@ -187,9 +190,10 @@ const ViewportNode = memo(function ViewportNode({
         return;
       }
 
-      const parsed = parseView({ view: nodeData.view });
+      // const parsed = parseView({ view: nodeData.view });
+      const parsed = nodeData?.view ?? [];
       const parsedInteractions = parseInteraction({
-        interaction: nodeData.interactions,
+        interaction: nodeData?.interactions,
       });
 
       // const physicalLayers = nodeData.physical_layers;
@@ -237,9 +241,8 @@ const ViewportNode = memo(function ViewportNode({
     setTimeout(() => map.invalidateSize(), 0);
 
     const center: [number, number] = data?.center ?? [41.881, -87.63];
-    const zoom = data?.zoom ?? 14;
+    const zoom = 14;
     map.setView(center, zoom);
-
     // white background (tile hidden via opacity: 0)
     const baseLayer = L.tileLayer(
       // https://wiki.openstreetmap.org/wiki/Raster_tile_providers

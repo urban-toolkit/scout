@@ -1,113 +1,116 @@
-import { ParsedView } from "./types";
+// import { ParsedView } from "./types";
 import type { InteractionDef } from "./types";
 
-export function parseView(raw: any): ParsedView[] {
-  if (!raw?.view || !Array.isArray(raw.view)) return [];
+// export function parseView(raw: any): ParsedView[] {
+//   if (!raw?.view || !Array.isArray(raw.view)) return [];
 
-  return raw.view.map((v: any) => {
-    const base: ParsedView = {
-      physicalLayerRef: v.physical_layer?.ref,
-      thematicLayerRef: v.thematic_layer?.ref,
-      operation: v.operation ?? undefined,
-      file_type: v["file_type"],
-      type: v.type,
-      zoom_level: v.zoom_level ?? 16,
-      layers: v.layers ?? [],
-    };
+//   return raw.view.map((v: any) => {
+//     const base: ParsedView = {
+//       physicalLayerRef: v.physical_layer?.ref,
+//       thematicLayerRef: v.thematic_layer?.ref,
+//       operation: v.operation ?? undefined,
+//       file_type: v["file_type"],
+//       type: v.type,
+//       zoom_level: v.zoom_level ?? 16,
+//     };
 
-    if (v.type === "raster") {
-      (base as ParsedView).opacity = v.opacity ?? 1;
-    }
+//     // if (v.type === "raster") {
+//     //   (base as ParsedView).opacity = v.opacity ?? 1; // should be inside style
+//     // }
 
-    if (v.type === "raster") {
-      // Have to later set colormap for pngs as well but from backend
-      (base as ParsedView).colormap = v.colormap ?? "Reds";
-    }
+//     // if (v.type === "raster") {
+//     //   // Have to later set colormap for pngs as well but from backend
+//     //   (base as ParsedView).colormap = v.colormap ?? "Reds"; // should be inside style
+//     // }
 
-    if (v.type == "vector" && Array.isArray(v.layers)) {
-      base.layers = v.layers.map((lyr: any) => {
-        const style = lyr.style;
-        const geomType = lyr["geom-type"];
-        const isPolygon = geomType === "polygon" || geomType === "multipolygon";
-        const isPoint = geomType === "point";
-        const isLine = geomType === "linestring";
+//     if (v.type === "raster") {
+//       const style = v.style;
 
-        const layer: any = {
-          tag: lyr.tag,
-          "geom-type": geomType,
-          opacity: style.opacity ?? 1,
-          zIndex: style["z-index"] ?? 1,
-        };
+//     if (v.type == "vector") {
+//       // base.layers = v.layers.map((lyr: any) => {
+//         const geomType = v["geom-type"];
 
-        if (isPolygon) {
-          let fillSpec: any;
+//         const style = v.style;
+//         const isPolygon = geomType === "polygon" || geomType === "multipolygon";
+//         const isPoint = geomType === "point";
+//         const isLine = geomType === "linestring";
 
-          if (typeof style.fill === "object") {
-            fillSpec = {
-              attribute: style.fill.feature,
-              colormap: style.fill.colormap ?? "viridis",
-            };
-          } else {
-            fillSpec = style.fill ?? "#6aa9ff";
-          }
+//         // const layer: any = {
+//         //   tag: lyr.tag,
+//         //   "geom-type": geomType,
+//         //   opacity: style.opacity ?? 1,
+//         //   zIndex: style["z-index"] ?? 1,
+//         // };
 
-          layer.fill = fillSpec;
+//         if (isPolygon) {
+//           let fillSpec: any;
 
-          if (style["stroke-color"] || style["stroke-width"]) {
-            layer.stroke = {
-              color: style["stroke-color"] ?? "#000",
-              width: style["stroke-width"] ?? 1,
-            };
-          }
-        }
+//           if (typeof style.fill === "object") {
+//             fillSpec = {
+//               attribute: style.fill.feature,
+//               colormap: style.fill.colormap ?? "viridis",
+//             };
+//           } else {
+//             fillSpec = style.fill ?? "#6aa9ff";
+//           }
 
-        if (isLine) {
-          layer.stroke = {
-            color: style["stroke-color"] ?? "#000",
-            width: style["stroke-width"] ?? 1,
-          };
+//           style.fill = fillSpec;
 
-          if (style["border-color"] || style["border-width"]) {
-            layer.border = {
-              color: style["border-color"] ?? "#ddd",
-              width: style["border-width"] ?? 1,
-            };
-          }
-        }
+//           if (style["stroke-color"] || style["stroke-width"]) {
+//             style.stroke = {
+//               color: style["stroke-color"] ?? "#000",
+//               width: style["stroke-width"] ?? 1,
+//             };
+//           }
+//         }
 
-        if (isPoint) {
-          let fillSpec: any;
+//         if (isLine) {
+//           style.stroke = {
+//             color: style["stroke-color"] ?? "#000",
+//             width: style["stroke-width"] ?? 1,
+//           };
 
-          if (typeof style.fill === "object") {
-            // attribute-based point color
-            fillSpec = {
-              attribute: style.fill.feature,
-              colormap: style.fill.colormap ?? "viridis",
-            };
-          } else {
-            // solid color
-            fillSpec = style.fill ?? "#6aa9ff";
-          }
+//           if (style["border-color"] || style["border-width"]) {
+//             style.border = {
+//               color: style["border-color"] ?? "#ddd",
+//               width: style["border-width"] ?? 1,
+//             };
+//           }
+//         }
 
-          layer.fill = fillSpec;
+//         if (isPoint) {
+//           let fillSpec: any;
 
-          if (style["stroke-color"] || style["stroke-width"]) {
-            layer.stroke = {
-              color: style["stroke-color"] ?? "#000",
-              width: style["stroke-width"] ?? 1,
-            };
-          }
+//           if (typeof style.fill === "object") {
+//             // attribute-based point color
+//             fillSpec = {
+//               attribute: style.fill.feature,
+//               colormap: style.fill.colormap ?? "viridis",
+//             };
+//           } else {
+//             // solid color
+//             fillSpec = style.fill ?? "#6aa9ff";
+//           }
 
-          layer.size = style["radius"] ?? 4; // radius in px
-        }
+//           style.fill = fillSpec;
 
-        return layer;
-      });
-    }
+//           if (style["stroke-color"] || style["stroke-width"]) {
+//             style.stroke = {
+//               color: style["stroke-color"] ?? "#000",
+//               width: style["stroke-width"] ?? 1,
+//             };
+//           }
 
-    return base;
-  });
-}
+//           style.size = style["radius"] ?? 4; // radius in px
+//         }
+
+//         // return layer;
+//       // });
+//     }
+
+//     return base;
+//   });
+// }
 
 export function parseInteraction(raw: any): InteractionDef[] {
   if (!raw?.interaction || !Array.isArray(raw.interaction)) return [];

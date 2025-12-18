@@ -804,7 +804,6 @@ function createViewportNode({
     height: 400,
     data: {
       center: data?.center ?? [41.881, -87.63],
-      zoom: data?.zoom ?? 14,
       onRun: onRunViewport
         ? (srcId: string) => onRunViewport(srcId)
         : undefined,

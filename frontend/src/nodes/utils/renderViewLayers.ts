@@ -4,7 +4,11 @@ import L from "leaflet";
 import { getPropertyRangeFromGeoJSON, pickInterpolator } from "./helper";
 import { applyGeometryInteractions } from "./geomInteractions";
 import type { InteractionSpec } from "./geomInteractions";
-import type { ParsedView, ParsedInteraction } from "./types";
+import type {
+  ViewDef,
+  // ParsedView,
+  ParsedInteraction,
+} from "./types";
 
 import * as GeoTIFF from "geotiff";
 
@@ -144,12 +148,12 @@ function buildInteractionSpecsForLayer(opts: {
 // Helper: render a raster layer (physical or thematic) and update unionBounds.
 async function renderRasterForView(opts: {
   map: L.Map;
-  view: ParsedView;
+  view: ViewDef;
   layerId: string;
   unionBounds: L.LatLngBounds | null;
 }): Promise<L.LatLngBounds | null> {
   const { map, view, layerId, unionBounds } = opts;
-  const z = (view as any).zoom_level ?? 16;
+  const z = (view as any).style.zoom_level ?? 16;
 
   const tiles: string[] = await fetch(
     `http://127.0.0.1:5000/api/list-rasters/${layerId}`
@@ -182,7 +186,7 @@ async function renderRasterForView(opts: {
     const bounds = tileBoundsFromXYZ(x, y, z, map);
 
     const overlay = L.imageOverlay(url, bounds, {
-      opacity: (view as any).opacity ?? 1,
+      opacity: (view as any).style.opacity ?? 1,
     });
 
     overlay.addTo(map);
@@ -207,7 +211,7 @@ async function renderRasterForView(opts: {
 
 async function renderGeoTiffForView(opts: {
   map: L.Map;
-  view: ParsedView;
+  view: ViewDef;
   layerId: string;
   unionBounds: L.LatLngBounds | null;
 }): Promise<L.LatLngBounds | null> {
@@ -218,8 +222,7 @@ async function renderGeoTiffForView(opts: {
   // console.log(`[Viewport] Rendering GeoTIFF for layer ${layerId}`);
   const url = `http://127.0.0.1:5000/generated/raster/${layerId}.tif?v=${cacheBust}`;
 
-  const colormapName =
-    (view as any).colormap || (view as any).fill?.colormap || undefined;
+  const colormapName = (view as any).style.colormap || undefined;
 
   // console.log("[GeoTIFF] colormapName =", colormapName);
 
@@ -353,7 +356,7 @@ async function renderGeoTiffForView(opts: {
   ctx.putImageData(imageData, 0, 0);
 
   const dataUrl = canvas.toDataURL("image/png");
-  const opacity = (view as any).opacity ?? 1;
+  const opacity = (view as any).style.opacity ?? 1;
 
   const overlay = L.imageOverlay(dataUrl, bounds, { opacity });
   overlay.addTo(map);
@@ -365,7 +368,7 @@ async function renderGeoTiffForView(opts: {
 export async function renderLayers(opts: {
   id: string;
   map: L.Map;
-  parsedViews: ParsedView[];
+  parsedViews: ViewDef[];
   parsedInteractions: ParsedInteraction[];
   // physicalLayers: PhysicalLayerDef[];
   clearAllSvgLayers: () => void;
@@ -399,30 +402,36 @@ export async function renderLayers(opts: {
 
   clearAllSvgLayers();
 
-  const physicalViews = parsedViews.filter((v) => v.physicalLayerRef);
-  const thematicViews = parsedViews.filter((v) => v.thematicLayerRef);
+  // const physicalViews = parsedViews.filter((v) => v.physical_layer?.ref);
+  // const thematicViews = parsedViews.filter((v) => v.thematic_layer?.ref);
 
-  // console.log(physicalViews, thematicViews);
-  if (!physicalViews.length && !thematicViews.length) {
+  const views = parsedViews;
+  // if (!physicalViews.length && !thematicViews.length) {
+  //   return;
+  // }
+
+  if (!views.length) {
     return;
   }
-
-  // console.log(thematicViews);
 
   let unionBounds: L.LatLngBounds | null = null;
   const path = makeLeafletPath(map);
 
   // --- Thematic (non-physical) views ---
-  for (const view of thematicViews) {
-    const thId = view.thematicLayerRef;
-    if (!thId) continue;
+  for (const view of views) {
+    const ref = view.ref;
+    const ref_base = view.ref_base;
+    const ref_comp = view.ref_comp;
+    if (!ref && !ref_base && !ref_comp) {
+      continue;
+    }
 
-    if (typeof thId === "string") {
+    if (ref) {
       if (view.type === "raster" && view.file_type === "png") {
         unionBounds = await renderRasterForView({
           map,
           view,
-          layerId: thId,
+          layerId: ref,
           unionBounds,
         });
       } else if (view.file_type === "tif" || view.file_type === "tiff") {
@@ -430,25 +439,217 @@ export async function renderLayers(opts: {
         unionBounds = await renderGeoTiffForView({
           map,
           view,
-          layerId: thId,
+          layerId: ref,
           unionBounds,
         });
+      } else if (view.type === "vector" && view.file_type === "geojson") {
+        // It should be without tags: if osm id_buildings, id_roads, etc. if not simply
+
+        // Also the zIndex like this does not make sense!
+        // const layers = [...(view.layers ?? [])].sort((a: any, b: any) => {
+        //   const za = (a as any).zIndex ?? 0;
+        //   const zb = (b as any).zIndex ?? 0;
+        //   return za - zb;
+        // });
+
+        // for (const lyr of layers) {
+        // const tag = lyr.tag;
+        // const url = `http://127.0.0.1:5000/generated/vector/${plId}_${tag}.geojson`;
+
+        const url = `http://127.0.0.1:5000/generated/vector/${ref}.geojson`;
+        let fc: any;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          fc = await res.json();
+        } catch (err) {
+          console.error(`[Viewport ${id}] Failed to fetch ${url}`, err);
+          continue;
+        }
+
+        // --- styling ---
+        const geomType = view["geom_type"];
+
+        const isPolygonLayer =
+          geomType === "polygon" || geomType === "multipolygon";
+        const isLineLayer = geomType === "linestring";
+        const isPointLayer = geomType === "point";
+
+        let attr: string | undefined;
+        let colormapName: string | undefined;
+        let solidFill: string | undefined;
+
+        if ((isPolygonLayer || isPointLayer) && view.style.fill) {
+          if (typeof view.style.fill === "string") {
+            // solid color fill
+            solidFill = view.style.fill;
+          } else if ("feature" in (view.style.fill as any)) {
+            attr = (view.style.fill as any).feature;
+            colormapName = (view.style.fill as any).colormap;
+          }
+        }
+
+        console.log(isPolygonLayer);
+
+        const interp = attr ? pickInterpolator(colormapName) : null;
+        const ext = attr ? getPropertyRangeFromGeoJSON(fc, attr) : null;
+        const colorScale =
+          attr && interp && ext
+            ? d3.scaleSequential(interp).domain(ext ?? [0, 1])
+            : null;
+
+        const strokeColor = view.style.stroke?.color ?? "#000";
+        const strokeWidth = view.style.stroke?.width ?? 1;
+        const layerOpacity = view.style.opacity ?? 1;
+
+        // point radius from parser (default 4px)
+
+        if (isPointLayer && typeof (path as any).pointRadius === "function") {
+          // d3-geo point rendering uses this
+          const pointRadius = (view.style as any).size ?? 4;
+          (path as any).pointRadius(pointRadius);
+        }
+
+        // const nTag = `${plId}::${tag}`;
+        const gTag = getOrCreateTagGroup(ref);
+
+        const configuredRadius = (view.style as any).size ?? 4; // radius in px
+
+        // Store metadata for redrawAll
+        (gTag as any)._geomType = geomType;
+        (gTag as any)._isPointLayer = isPointLayer;
+        (gTag as any)._pointRadius = configuredRadius;
+
+        const keyFn = (d: any, i: number) =>
+          d.id ?? d.properties?.id ?? d.properties?.osm_id ?? i;
+
+        const sel = gTag
+          .selectAll<SVGPathElement, any>("path.geom")
+          .data(fc.features, keyFn);
+
+        sel.exit().remove();
+
+        if (isLineLayer) {
+          if (view.style["border-color"] || view.style["border-width"]) {
+            const borderColor = view.style["border-color"] ?? "#fff"; // or whatever default
+            const borderWidth = view.style["border-width"] ?? 0;
+
+            const borderSel = gTag
+              .selectAll<SVGPathElement, any>("path.geom-border")
+              .data(fc.features, keyFn);
+
+            borderSel.exit().remove();
+
+            const borderEnter = borderSel
+              .enter()
+              .append("path")
+              .attr("class", "geom-border");
+
+            borderEnter
+              .merge(borderSel as any)
+              .attr("d", path as any)
+              .style("fill", "none")
+              .style("stroke", borderColor)
+              .style("stroke-width", borderWidth) // slightly thicker than inner line
+              .style("stroke-opacity", layerOpacity)
+              .style("vector-effect", "non-scaling-stroke")
+              .style("pointer-events", "none"); // so clicks go to the inner path
+          }
+        }
+
+        const enter = sel.enter().append("path").attr("class", "geom");
+        // console.log(strokeColor, strokeWidth);
+        const geomSel = enter
+          .merge(sel as any)
+          .attr("d", path as any)
+          .style("fill", (d: any) => {
+            const gType = d?.geometry?.type;
+            const isLineFeature =
+              gType === "LineString" ||
+              gType === "MultiLineString" ||
+              isLineLayer;
+
+            // Lines: no fill
+            if (isLineFeature) return "none";
+
+            // Solid fill from parser (polygons or points)
+            if (solidFill) return solidFill;
+
+            // Polygon: attribute-based colormap from parser
+            if (attr && colorScale) {
+              const v = Number(d?.properties?.[attr]);
+              if (Number.isFinite(v)) return colorScale(v);
+            }
+
+            // Fallback polygon fill
+            return "none";
+          })
+          .style("fill-opacity", (d: any) => {
+            const gType = d?.geometry?.type;
+            const isLineFeature =
+              gType === "LineString" ||
+              gType === "MultiLineString" ||
+              isLineLayer;
+            return isLineFeature ? 0 : layerOpacity;
+          })
+          .style("stroke", strokeColor)
+          .style("stroke-width", strokeWidth)
+          .style("stroke-opacity", layerOpacity)
+          .style("vector-effect", "non-scaling-stroke")
+          .style("pointer-events", "all");
+
+        // --- interactions from parsedInteractions ---
+        // const interactions = buildInteractionSpecsForLayer({
+        //   interactions: parsedInteractions,
+        //   plId,
+        //   tag,
+        //   attr,
+        // });
+        // if (interactions.length) {
+        //   applyGeometryInteractions(
+        //     geomSel,
+        //     interactions,
+        //     {
+        //       tag,
+        //       featureCollection: fc,
+        //       shouldHandleClick,
+        //       onCollectionChange: ({ tag: changedTag, featureCollection }) => {
+        //         if (!onDirty) return;
+        //         onDirty({
+        //           plId,
+        //           tag: changedTag,
+        //           featureCollection,
+        //         });
+        //       },
+        //     },
+        //     strokeWidth
+        //   );
+        // }
+
+        // --- bounds ---
+        const tmp = L.geoJSON(fc);
+        const b = tmp.getBounds();
+        if (b.isValid()) {
+          unionBounds = unionBounds ? unionBounds.extend(b) : b;
+        }
+        tmp.remove();
       }
-    } else if (Array.isArray(thId)) {
+    } else if (ref_base && ref_comp) {
       if (
         view.type === "raster" &&
-        view.file_type === "png" &&
-        view.operation === "difference"
+        view.file_type === "png"
+        // &&
+        // view.style.operation === "difference"
       ) {
-        const diffThId = thId[1] + "_minus_" + thId[0];
+        const diffThId = ref_comp + "_minus_" + ref_base;
 
         await fetch("http://127.0.0.1:5000/api/diff-png", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            dir1: thId[1],
-            dir2: thId[0],
-            colormap: view.colormap || "Reds",
+            dir1: ref_base,
+            dir2: ref_comp,
+            colormap: view.style.colormap || "Reds",
           }),
         });
 
@@ -460,17 +661,18 @@ export async function renderLayers(opts: {
         });
       } else if (
         view.type === "raster" &&
-        (view.file_type === "tif" || view.file_type === "tiff") &&
-        view.operation === "difference"
+        (view.file_type === "tif" || view.file_type === "tiff")
+        // &&
+        // view.style.operation === "difference"
       ) {
-        const diffThId = thId[1] + "_minus_" + thId[0];
+        const diffThId = ref_comp + "_minus_" + ref_base;
         await fetch("http://127.0.0.1:5000/api/diff-tif", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            tif1: thId[1],
-            tif2: thId[0],
-            colormap: view.colormap || "Reds",
+            tif1: ref_base,
+            tif2: ref_comp,
+            colormap: view.style.colormap || "Reds",
           }),
         });
 
@@ -484,219 +686,7 @@ export async function renderLayers(opts: {
     }
   }
 
-  // --- Physical views ---
-  for (const view of physicalViews) {
-    // console.log(view.file_type);
-    const plId = view.physicalLayerRef;
-    if (!plId) continue;
-
-    // Physical raster views
-    if (view.type === "raster" && view.file_type === "png") {
-      unionBounds = await renderRasterForView({
-        map,
-        view,
-        layerId: plId,
-        unionBounds,
-      });
-      continue; // skip vector logic for this view
-    }
-
-    // Only handle vector physical views here
-    if (!(view.type === "vector" && view.file_type === "geojson")) continue;
-
-    // If you’ve already moved zIndex into ParsedLayer, just sort on a.zIndex / b.zIndex
-
-    const layers = [...(view.layers ?? [])].sort((a: any, b: any) => {
-      const za = (a as any).zIndex ?? 0;
-      const zb = (b as any).zIndex ?? 0;
-      return za - zb;
-    });
-
-    for (const lyr of layers) {
-      const tag = lyr.tag;
-      const url = `http://127.0.0.1:5000/generated/vector/${plId}_${tag}.geojson`;
-
-      let fc: any;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        fc = await res.json();
-      } catch (err) {
-        console.error(`[Viewport ${id}] Failed to fetch ${url}`, err);
-        continue;
-      }
-
-      // --- styling ---
-      const geomType = (lyr as any)["geom-type"];
-
-      const isPolygonLayer =
-        geomType === "polygon" || geomType === "multipolygon";
-      const isLineLayer = geomType === "linestring";
-      const isPointLayer = geomType === "point";
-
-      let attr: string | undefined;
-      let colormapName: string | undefined;
-      let solidFill: string | undefined;
-
-      if ((isPolygonLayer || isPointLayer) && lyr.fill) {
-        if (typeof lyr.fill === "string") {
-          // solid color fill
-          solidFill = lyr.fill;
-        } else if ("attribute" in (lyr.fill as any)) {
-          attr = (lyr.fill as any).attribute;
-          colormapName = (lyr.fill as any).colormap;
-        }
-      }
-
-      const interp = attr ? pickInterpolator(colormapName) : null;
-      const ext = attr ? getPropertyRangeFromGeoJSON(fc, attr) : null;
-      const colorScale =
-        attr && interp && ext
-          ? d3.scaleSequential(interp).domain(ext ?? [0, 1])
-          : null;
-
-      const strokeColor = lyr.stroke?.color ?? "#000";
-      const strokeWidth = lyr.stroke?.width ?? 1;
-      const layerOpacity = lyr.opacity ?? 1;
-
-      // point radius from parser (default 4px)
-
-      if (isPointLayer && typeof (path as any).pointRadius === "function") {
-        // d3-geo point rendering uses this
-        const pointRadius = (lyr as any).size ?? 4;
-        (path as any).pointRadius(pointRadius);
-      }
-
-      const nTag = `${plId}::${tag}`;
-      const gTag = getOrCreateTagGroup(nTag);
-
-      const configuredRadius = (lyr as any).size ?? 4; // radius in px
-
-      // Store metadata for redrawAll
-      (gTag as any)._geomType = geomType;
-      (gTag as any)._isPointLayer = isPointLayer;
-      (gTag as any)._pointRadius = configuredRadius;
-
-      const keyFn = (d: any, i: number) =>
-        d.id ?? d.properties?.id ?? d.properties?.osm_id ?? i;
-
-      const sel = gTag
-        .selectAll<SVGPathElement, any>("path.geom")
-        .data(fc.features, keyFn);
-
-      sel.exit().remove();
-
-      if (isLineLayer) {
-        if (lyr.border) {
-          const borderColor = lyr.border?.color ?? "#fff"; // or whatever default
-          const borderWidth = lyr.border?.width ?? 0;
-
-          // console.log(
-          //   `Rendering borders for line layer ${nTag}:`,
-          //   borderColor,
-          //   borderWidth
-          // );
-          const borderSel = gTag
-            .selectAll<SVGPathElement, any>("path.geom-border")
-            .data(fc.features, keyFn);
-
-          borderSel.exit().remove();
-
-          const borderEnter = borderSel
-            .enter()
-            .append("path")
-            .attr("class", "geom-border");
-
-          borderEnter
-            .merge(borderSel as any)
-            .attr("d", path as any)
-            .style("fill", "none")
-            .style("stroke", borderColor)
-            .style("stroke-width", borderWidth) // slightly thicker than inner line
-            .style("stroke-opacity", layerOpacity)
-            .style("vector-effect", "non-scaling-stroke")
-            .style("pointer-events", "none"); // so clicks go to the inner path
-        }
-      }
-
-      const enter = sel.enter().append("path").attr("class", "geom");
-      // console.log(strokeColor, strokeWidth);
-      const geomSel = enter
-        .merge(sel as any)
-        .attr("d", path as any)
-        .style("fill", (d: any) => {
-          const gType = d?.geometry?.type;
-          const isLineFeature =
-            gType === "LineString" ||
-            gType === "MultiLineString" ||
-            isLineLayer;
-
-          // Lines: no fill
-          if (isLineFeature) return "none";
-
-          // Solid fill from parser (polygons or points)
-          if (solidFill) return solidFill;
-
-          // Polygon: attribute-based colormap from parser
-          if (attr && colorScale) {
-            const v = Number(d?.properties?.[attr]);
-            if (Number.isFinite(v)) return colorScale(v);
-          }
-
-          // Fallback polygon fill
-          return "none";
-        })
-        .style("fill-opacity", (d: any) => {
-          const gType = d?.geometry?.type;
-          const isLineFeature =
-            gType === "LineString" ||
-            gType === "MultiLineString" ||
-            isLineLayer;
-          return isLineFeature ? 0 : layerOpacity;
-        })
-        .style("stroke", strokeColor)
-        .style("stroke-width", strokeWidth)
-        .style("stroke-opacity", layerOpacity)
-        .style("vector-effect", "non-scaling-stroke")
-        .style("pointer-events", "all");
-
-      // --- interactions from parsedInteractions ---
-      const interactions = buildInteractionSpecsForLayer({
-        interactions: parsedInteractions,
-        plId,
-        tag,
-        attr,
-      });
-      if (interactions.length) {
-        applyGeometryInteractions(
-          geomSel,
-          interactions,
-          {
-            tag,
-            featureCollection: fc,
-            shouldHandleClick,
-            onCollectionChange: ({ tag: changedTag, featureCollection }) => {
-              if (!onDirty) return;
-              onDirty({
-                plId,
-                tag: changedTag,
-                featureCollection,
-              });
-            },
-          },
-          strokeWidth
-        );
-      }
-
-      // --- bounds ---
-      const tmp = L.geoJSON(fc);
-      const b = tmp.getBounds();
-      if (b.isValid()) {
-        unionBounds = unionBounds ? unionBounds.extend(b) : b;
-      }
-      tmp.remove();
-    }
-  }
+  // }
 
   if (unionBounds && unionBounds.isValid()) {
     map.fitBounds(unionBounds, { padding: [12, 12] });
