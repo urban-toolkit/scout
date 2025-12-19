@@ -24,17 +24,11 @@ export interface InteractionSpec {
 }
 
 export interface InteractionContext {
-  tag: string;
   featureCollection?: any;
 
-  onCollectionChange?: (args: { tag: string; featureCollection: any }) => void;
+  onCollectionChange?: (args: { featureCollection: any }) => void;
   shouldHandleClick?: () => boolean;
-  showTooltip?: (
-    content: string,
-    evt: MouseEvent,
-    d: GeometryDatum,
-    tag?: string
-  ) => void;
+  showTooltip?: (content: string, evt: MouseEvent, d: GeometryDatum) => void;
   hideTooltip?: () => void;
 }
 
@@ -74,16 +68,12 @@ function defaultHideTooltip() {
   if (el) el.style.opacity = "0";
 }
 
-/**
- * Attach interaction handlers to geometry paths based on an (interaction, action) spec.
- */
 export function applyGeometryInteractions(
   sel: Selection<SVGPathElement, GeometryDatum, any, any>,
   specs: InteractionSpec[] | undefined,
   ctx: InteractionContext & { featureCollection?: any },
   baseStrokeWidth: number
 ) {
-  // console.log(sel, specs, ctx, baseStrokeWidth);
   if (!specs || specs.length === 0) {
     specs = [{ interaction: "hover-highlight", action: "highlight" }];
   }
@@ -109,13 +99,12 @@ export function applyGeometryInteractions(
 
           if (!wantsShow) return;
 
-          const content =
-            spec.tooltipAccessor?.(d) ?? ctx.tag ?? d?.properties?.id ?? "";
+          const content = spec.tooltipAccessor?.(d) ?? d?.properties?.id ?? "";
 
           if (!content) return;
 
           if (ctx.showTooltip) {
-            ctx.showTooltip(content, event as MouseEvent, d, ctx.tag);
+            ctx.showTooltip(content, event as MouseEvent, d);
           } else {
             defaultShowTooltip(content, event as MouseEvent);
           }
@@ -123,13 +112,12 @@ export function applyGeometryInteractions(
         .on("mousemove.hover-highlight", function (event, d) {
           if (!wantsShow) return;
 
-          const content =
-            spec.tooltipAccessor?.(d) ?? ctx.tag ?? d?.properties?.id ?? "";
+          const content = spec.tooltipAccessor?.(d) ?? d?.properties?.id ?? "";
 
           if (!content) return;
 
           if (ctx.showTooltip) {
-            ctx.showTooltip(content, event as MouseEvent, d, ctx.tag);
+            ctx.showTooltip(content, event as MouseEvent, d);
           } else {
             defaultShowTooltip(content, event as MouseEvent);
           }
@@ -145,23 +133,21 @@ export function applyGeometryInteractions(
     if (interaction === "hover-tooltip" && !action) {
       sel
         .on("mouseover.hover-tooltip", function (event, d) {
-          const content =
-            spec.tooltipAccessor?.(d) ?? ctx.tag ?? d?.properties?.id ?? "";
+          const content = spec.tooltipAccessor?.(d) ?? d?.properties?.id ?? "";
           if (!content) return;
 
           if (ctx.showTooltip) {
-            ctx.showTooltip(content, event as MouseEvent, d, ctx.tag);
+            ctx.showTooltip(content, event as MouseEvent, d);
           } else {
             defaultShowTooltip(content, event as MouseEvent);
           }
         })
         .on("mousemove.hover-tooltip", function (event, d) {
-          const content =
-            spec.tooltipAccessor?.(d) ?? ctx.tag ?? d?.properties?.id ?? "";
+          const content = spec.tooltipAccessor?.(d) ?? d?.properties?.id ?? "";
           if (!content) return;
 
           if (ctx.showTooltip) {
-            ctx.showTooltip(content, event as MouseEvent, d, ctx.tag);
+            ctx.showTooltip(content, event as MouseEvent, d);
           } else {
             defaultShowTooltip(content, event as MouseEvent);
           }
@@ -187,7 +173,6 @@ export function applyGeometryInteractions(
           fc.features = fc.features.filter((f: any) => f !== d);
 
           ctx.onCollectionChange?.({
-            tag: ctx.tag,
             featureCollection: fc,
           });
         }
@@ -219,7 +204,6 @@ export function applyGeometryInteractions(
         const fc = ctx.featureCollection;
         if (fc && Array.isArray(fc.features)) {
           ctx.onCollectionChange?.({
-            tag: ctx.tag,
             featureCollection: fc,
           });
         }

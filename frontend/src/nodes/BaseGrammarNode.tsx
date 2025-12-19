@@ -173,13 +173,13 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
           />
         </div>
         <div className="gnode__headerActions">
-          {/* <span
+          <span
             className={`gnode__badge ${
               overallValid ? "is-valid" : "is-invalid"
             }`}
           >
             {overallValid ? "VALID" : "INVALID"}
-          </span> */}
+          </span>
           <button
             type="button"
             className="gnode__iconBtn"

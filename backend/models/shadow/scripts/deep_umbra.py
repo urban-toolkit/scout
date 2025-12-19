@@ -27,7 +27,7 @@ def load_input(path, zoom, i, j):
 
     # Read and decode an image file to a uint8 tensor
     filename = tf.strings.format(
-        '{}/{}_{}_.png', (path, i, j))
+        '{}/{}_{}_{}.png', (path, zoom, i, j))
     filename = tf.strings.regex_replace(filename, '\"', "")
     input_image = tf.io.read_file(filename)
     input_image = tf.io.decode_png(input_image)[:, :, 0]
@@ -42,7 +42,7 @@ def load_input_grid(path, date, zoom, i, j):
 
     for x in range(-1, 2):
         for y in range(-1, 2):
-            filepath = '%s/%d_%d_.png' % (path, i+y, j+x)
+            filepath = '%s/%d_%d_%d.png' % (path, zoom, i+y, j+x)
             print(f"Loading file: {filepath}")
             if os.path.isfile(filepath):
                 iinput = load_input(path, zoom, i+y, j+x)
@@ -466,7 +466,7 @@ def get_deep_shadow():
         _DEEP_SHADOW = model
     return _DEEP_SHADOW
         
-def run_shadow_model(input, season, colormap, output):
+def run_shadow_model(input, season, output):
 
     # tf.keras.backend.clear_session()
     # down_stack, up_stack = get_generator_arch()
@@ -492,13 +492,13 @@ def run_shadow_model(input, season, colormap, output):
     for png_path in sorted(in_dir.glob("*.png")):
         stem = png_path.stem  # "16813_24353"
         try:
-            I_str, J_str = stem.split("_")
+            zoom_from_name, I_str, J_str = stem.split("_")
+            zoom = int(zoom_from_name)
             I = int(I_str)
             J = int(J_str)
         except ValueError:
-            # print(f"Skipping invalid name: {png_path.name}")
             continue
-
+        
         print(f"[Predicting] I={I}, J={J}")
 
         input_height, prediction = predict_shadow(
@@ -529,22 +529,10 @@ def run_shadow_model(input, season, colormap, output):
         vals = arr_norm[input_height == 0] * factor  # 1D view into arr_norm
         all_vals.append(vals.ravel())
 
-        cmap = cm.get_cmap(colormap)
-
-        # Apply colormap → gives RGBA in [0,1]
-        rgba = cmap(arr_norm)
-
-        rgb = (rgba[:, :, :3] * 255).astype("uint8")
-
-        # Convert to BGR for cv2 and save
-        bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-
+        gray_u8 = (arr_norm * 255).astype("uint8")
         out_path = str(out_dir / f"{stem}.png")
-
-        # ---- Save with OpenCV ----
-        cv2.imwrite(out_path, bgr)
-
-        print(f"Saved: {out_path}")
+        cv2.imwrite(out_path, gray_u8)
+        print(f"Saved (grayscale): {out_path}")
 
     metric_path = f"./data/served/metric/{output}.csv"
 

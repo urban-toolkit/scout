@@ -1,89 +1,27 @@
 // src/nodes/utils/renderLayers.ts
 import * as d3 from "d3";
 import L from "leaflet";
-import { getPropertyRangeFromGeoJSON, pickInterpolator } from "./helper";
+import {
+  getPropertyRangeFromGeoJSON,
+  pickInterpolator,
+  tileBoundsFromXYZ,
+  colorToRgb,
+} from "./helper";
 import { applyGeometryInteractions } from "./geomInteractions";
 import type { InteractionSpec } from "./geomInteractions";
-import type {
-  ViewDef,
-  // ParsedView,
-  ParsedInteraction,
-} from "./types";
+import type { ViewDef, InteractionDef } from "./types";
 
 import * as GeoTIFF from "geotiff";
 
 type TagGroup = d3.Selection<SVGGElement, unknown, null, undefined>;
 const rasterOverlays = new Set<L.Layer>();
-/**
- * Map ParsedInteraction -> InteractionSpec for a given layer.
- */
-
-function tileBoundsFromXYZ(x: number, y: number, z: number, map: L.Map) {
-  const tileSize = 256;
-
-  const nwPoint = L.point(x * tileSize, y * tileSize);
-  const sePoint = L.point((x + 1) * tileSize, (y + 1) * tileSize);
-
-  const nwLatLng = map.unproject(nwPoint, z);
-  const seLatLng = map.unproject(sePoint, z);
-
-  return L.latLngBounds(nwLatLng, seLatLng);
-}
-
-function colorToRgb(str: string): [number, number, number] {
-  if (!str) return [0, 0, 0];
-
-  const s = str.trim();
-
-  // Handle hex: #rgb or #rrggbb
-  if (s[0] === "#") {
-    let hex = s.slice(1);
-    if (hex.length === 3) {
-      // e.g. "f0a" -> "ff00aa"
-      hex = hex
-        .split("")
-        .map((c) => c + c)
-        .join("");
-    }
-    if (hex.length === 6) {
-      const r = parseInt(hex.slice(0, 2), 16);
-      const g = parseInt(hex.slice(2, 4), 16);
-      const b = parseInt(hex.slice(4, 6), 16);
-      return [
-        Number.isFinite(r) ? r : 0,
-        Number.isFinite(g) ? g : 0,
-        Number.isFinite(b) ? b : 0,
-      ];
-    }
-  }
-
-  // Handle "rgb(r,g,b)" / "rgba(r,g,b,a)"
-  if (s.startsWith("rgb")) {
-    const nums = s
-      .replace(/[^\d,]/g, "")
-      .split(",")
-      .map((x) => Number(x));
-    return [nums[0] ?? 0, nums[1] ?? 0, nums[2] ?? 0];
-  }
-
-  // Fallback: try to extract any numbers in order
-  const nums = s
-    .replace(/[^\d,]/g, "")
-    .split(",")
-    .map((x) => Number(x));
-  return [nums[0] ?? 0, nums[1] ?? 0, nums[2] ?? 0];
-}
 
 function buildInteractionSpecsForLayer(opts: {
-  interactions: ParsedInteraction[];
-  plId: string;
-  tag: string;
-  attr?: string;
+  interactions: InteractionDef[];
+  ref: string;
 }): InteractionSpec[] {
-  const { interactions, plId, tag, attr } = opts;
-  const relevant = interactions.filter(
-    (i) => i.physicalLayerRef === plId && i.layer.tag === tag
-  );
+  const { interactions, ref } = opts;
+  const relevant = interactions.filter((i) => i.ref === ref);
 
   const specs: InteractionSpec[] = [];
 
@@ -99,13 +37,13 @@ function buildInteractionSpecsForLayer(opts: {
       }
 
       if (i.action === "highlight+show") {
-        const featureKey = i.feature || attr || "height";
+        const featureKey = i.feature;
 
         specs.push({
           interaction: "hover-highlight",
           action: "highlight+show",
           tooltipAccessor: (d: any) => {
-            const raw = d?.properties?.[featureKey];
+            const raw = d?.properties?.[featureKey!];
             const num = Number(raw);
 
             if (Number.isFinite(num)) {
@@ -114,7 +52,7 @@ function buildInteractionSpecsForLayer(opts: {
             if (raw != null) {
               return `${featureKey}: ${raw}`;
             }
-            return tag;
+            return ref;
           },
         });
         continue;
@@ -132,7 +70,6 @@ function buildInteractionSpecsForLayer(opts: {
       }
 
       if (i.action === "modify_feature") {
-        // You can extend InteractionSpec later to carry feature info / UI config.
         specs.push({
           interaction: "click",
           action: "modify_feature",
@@ -145,18 +82,18 @@ function buildInteractionSpecsForLayer(opts: {
   return specs;
 }
 
-// Helper: render a raster layer (physical or thematic) and update unionBounds.
-async function renderRasterForView(opts: {
+async function renderPngForView(opts: {
   map: L.Map;
   view: ViewDef;
-  layerId: string;
+  ref: string;
   unionBounds: L.LatLngBounds | null;
 }): Promise<L.LatLngBounds | null> {
-  const { map, view, layerId, unionBounds } = opts;
-  const z = (view as any).style.zoom_level ?? 16;
+  const { map, view, ref, unionBounds } = opts;
+
+  const cmap = (view as any).style?.colormap ?? "reds";
 
   const tiles: string[] = await fetch(
-    `http://127.0.0.1:5000/api/list-rasters/${layerId}`
+    `http://127.0.0.1:5000/api/list-rasters/${ref}`
   ).then((r) => r.json());
 
   const cacheBust = Date.now();
@@ -166,23 +103,31 @@ async function renderRasterForView(opts: {
     maxX = -Infinity,
     maxY = -Infinity;
 
+  let z_ = 16;
   for (const name of tiles) {
-    // ignore malformed tiles like "12345_.png"
     if (name.endsWith("_.png")) continue;
+    const parts = name.replace(/\.png$/i, "").split("_");
 
-    const [xStr, yStr] = name.replace(".png", "").split("_");
+    const yStr = parts[parts.length - 1];
+    const xStr = parts[parts.length - 2];
+    const zStr = parts[parts.length - 3];
+
     const x = Number(xStr);
     const y = Number(yStr);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    const z = Number(zStr);
+    // if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
 
     minX = Math.min(minX, x);
     minY = Math.min(minY, y);
     maxX = Math.max(maxX, x);
     maxY = Math.max(maxY, y);
 
-    const url = `http://127.0.0.1:5000/generated/raster/${layerId}/${name}?v=${cacheBust}`;
-    // console.log("raster tile url:", url);
+    // const url = `http://127.0.0.1:5000/generated/raster/${ref}/${name}?v=${cacheBust}`;
+    const url =
+      `http://127.0.0.1:5000/generated/raster/${ref}/${name}` +
+      `?v=${cacheBust}&cmap=${encodeURIComponent(cmap)}`;
 
+    console.log(url);
     const bounds = tileBoundsFromXYZ(x, y, z, map);
 
     const overlay = L.imageOverlay(url, bounds, {
@@ -191,6 +136,7 @@ async function renderRasterForView(opts: {
 
     overlay.addTo(map);
     rasterOverlays.add(overlay);
+    z_ = z;
   }
 
   if (minX === Infinity) {
@@ -201,8 +147,8 @@ async function renderRasterForView(opts: {
   const nwPoint = L.point(minX * tileSize, minY * tileSize);
   const sePoint = L.point((maxX + 1) * tileSize, (maxY + 1) * tileSize);
 
-  const nwLatLng = map.unproject(nwPoint, z);
-  const seLatLng = map.unproject(sePoint, z);
+  const nwLatLng = map.unproject(nwPoint, z_);
+  const seLatLng = map.unproject(sePoint, z_);
 
   const rasterBounds = L.latLngBounds(nwLatLng, seLatLng);
 
@@ -212,19 +158,15 @@ async function renderRasterForView(opts: {
 async function renderGeoTiffForView(opts: {
   map: L.Map;
   view: ViewDef;
-  layerId: string;
+  ref: string;
   unionBounds: L.LatLngBounds | null;
 }): Promise<L.LatLngBounds | null> {
-  const { map, view, layerId, unionBounds } = opts;
+  const { map, view, ref, unionBounds } = opts;
 
   const cacheBust = Date.now();
-
-  // console.log(`[Viewport] Rendering GeoTIFF for layer ${layerId}`);
-  const url = `http://127.0.0.1:5000/generated/raster/${layerId}.tif?v=${cacheBust}`;
+  const url = `http://127.0.0.1:5000/generated/raster/${ref}.tif?v=${cacheBust}`;
 
   const colormapName = (view as any).style.colormap || undefined;
-
-  // console.log("[GeoTIFF] colormapName =", colormapName);
 
   const interpolator =
     colormapName != null ? pickInterpolator(colormapName) : null;
@@ -368,25 +310,19 @@ async function renderGeoTiffForView(opts: {
 export async function renderLayers(opts: {
   id: string;
   map: L.Map;
-  parsedViews: ViewDef[];
-  parsedInteractions: ParsedInteraction[];
-  // physicalLayers: PhysicalLayerDef[];
+  views: ViewDef[];
+  interactions: InteractionDef[];
   clearAllSvgLayers: () => void;
   makeLeafletPath: (map: L.Map) => d3.GeoPath<any, d3.GeoPermissibleObjects>;
   getOrCreateTagGroup: (tag: string) => TagGroup;
-  onDirty?: (args: {
-    plId: string;
-    tag: string;
-    featureCollection: any;
-  }) => void;
+  onDirty?: (args: { ref: string; featureCollection: any }) => void;
   shouldHandleClick: () => boolean;
 }) {
   const {
     id,
     map,
-    parsedViews,
-    parsedInteractions,
-    // physicalLayers,
+    views,
+    interactions,
     clearAllSvgLayers,
     makeLeafletPath,
     getOrCreateTagGroup,
@@ -399,16 +335,7 @@ export async function renderLayers(opts: {
     map.removeLayer(overlay);
   }
   rasterOverlays.clear();
-
   clearAllSvgLayers();
-
-  // const physicalViews = parsedViews.filter((v) => v.physical_layer?.ref);
-  // const thematicViews = parsedViews.filter((v) => v.thematic_layer?.ref);
-
-  const views = parsedViews;
-  // if (!physicalViews.length && !thematicViews.length) {
-  //   return;
-  // }
 
   if (!views.length) {
     return;
@@ -417,7 +344,6 @@ export async function renderLayers(opts: {
   let unionBounds: L.LatLngBounds | null = null;
   const path = makeLeafletPath(map);
 
-  // --- Thematic (non-physical) views ---
   for (const view of views) {
     const ref = view.ref;
     const ref_base = view.ref_base;
@@ -428,34 +354,21 @@ export async function renderLayers(opts: {
 
     if (ref) {
       if (view.type === "raster" && view.file_type === "png") {
-        unionBounds = await renderRasterForView({
+        unionBounds = await renderPngForView({
           map,
           view,
-          layerId: ref,
+          ref,
           unionBounds,
         });
       } else if (view.file_type === "tif" || view.file_type === "tiff") {
-        // console.log("Rendering thematic GeoTIFF view:", thId);
         unionBounds = await renderGeoTiffForView({
           map,
           view,
-          layerId: ref,
+          ref,
           unionBounds,
         });
       } else if (view.type === "vector" && view.file_type === "geojson") {
-        // It should be without tags: if osm id_buildings, id_roads, etc. if not simply
-
-        // Also the zIndex like this does not make sense!
-        // const layers = [...(view.layers ?? [])].sort((a: any, b: any) => {
-        //   const za = (a as any).zIndex ?? 0;
-        //   const zb = (b as any).zIndex ?? 0;
-        //   return za - zb;
-        // });
-
-        // for (const lyr of layers) {
-        // const tag = lyr.tag;
-        // const url = `http://127.0.0.1:5000/generated/vector/${plId}_${tag}.geojson`;
-
+        // --- render GeoJSON for view. Maybe later function ---
         const url = `http://127.0.0.1:5000/generated/vector/${ref}.geojson`;
         let fc: any;
         try {
@@ -467,9 +380,8 @@ export async function renderLayers(opts: {
           continue;
         }
 
-        // --- styling ---
+        // --- geometry type ---
         const geomType = view["geom_type"];
-
         const isPolygonLayer =
           geomType === "polygon" || geomType === "multipolygon";
         const isLineLayer = geomType === "linestring";
@@ -479,47 +391,56 @@ export async function renderLayers(opts: {
         let colormapName: string | undefined;
         let solidFill: string | undefined;
 
+        // --- solid fill or attribute-based fill ---
         if ((isPolygonLayer || isPointLayer) && view.style.fill) {
           if (typeof view.style.fill === "string") {
-            // solid color fill
+            // Solid fill
             solidFill = view.style.fill;
           } else if ("feature" in (view.style.fill as any)) {
+            // Attribute based fill. Currently only does numeric continuous
             attr = (view.style.fill as any).feature;
             colormapName = (view.style.fill as any).colormap;
           }
         }
 
-        console.log(isPolygonLayer);
-
+        // --- range of values for attribute-based fills ---
         const interp = attr ? pickInterpolator(colormapName) : null;
-        const ext = attr ? getPropertyRangeFromGeoJSON(fc, attr) : null;
+        let ext;
+        if (view.style.fill.range) {
+          // If the range is explicitly set, use that for attribute-based fills
+          const [min, max] = view.style.fill.range;
+          ext = [min, max];
+        } else {
+          // Otherwise, compute the range from the GeoJSON properties
+          ext = attr ? getPropertyRangeFromGeoJSON(fc, attr) : null;
+        }
+
+        // --- colorscale for attribute-based fills ---
         const colorScale =
           attr && interp && ext
             ? d3.scaleSequential(interp).domain(ext ?? [0, 1])
             : null;
 
+        // --- other style properties and default values ---
         const strokeColor = view.style.stroke?.color ?? "#000";
         const strokeWidth = view.style.stroke?.width ?? 1;
         const layerOpacity = view.style.opacity ?? 1;
 
-        // point radius from parser (default 4px)
-
         if (isPointLayer && typeof (path as any).pointRadius === "function") {
-          // d3-geo point rendering uses this
           const pointRadius = (view.style as any).size ?? 4;
           (path as any).pointRadius(pointRadius);
         }
 
-        // const nTag = `${plId}::${tag}`;
         const gTag = getOrCreateTagGroup(ref);
 
         const configuredRadius = (view.style as any).size ?? 4; // radius in px
 
-        // Store metadata for redrawAll
+        //  --- Store metadata for redrawAll ---
         (gTag as any)._geomType = geomType;
         (gTag as any)._isPointLayer = isPointLayer;
         (gTag as any)._pointRadius = configuredRadius;
 
+        // --- unique ids ---
         const keyFn = (d: any, i: number) =>
           d.id ?? d.properties?.id ?? d.properties?.osm_id ?? i;
 
@@ -531,7 +452,7 @@ export async function renderLayers(opts: {
 
         if (isLineLayer) {
           if (view.style["border-color"] || view.style["border-width"]) {
-            const borderColor = view.style["border-color"] ?? "#fff"; // or whatever default
+            const borderColor = view.style["border-color"] ?? "#fff";
             const borderWidth = view.style["border-width"] ?? 0;
 
             const borderSel = gTag
@@ -558,7 +479,6 @@ export async function renderLayers(opts: {
         }
 
         const enter = sel.enter().append("path").attr("class", "geom");
-        // console.log(strokeColor, strokeWidth);
         const geomSel = enter
           .merge(sel as any)
           .attr("d", path as any)
@@ -598,33 +518,29 @@ export async function renderLayers(opts: {
           .style("vector-effect", "non-scaling-stroke")
           .style("pointer-events", "all");
 
-        // --- interactions from parsedInteractions ---
-        // const interactions = buildInteractionSpecsForLayer({
-        //   interactions: parsedInteractions,
-        //   plId,
-        //   tag,
-        //   attr,
-        // });
-        // if (interactions.length) {
-        //   applyGeometryInteractions(
-        //     geomSel,
-        //     interactions,
-        //     {
-        //       tag,
-        //       featureCollection: fc,
-        //       shouldHandleClick,
-        //       onCollectionChange: ({ tag: changedTag, featureCollection }) => {
-        //         if (!onDirty) return;
-        //         onDirty({
-        //           plId,
-        //           tag: changedTag,
-        //           featureCollection,
-        //         });
-        //       },
-        //     },
-        //     strokeWidth
-        //   );
-        // }
+        // --- interactions ---
+        const interactions_ = buildInteractionSpecsForLayer({
+          interactions,
+          ref,
+        });
+        if (interactions_.length) {
+          applyGeometryInteractions(
+            geomSel,
+            interactions_,
+            {
+              featureCollection: fc,
+              shouldHandleClick,
+              onCollectionChange: ({ featureCollection }) => {
+                if (!onDirty) return;
+                onDirty({
+                  ref,
+                  featureCollection,
+                });
+              },
+            },
+            strokeWidth
+          );
+        }
 
         // --- bounds ---
         const tmp = L.geoJSON(fc);
@@ -635,13 +551,8 @@ export async function renderLayers(opts: {
         tmp.remove();
       }
     } else if (ref_base && ref_comp) {
-      if (
-        view.type === "raster" &&
-        view.file_type === "png"
-        // &&
-        // view.style.operation === "difference"
-      ) {
-        const diffThId = ref_comp + "_minus_" + ref_base;
+      if (view.type === "raster" && view.file_type === "png") {
+        const diff = ref_comp + "_minus_" + ref_base;
 
         await fetch("http://127.0.0.1:5000/api/diff-png", {
           method: "POST",
@@ -653,19 +564,17 @@ export async function renderLayers(opts: {
           }),
         });
 
-        unionBounds = await renderRasterForView({
+        unionBounds = await renderPngForView({
           map,
           view,
-          layerId: diffThId,
+          ref: diff,
           unionBounds,
         });
       } else if (
         view.type === "raster" &&
         (view.file_type === "tif" || view.file_type === "tiff")
-        // &&
-        // view.style.operation === "difference"
       ) {
-        const diffThId = ref_comp + "_minus_" + ref_base;
+        const diff = ref_base + "_minus_" + ref_comp;
         await fetch("http://127.0.0.1:5000/api/diff-tif", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -679,14 +588,12 @@ export async function renderLayers(opts: {
         unionBounds = await renderGeoTiffForView({
           map,
           view,
-          layerId: diffThId,
+          ref: diff,
           unionBounds,
         });
       }
     }
   }
-
-  // }
 
   if (unionBounds && unionBounds.isValid()) {
     map.fitBounds(unionBounds, { padding: [12, 12] });

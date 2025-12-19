@@ -122,25 +122,25 @@ def elevation(filtered, bbox):
     values = np.flipud(values)
     return values
 
-def create_image(values, i, j, zoom, max_height, outputfolder):
-    filename = '%s/%d/%d/%d.png'%(outputfolder,zoom,i,j)
-    success = cv2.imwrite(filename, 255.0 * (values / max_height))
-    if not success:
-        raise Exception("Could not write image")
+# def create_image(values, i, j, zoom, max_height, outputfolder):
+#     filename = '%s/%d/%d/%d.png'%(outputfolder,zoom,i,j)
+#     success = cv2.imwrite(filename, 255.0 * (values / max_height))
+#     if not success:
+#         raise Exception("Could not write image")
         
-@dask.delayed
-def compute_tile(gdf, i, j, zoom, max_height, outputfolder):
-    bb0 = num2deg(i,j,zoom)
-    bb1 = num2deg(i+1,j+1,zoom)
-    bb0 = invtransformer.transform(bb0[0],bb0[1])
-    bb1 = invtransformer.transform(bb1[0],bb1[1])
-    bbox = box(bb0[0],bb0[1],bb1[0],bb1[1])
-#     filtered = gdf.cx[bb0[0]:bb1[0],bb0[1]:bb1[1]]
-    filtered = gdf.loc[gdf.sindex.intersection(bbox.bounds)]
+# @dask.delayed
+# def compute_tile(gdf, i, j, zoom, max_height, outputfolder):
+#     bb0 = num2deg(i,j,zoom)
+#     bb1 = num2deg(i+1,j+1,zoom)
+#     bb0 = invtransformer.transform(bb0[0],bb0[1])
+#     bb1 = invtransformer.transform(bb1[0],bb1[1])
+#     bbox = box(bb0[0],bb0[1],bb1[0],bb1[1])
+# #     filtered = gdf.cx[bb0[0]:bb1[0],bb0[1]:bb1[1]]
+#     filtered = gdf.loc[gdf.sindex.intersection(bbox.bounds)]
     
-    if len(filtered) > 0:
-        values = elevation(filtered, bbox)
-        create_image(values, i, j, zoom, max_height, outputfolder)
+#     if len(filtered) > 0:
+#         values = elevation(filtered, bbox)
+#         create_image(values, i, j, zoom, max_height, outputfolder)
         
 def compute_all(gdf, zoom, max_height, outputfolder):
     bounds = gdf.total_bounds
@@ -181,16 +181,17 @@ def elevation(filtered, bbox):
     return values
 
 def create_image(values, i, j, zoom, max_height, outputfolder):
-    filename_ = '%s/%d_%d_.png'%(outputfolder,i,j)
-    filename = '%s/%d_%d.png'%(outputfolder,i,j)
+    filename_ = '%s/%d_%d_%d.png'%(outputfolder,zoom,i,j)
+    # filename = '%s/%d_%d_%d.png'%(outputfolder,zoom,i,j)
 
     values = 255.0 * (values / max_height)
     success_ = cv2.imwrite(filename_, values)
 
-    arr = 255 - values
-    success = cv2.imwrite(filename, arr)
+    # arr = 255 - values
+    # success = cv2.imwrite(filename, arr)
 
-    if not success or not success_:
+    if not success_:
+    # not success
         raise Exception("Could not write image")
         
 # @dask.delayed
@@ -210,9 +211,9 @@ def compute_tile(gdf, i, j, zoom, max_height, outputfolder):
     else:
         print(f"No data for tile {zoom}/{i}/{j}")
 
-def convert_raster(input, tag, feature, zoom, output):
+def convert_raster(input, feature, zoom, output):
     dir = Path("./data/served")
-    filepath = dir / "vector" / f"{input}_{tag}.geojson"
+    filepath = dir / "vector" / f"{input}.geojson"
     
     gdf = gpd.read_file(filepath)
     gdf = gdf.to_crs(epsg=3395)
@@ -233,7 +234,7 @@ def convert_raster(input, tag, feature, zoom, output):
         for file in outdir.iterdir():
             file.unlink()
 
-    if tag == "buildings" and feature == "height":
+    if feature == "height":
         outdir.mkdir(parents=True, exist_ok=True)
         delayed = []
         for i in range(math.floor(bottomleft[0]),math.ceil(topright[0])):
@@ -244,14 +245,13 @@ def convert_raster(input, tag, feature, zoom, output):
     
         print(f"Raster tiles for buildings height created at zoom level {zoom} in {outdir}")
     else:
-        print(f"Feature '{feature}' not supported for layer '{tag}'")
+        print(f"Feature '{feature}' not supported for layer")
 
     return
 
 # from convert_to_raster import convert_raster
 
 # input = "baselayer-0"
-# tag = "buildings"
 # feature = "height"
 # zoom = 16
 # output = "rasters-baselayer-0"

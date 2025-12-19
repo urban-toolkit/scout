@@ -1,37 +1,26 @@
 from __future__ import annotations
 from copyreg import pickle
-# import gzip
 import json
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file, abort
+from io import BytesIO
 from flask_cors import CORS
 import os, sys, signal, shutil
 from pathlib import Path
 import geopandas as gpd
-# from shapely.geometry import Polygon
 from flask import send_from_directory, abort
-# from backend.transformations.raster_conversion.scripts.convert_to_raster import convert_raster
-# from deep_umbra import run_shadow_model
-# from download_data import download_osm_data, extract_roads, extract_buildings
 import osmnx as ox
 import matplotlib
-# import pickle, gzip
 import pandas as pd
 import numpy as np
 import cv2
-
-# from weather_routing import *
 import subprocess
-# import tempfile
-
 import rasterio
-
 import threading
 import json as jsonlib
 
 worker_proc = None
 worker_lock = threading.Lock()
 worker_python_exe = None
-
 
 app = Flask(__name__)
 CORS(app)
@@ -61,7 +50,6 @@ def start_worker():
 
     worker_python_exe = python_exe
 
-    # -u for unbuffered so we can get output immediately
     worker_proc = subprocess.Popen(
         [str(python_exe), "-u", "python_worker.py"],
         stdin=subprocess.PIPE,
@@ -85,21 +73,17 @@ def send_code_to_worker(code: str) -> dict:
     if worker_proc is None or worker_proc.poll() is not None:
         start_worker()
 
-    # Ensure only one thread talks to the worker at a time
     with worker_lock:
         req = {"code": code}
         line = jsonlib.dumps(req) + "\n"
 
-        # send
         assert worker_proc.stdin is not None
         worker_proc.stdin.write(line)
         worker_proc.stdin.flush()
 
-        # receive one line
         assert worker_proc.stdout is not None
         resp_line = worker_proc.stdout.readline()
         if not resp_line:
-            # worker died unexpectedly
             raise RuntimeError("Worker process terminated unexpectedly")
 
     resp = jsonlib.loads(resp_line)
@@ -136,7 +120,6 @@ def register_cleanup_handlers():
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
     register_cleanup_handlers()
 
-# Utility functions
 def resolve_feather_path(datafile: str, tag: str) -> Path:
     feather_filename = f"osm/processed/{datafile}/{tag}.feather"
     return DATA_DIR / feather_filename
@@ -177,26 +160,22 @@ def select_features(gdf: gpd.GeoDataFrame, features: list[str]) -> gpd.GeoDataFr
     
     return gdf[cols]
 
-@app.get("/api/list-rasters/<plId>")
-def list_rasters(plId: str):
+@app.get("/api/list-rasters/<Id>")
+def list_rasters(Id: str):
     """
     Return a JSON list of PNG raster tiles inside:
-    data/served/raster/<plId>/
+    data/served/raster/<Id>/
     """
-    # Resolve folder safely
-    folder = raster_subdir / plId
+    folder = raster_subdir / Id
 
-    # Security: ensure path is inside raster_subdir
     try:
         folder.resolve().relative_to(raster_subdir.resolve())
     except Exception:
         return jsonify({"error": "Invalid raster folder"}), 403
 
-    # Check folder exists
     if not folder.exists() or not folder.is_dir():
         return jsonify([]), 200   # return empty list
 
-    # Collect *.png files
     files = [
         f.name
         for f in folder.iterdir()
@@ -207,10 +186,8 @@ def list_rasters(plId: str):
 
 @app.get("/generated/raster/<path:filename>")
 def serve_raster(filename: str):
-    # Allow only specific raster extensions
     allowed_exts = {"png", "tif", "tiff"}
 
-    # Get extension (everything after last dot)
     try:
       ext = filename.rsplit(".", 1)[1].lower()
     except IndexError:
@@ -219,7 +196,6 @@ def serve_raster(filename: str):
     if ext not in allowed_exts:
         abort(404)
 
-    # Resolve safe absolute path (prevents directory traversal)
     full_path = raster_subdir / filename
     try:
         full_path.resolve().relative_to(raster_subdir.resolve())
@@ -229,7 +205,6 @@ def serve_raster(filename: str):
     directory = full_path.parent
     file = full_path.name
 
-    # Pick correct mimetype
     if ext == "png":
         mimetype = "image/png"
     else:  # tif / tiff
@@ -285,26 +260,6 @@ def ingest_physical_layer():
             
             gdf_out.to_file(out_path, driver="GeoJSON")
 
-            # if(tag == "roads"):
-            #     roi_kind, roi_ = load_roi_mask(roi)
-            #     if roi_kind == "bbox":
-            #         xmin, ymin, xmax, ymax = roi_
-            #         with gzip.open("./data/%s/roads.pkl.gz" % datafile, "rb") as f:
-            #             G = pickle.load(f)
-
-            #         nodes, _ = ox.graph_to_gdfs(G, nodes=True, edges=True, fill_edge_geometry=False)
-            #         mask = (
-            #             (nodes["y"] <= ymax) & (nodes["y"] >= ymin) &
-            #             (nodes["x"] <= xmax) & (nodes["x"] >= xmin)
-            #         )
-            #         node_ids = nodes.loc[mask].index
-            #         G_crop = G.subgraph(node_ids).copy()
-
-            #         with gzip.open("%s/vector/%s_roads.pkl.gz" % (OUT_DIR, pl_id), "wb") as f:
-            #             pickle.dump(G_crop, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-            #         print(f"Saved cropped road graph to: {OUT_DIR}/vector/{pl_id}_roads.pkl.gz")
-
         except Exception as e:
             error_msg = f"[ERROR] Layer {pl_id}:{tag} → {type(e).__name__}: {e}"
             print(error_msg)
@@ -320,61 +275,20 @@ def ingest_physical_layer():
         "problems": problems
     }), 200 if not problems else 207  
 
-@app.route("/api/update-physical-layer", methods=["POST"])
-def update_physical_layer():
+@app.route("/api/update-data-layer", methods=["POST"])
+def update_data_layer():
     data = request.get_json()
-    pl_id = data["physicalLayerRef"]
-    tag = data["tag"]
+    ref = data["ref"]
+    # tag = data["tag"]
     geojson = data["geojson"]
 
-    filename = f"vector/{pl_id}_{tag}.geojson"
+    filename = f"vector/{ref}.geojson"
     filepath = OUT_DIR / filename
 
     with open(filepath, "w") as f:
         json.dump(geojson, f)
 
     return jsonify({"status": "success"}), 200
-
-# @app.route("/api/convert-to-raster", methods=["POST"])
-# def convert_to_raster():
-#     # Using code node instead of using this api from grammar!
-#     data = request.get_json()
-#     pl_id = data["physical_layer"]["ref"]
-#     id = data["id"]
-#     tag = data["layer"]["tag"]
-#     feature = data["layer"]["feature"]
-#     zoom = data["zoom"]
-
-#     convert_raster(pl_id, tag, feature, zoom, id)
-
-#     return jsonify({"status": "success"}), 200
-
-# @app.route('/weather', methods=["POST"])
-# def calculate_weather_aware_route():
-#     data = request.get_json()
-#     datafile = data["city"]
-#     origin = data["origin"]
-#     destination = data["destination"]
-#     bbox = data["bbox"] # Bounding box, assuming its sent as [ymax, ymin, xmax, xmin]
-#     map_view_mode = data["map_view_mode"]
-#     K_variable_paths = data["paths"]
-#     weather_conditions = data["weather"]
-#     weather_weights = data["weights"]
-#     time = data["time"]
-    
-    
-#     route_coords = calculate_weather_route(datafile, 
-#                             origin, 
-#                             destination,
-#                             bbox, 
-#                             map_view_mode,
-#                             K_variable_paths,
-#                             weather_conditions,
-#                             weather_weights,
-#                             time)
-
-
-#     return jsonify({"route_coords": route_coords}), 200
 
 @app.post("/api/run-python")
 def run_python():
@@ -401,10 +315,63 @@ def run_python():
             "returncode": -1,
         }), 200
     
-def diff_colormap_dirs(dir1_, dir2_, colormap='Reds'):
+COLORMAPS = {
+    "viridis": matplotlib.colormaps.get_cmap("viridis"),
+    "reds": matplotlib.colormaps.get_cmap("Reds"),
+    "greens": matplotlib.colormaps.get_cmap("Greens"),
+    "blues": matplotlib.colormaps.get_cmap("Blues"),
+    "grays":   matplotlib.colormaps.get_cmap("Greys")
+}
+
+@app.get("/generated/raster/<ref>/<name>")
+def get_colormapped_tile(ref, name):
+    path = raster_subdir / ref / name
+
+    cmap_name = (request.args.get("cmap") or "").lower()
+    cmap = COLORMAPS.get(cmap_name)
+
+    # If no/unknown colormap → return original PNG
+    if cmap is None:
+        return send_file(path, mimetype="image/png")
+
+    # Read image (gray / BGR / BGRA)
+    img = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
+    if img is None:
+        abort(404)
+
+    # ---- extract grayscale 0–255 ----
+    if img.ndim == 2:
+        gray = img.astype(np.float32)
+        alpha = None
+    elif img.shape[2] == 4:
+        gray = img[:, :, 0].astype(np.float32)
+        alpha = img[:, :, 3]
+    else:
+        gray = img[:, :, 0].astype(np.float32)
+        alpha = None
+
+    # ---- normalize FIXED 0–255 ----
+    t = np.clip(gray / 255.0, 0.0, 1.0)
+
+    # ---- apply matplotlib colormap ----
+    rgba = (cmap(t) * 255).astype(np.uint8)  # H x W x 4
+
+    # ---- preserve alpha if present ----
+    if alpha is not None:
+        rgba[:, :, 3] = alpha
+
+    rgba = rgba[..., [2, 1, 0, 3]]  # RGBA -> BGRA for OpenCV
+
+    ok, buf = cv2.imencode(".png", rgba)
+    if not ok:
+        abort(500)
+
+    return send_file(BytesIO(buf.tobytes()), mimetype="image/png")
+    
+def diff_dirs(dir1_, dir2_):
     dir1 = Path(raster_subdir, dir1_)
     dir2 = Path(raster_subdir, dir2_)
-    output_path = Path(raster_subdir, dir1_ + "_minus_" + dir2_)
+    output_path = Path(raster_subdir, f"{dir1_}_minus_{dir2_}")
 
     if output_path.exists():
         shutil.rmtree(output_path)
@@ -415,31 +382,20 @@ def diff_colormap_dirs(dir1_, dir2_, colormap='Reds'):
         if not png2.exists():
             print(f"Skipping {png1.name}: not found in {dir2}")
             continue
-        
-        img1 = cv2.imread(str(png1))
-        img2 = cv2.imread(str(png2))
 
-        if img1 is None or img2 is None:
+        # Read as grayscale (single channel 0..255)
+        gray1 = cv2.imread(str(png1), cv2.IMREAD_GRAYSCALE)
+        gray2 = cv2.imread(str(png2), cv2.IMREAD_GRAYSCALE)
+
+        if gray1 is None or gray2 is None:
             print(f"Skipping {png1.name}: failed to read one of the images")
             continue
 
-        gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-        gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+        # absolute difference in 0..255 (uint8)
+        diff_u8 = cv2.absdiff(gray2, gray1)
 
-        diff = cv2.absdiff(gray2, gray1).astype(np.float32)
-
-        dmin, dmax = diff.min(), diff.max()
-        if dmax > dmin:
-            diff_norm = (diff - dmin) / (dmax - dmin)
-        else:
-            diff_norm = np.zeros_like(diff)
-
-        cmap = matplotlib.colormaps[colormap]
-        rgba = cmap(diff_norm)
-        rgb = (rgba[:, :, :3] * 255).astype("uint8")
-
-        bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-        cv2.imwrite(str(output_path / png1.name), bgr)
+        # Save as grayscale PNG (no colormap baked in)
+        cv2.imwrite(str(output_path / png1.name), diff_u8)
 
     return output_path
 
@@ -448,12 +404,12 @@ def api_diff_png():
     data = request.get_json(force=True)
     dir1 = data.get("dir1")
     dir2 = data.get("dir2")
-    colormap = data.get("colormap", "Reds")
+    # colormap = data.get("colormap", "Reds")
 
     if not dir1 or not dir2:
         return jsonify({"error": "dir1 and dir2 are required"}), 400
 
-    out_dir = diff_colormap_dirs(dir1, dir2, colormap)
+    out_dir = diff_dirs(dir1, dir2)
     return jsonify({
         "status": "ok",
         "output_dir": str(out_dir),
@@ -506,7 +462,7 @@ def api_diff_tif():
 
 @app.post("/api/comparison-view")
 def comparison_view():
-    data = request.get_json(force=True)   # this is your { key: [...], metric: "...", encoding: "..." }
+    data = request.get_json(force=True)
 
     print("Received comparison view request:", data)
     key = data.get("key", [])
@@ -516,16 +472,13 @@ def comparison_view():
 
     results = {}   # store metric per layer
     for k in key:
-        # look for a csv in metric_subdir with name k + ".csv"
         csv_path = metric_subdir / f"{k}.csv"
-        # read csv to get the metric value
         df = pd.read_csv(csv_path)
 
         value = df[metric].iloc[0]
         results[k] = float(value)
 
         print(f"{k}: {metric} = {value}")
-        
 
     return jsonify({
         "status": "ok",

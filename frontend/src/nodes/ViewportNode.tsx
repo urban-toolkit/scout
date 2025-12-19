@@ -17,17 +17,11 @@ import mapPng from "../assets/map.png";
 import checkPng from "../assets/check-mark.png";
 import * as d3 from "d3";
 import { ViewDef, InteractionDef } from "./utils/types";
-import {
-  parseInteraction,
-  // parseView
-} from "./utils/parser";
 import { renderLayers } from "./utils/renderViewLayers";
-// import { TransformationNodeData } from "./TransformationNode";
 
 export type ViewportNodeData = {
   title?: string;
   center?: [number, number];
-  // zoom?: number;
   onClose?: (id: string) => void;
   onRun?: (srcId: string, trgId?: string) => void;
   view?: ViewDef[];
@@ -42,7 +36,6 @@ const ViewportNode = memo(function ViewportNode({
 }: NodeProps<ViewportNode>) {
   const [persisting, setPersisting] = useState(false);
   const [persistSuccess, setPersistSuccess] = useState(false);
-  // true false
   const [showBasemap, setShowBasemap] = useState(false);
   const baseLayerRef = useRef<L.TileLayer | null>(null);
 
@@ -97,8 +90,7 @@ const ViewportNode = memo(function ViewportNode({
 
   const onPersist = useCallback(async () => {
     const entries = Object.values(pendingRef.current) as {
-      plId: string;
-      tag: string;
+      ref: string;
       geojson: any;
     }[];
 
@@ -108,13 +100,12 @@ const ViewportNode = memo(function ViewportNode({
     setPersistSuccess(false);
 
     try {
-      const tasks = entries.map(({ plId, tag, geojson }) =>
-        fetch("http://127.0.0.1:5000/api/update-physical-layer", {
+      const tasks = entries.map(({ ref, geojson }) =>
+        fetch("http://127.0.0.1:5000/api/update-data-layer", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            physicalLayerRef: plId,
-            tag,
+            ref,
             geojson,
           }),
         })
@@ -190,28 +181,21 @@ const ViewportNode = memo(function ViewportNode({
         return;
       }
 
-      // const parsed = parseView({ view: nodeData.view });
-      const parsed = nodeData?.view ?? [];
-      const parsedInteractions = parseInteraction({
-        interaction: nodeData?.interactions,
-      });
-
-      // const physicalLayers = nodeData.physical_layers;
+      const views = nodeData?.view ?? [];
+      const interactions = nodeData?.interactions ?? [];
 
       await renderLayers({
         id,
         map,
-        parsedViews: parsed,
-        parsedInteractions: parsedInteractions,
-        // physicalLayers,
+        views,
+        interactions,
         clearAllSvgLayers,
         makeLeafletPath,
         getOrCreateTagGroup,
-        onDirty: ({ plId, tag, featureCollection }) => {
-          const key = `${plId}::${tag}`;
+        onDirty: ({ ref, featureCollection }) => {
+          const key = ref;
           pendingRef.current[key] = {
-            plId,
-            tag,
+            ref,
             geojson: featureCollection,
           };
         },
@@ -243,7 +227,7 @@ const ViewportNode = memo(function ViewportNode({
     const center: [number, number] = data?.center ?? [41.881, -87.63];
     const zoom = 14;
     map.setView(center, zoom);
-    // white background (tile hidden via opacity: 0)
+
     const baseLayer = L.tileLayer(
       // https://wiki.openstreetmap.org/wiki/Raster_tile_providers
       "https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png",
@@ -310,7 +294,7 @@ const ViewportNode = memo(function ViewportNode({
         leafletRef.current = null;
       }
     };
-  }, [data?.center, data?.zoom, clearAllSvgLayers, redrawAll]);
+  }, [data?.center, clearAllSvgLayers, redrawAll]);
 
   useEffect(() => {
     if (baseLayerRef.current) {

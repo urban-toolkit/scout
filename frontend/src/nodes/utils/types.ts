@@ -11,7 +11,6 @@ export type PhysicalLayerDef = {
 
 // ViewDef only. No ParsedView should exist.
 export type ViewDef = {
-  // ref: string;
   ref?: string;
   ref_base?: string;
   ref_comp?: string;
@@ -20,42 +19,7 @@ export type ViewDef = {
   file_type?: string;
   geom_type?: string;
 
-  // zoom_pan?: boolean; // inside style
-  // zoom_level?: number; // inside style
-
-  // operation?: string; // inside style
-
-  // layers?: { tag: string; style: Record<string, any> }[];
   style: Record<string, any>;
-};
-
-// export type ParsedLayer = {
-//   tag: string;
-//   fill?: { attribute?: string; colormap?: string };
-//   stroke?: { color?: string; width?: number };
-//   opacity?: number;
-//   border?: { color?: string; width?: number };
-// };
-
-export type ParsedView = {
-  // ref: string;
-  physicalLayerRef?: string;
-  thematicLayerRef?: string | string[];
-
-  type?: string;
-  file_type?: string;
-  geom_type?: string;
-
-  // opacity?: string;
-  // colormap?: string;
-
-  // zoom_pan?: boolean; // inside style
-  // zoom_level?: number; // inside style
-
-  // operation?: string; // inside style
-
-  style: Record<string, any>;
-  // layers?: ParsedLayer[];
 };
 
 export type InteractionDef = {
@@ -70,23 +34,12 @@ export type InteractionDef = {
   // - "highlight+show"
   action: string;
 
-  physicalLayerRef: string;
+  ref: string;
 
-  layer: {
-    tag: string;
-    feature?: string;
-  };
-};
-
-export type ParsedInteraction = {
-  id: string;
-  type: string;
-  action: string;
-  physicalLayerRef: string;
-  layer: {
-    tag: string;
-    feature?: string;
-  };
+  // layer: {
+  //   tag: string;
+  feature?: string;
+  // };
 };
 
 export type WidgetDef = {
