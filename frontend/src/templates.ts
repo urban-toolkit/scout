@@ -1,10 +1,10 @@
 export type TemplateKey =
-  | "physical_layer"
+  | "data_layer"
   | "view"
   | "interaction"
   // | "transformation"
-  | "widget_def"
-  | "comparison_def";
+  | "widget"
+  | "comparison";
 // | "choice"
 // | "join"
 
@@ -16,25 +16,25 @@ export type TemplateKey =
 //   40.757
 // ]
 
-export const physicalLayerTemplate = {
-  physical_layer: {
-    id: "baselayer-0",
-    type: "vector",
-    file_type: "feather",
-    datafile: "chicago",
-    region_of_interest: {
+export const dataLayerTemplate = {
+  data_layer: {
+    id: "A",
+    source: "osm",
+    dtype: "physical",
+
+    roi: {
+      datafile: "chicago",
       type: "bbox",
-      value: [-87.66, 41.86, -87.6, 41.9],
+      value: [-87.66, 41.86, -87.64, 41.88],
     },
-    layers: [
+
+    osm_features: [
       {
-        tag: "buildings",
-        "geom-type": "multipolygon",
-        features: ["height"],
+        feature: "buildings",
+        attributes: ["height"],
       },
       {
-        tag: "roads",
-        "geom-type": "linestring",
+        feature: "roads",
       },
     ],
   },
@@ -43,65 +43,52 @@ export const physicalLayerTemplate = {
 export const viewTemplate = {
   view: [
     {
-      physical_layer: { ref: "baselayer-0" },
+      ref: "A_buildings",
       type: "vector",
       file_type: "geojson",
-      zoom_pan: true,
-      layers: [
-        {
-          tag: "buildings",
-          "geom-type": "multipolygon",
-          style: {
-            fill: { feature: "height", colormap: "greys" },
-            "stroke-color": "#333333",
-            opacity: 1,
-            "z-index": 1,
-          },
+      geom_type: "multipolygon",
+
+      style: {
+        fill: {
+          feature: "height",
+          range: [0, 550],
+          colormap: "blues",
         },
-        {
-          tag: "roads",
-          "geom-type": "linestring",
-          style: { "z-index": 2, "stroke-color": "#444444" },
-        },
-      ],
+        "stroke-color": "#333333",
+        opacity: 1,
+      },
     },
     // {
-    //   thematic_layer: { ref: "S1" },
-    //   type: "raster",
-    //   style: { colormap: "reds", legend: true, opacity: 0.7 },
+    //   ref: "A_roads",
+    //   type: "vector",
+    //   file_type: "geojson",
+    //   geom_type: "linestring",
+    //   style: {
+    //     "stroke-color": "#333333",
+    //     opacity: 1,
+    //   },
     // },
   ],
 };
+// {
+//   thematic_layer: { ref: "S1" },
+//   type: "raster",
+//   style: { colormap: "reds", legend: true, opacity: 0.7 },
+// },
 
 export const choiceTemplate = { choice: {} };
 export const joinTemplate = { join: {} };
 
-export const transformationTemplate = {
-  transformation: {
-    id: "rasters-baselayer-0",
-    physical_layer: { ref: "baselayer-0" },
-    operation: "rasterize",
-    zoom: 16,
-    layer: {
-      tag: "buildings",
-      feature: "height",
-    },
-  },
-};
-
 export const interactionTemplate = {
   interaction: {
-    id: "interaction-0",
-    physicalLayerRef: "baselayer-0",
-    type: "click",
-    action: "remove",
-    layer: {
-      tag: "buildings",
-    },
+    ref: "A_buildings",
+    itype: "hover",
+    action: "highlight+show",
+    attribute: "height",
   },
 };
 
-export const widgetDefTemplate = {
+export const widgetTemplate = {
   widget: {
     id: "widget-0",
     variable: "season",
@@ -114,34 +101,34 @@ export const widgetDefTemplate = {
   },
 };
 
-export const comparisonDefTemplate = {
+export const comparisonTemplate = {
   comparison: {
     key: ["A_shadow", "B_shadow"],
     metric: "mean",
-    encoding: "bar",
+    chart: "bar",
   },
 };
 
 export const TEMPLATES: Record<TemplateKey, any> = {
-  physical_layer: physicalLayerTemplate,
+  data_layer: dataLayerTemplate,
   view: viewTemplate,
   // choice: choiceTemplate,
   // join: joinTemplate,
   // transformation: transformationTemplate,
   interaction: interactionTemplate,
-  widget_def: widgetDefTemplate,
-  comparison_def: comparisonDefTemplate,
+  widget: widgetTemplate,
+  comparison: comparisonTemplate,
 };
 
 export const TEMPLATE_LABELS: Record<TemplateKey, string> = {
-  physical_layer: "data layer",
-  view: "view",
+  data_layer: "Data layer",
+  view: "View",
   // choice: "choice",
   // join: "join",
   // transformation: "transformation",
-  interaction: "interaction",
-  widget_def: "widget",
-  comparison_def: "comparison",
+  interaction: "Interaction",
+  widget: "Widget",
+  comparison: "Comparison",
 };
 
 // -------------------------------------------

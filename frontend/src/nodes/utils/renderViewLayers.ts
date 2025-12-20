@@ -6,6 +6,7 @@ import {
   pickInterpolator,
   tileBoundsFromXYZ,
   colorToRgb,
+  getGeometryTypeFromGeoJSON,
 } from "./helper";
 import { applyGeometryInteractions } from "./geomInteractions";
 import type { InteractionSpec } from "./geomInteractions";
@@ -27,7 +28,7 @@ function buildInteractionSpecsForLayer(opts: {
 
   for (const i of relevant) {
     // HOVER
-    if (i.type === "hover") {
+    if (i.itype === "hover") {
       if (i.action === "highlight") {
         specs.push({
           interaction: "hover-highlight",
@@ -36,8 +37,8 @@ function buildInteractionSpecsForLayer(opts: {
         continue;
       }
 
-      if (i.action === "highlight+show") {
-        const featureKey = i.feature;
+      if (i.action === "tooltip_highlight") {
+        const featureKey = i.attribute;
 
         specs.push({
           interaction: "hover-highlight",
@@ -60,7 +61,7 @@ function buildInteractionSpecsForLayer(opts: {
     }
 
     // CLICK
-    if (i.type === "click") {
+    if (i.itype === "click") {
       if (i.action === "remove") {
         specs.push({
           interaction: "click",
@@ -69,7 +70,7 @@ function buildInteractionSpecsForLayer(opts: {
         continue;
       }
 
-      if (i.action === "modify_feature") {
+      if (i.action === "modify") {
         specs.push({
           interaction: "click",
           action: "modify_feature",
@@ -353,21 +354,28 @@ export async function renderLayers(opts: {
     }
 
     if (ref) {
-      if (view.type === "raster" && view.file_type === "png") {
+      const res = await fetch("http://127.0.0.1:5000/api/infer-filetype", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ref }),
+      });
+      const info = await res.json();
+
+      if (info.file_type === ".png") {
         unionBounds = await renderPngForView({
           map,
           view,
           ref,
           unionBounds,
         });
-      } else if (view.file_type === "tif" || view.file_type === "tiff") {
+      } else if (info.file_type === ".tif" || info.file_type === ".tiff") {
         unionBounds = await renderGeoTiffForView({
           map,
           view,
           ref,
           unionBounds,
         });
-      } else if (view.type === "vector" && view.file_type === "geojson") {
+      } else if (info.file_type === ".geojson") {
         // --- render GeoJSON for view. Maybe later function ---
         const url = `http://127.0.0.1:5000/generated/vector/${ref}.geojson`;
         let fc: any;
@@ -381,7 +389,10 @@ export async function renderLayers(opts: {
         }
 
         // --- geometry type ---
-        const geomType = view["geom_type"];
+        const geomType = getGeometryTypeFromGeoJSON(fc)?.toLowerCase();
+        // console.log("[Viewport] geometry type =", gType);
+
+        // const geomType = view["geom_type"];
         const isPolygonLayer =
           geomType === "polygon" || geomType === "multipolygon";
         const isLineLayer = geomType === "linestring";
@@ -405,13 +416,17 @@ export async function renderLayers(opts: {
 
         // --- range of values for attribute-based fills ---
         const interp = attr ? pickInterpolator(colormapName) : null;
-        let ext;
-        if (view.style.fill.range) {
-          // If the range is explicitly set, use that for attribute-based fills
-          const [min, max] = view.style.fill.range;
+
+        let ext = null;
+
+        const fill = view.style?.fill;
+
+        if (attr && fill && typeof fill === "object" && "range" in fill) {
+          // Explicit range
+          const [min, max] = fill.range;
           ext = [min, max];
         } else {
-          // Otherwise, compute the range from the GeoJSON properties
+          // Compute from data
           ext = attr ? getPropertyRangeFromGeoJSON(fc, attr) : null;
         }
 
@@ -551,7 +566,23 @@ export async function renderLayers(opts: {
         tmp.remove();
       }
     } else if (ref_base && ref_comp) {
-      if (view.type === "raster" && view.file_type === "png") {
+      // go to server side. check inside served-raster and served-vector and infer filetype
+
+      const res_base = await fetch("http://127.0.0.1:5000/api/infer-filetype", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ref_base }),
+      });
+      const info_base = await res_base.json();
+
+      const res_comp = await fetch("http://127.0.0.1:5000/api/infer-filetype", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ref_comp }),
+      });
+      const info_comp = await res_comp.json();
+
+      if (info_base.file_type === ".png" && info_comp.file_type === ".png") {
         const diff = ref_comp + "_minus_" + ref_base;
 
         await fetch("http://127.0.0.1:5000/api/diff-png", {
@@ -571,8 +602,8 @@ export async function renderLayers(opts: {
           unionBounds,
         });
       } else if (
-        view.type === "raster" &&
-        (view.file_type === "tif" || view.file_type === "tiff")
+        (info_base.file_type === ".tif" || info_base.file_type === ".tiff") &&
+        (info_comp.file_type === ".tif" || info_comp.file_type === ".tiff")
       ) {
         const diff = ref_base + "_minus_" + ref_comp;
         await fetch("http://127.0.0.1:5000/api/diff-tif", {

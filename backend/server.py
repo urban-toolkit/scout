@@ -229,51 +229,56 @@ def serve_vector(filename: str):
         conditional=True
     )
 
-@app.post('/api/ingest-physical-layer')
-def ingest_physical_layer():
-
+@app.post('/api/extract-data-layer')
+def extract_data_layer():
     payload = request.get_json(silent=True) or {}
     pl = payload
     problems = []
     
-    pl_id = pl.get("id")
-    datafile = pl.get("datafile")
-    roi = pl.get("region_of_interest") or {}
+    id = pl.get("id")
+    src = pl.get("source")
+    dtype = pl.get("dtype")
 
-    print(f"Processing physical layer ID: {pl_id} with datafile: {datafile}")
+    # datafile = pl.get("datafile")
+    roi = pl.get("roi") or {}
+    roi_datafile = pl.get("roi").get("datafile")
 
-    for lyr in (pl.get("layers") or []):
-        tag = lyr.get("tag")
-        features = lyr.get("features") or []
-        try:
-            src_path = resolve_feather_path(str(datafile), str(tag))
-            if not src_path.is_file():
-                raise FileNotFoundError(f"Missing source: {src_path}")
-            print(f"    Loading data from: {src_path}")
-            gdf = gpd.read_feather(src_path)
+    if(src == "osm"):
+        for f in (pl.get("osm_features") or []):
+            feature = f.get("feature")
+            attributes = f.get("attributes") or []
+            try:
+                src_path = resolve_feather_path(str(roi_datafile), str(feature))
+                if not src_path.is_file():
+                    raise FileNotFoundError(f"Missing source: {src_path}")
+                print(f"    Loading data from: {src_path}")
+                gdf = gpd.read_feather(src_path)
 
-            gdf_cut = crop_gdf(gdf, roi)
-            gdf_out = select_features(gdf_cut, features)
+                gdf_cut = crop_gdf(gdf, roi)
+                gdf_out = select_features(gdf_cut, attributes)
 
-            out_name = f"vector/{pl_id}_{tag}.geojson"
-            out_path = OUT_DIR / out_name
-            
-            gdf_out.to_file(out_path, driver="GeoJSON")
+                out_name = f"vector/{id}_{feature}.geojson"
+                out_path = OUT_DIR / out_name
+                
+                gdf_out.to_file(out_path, driver="GeoJSON")
 
-        except Exception as e:
-            error_msg = f"[ERROR] Layer {pl_id}:{tag} → {type(e).__name__}: {e}"
-            print(error_msg)
+            except Exception as e:
+                error_msg = f"[ERROR] Layer {id}:{feature} → {type(e).__name__}: {e}"
+                print(error_msg)
 
-            problems.append({
-                "physical_layer_id": pl_id,
-                "tag": tag,
-                "error": str(e)
-            })
+                problems.append({
+                    "data_layer_id": id,
+                    "feature": feature,
+                    "error": str(e)
+                })
 
-    return jsonify({
-        "status": "success" if not problems else "partial",
-        "problems": problems
-    }), 200 if not problems else 207  
+        return jsonify({
+            "status": "success" if not problems else "partial",
+            "problems": problems
+        }), 200 if not problems else 207
+    else:
+        return jsonify({"status": "error", "error": f"Unsupported source: {src}"}), 400
+
 
 @app.route("/api/update-data-layer", methods=["POST"])
 def update_data_layer():
@@ -467,7 +472,7 @@ def comparison_view():
     print("Received comparison view request:", data)
     key = data.get("key", [])
     metric = data.get("metric", "")
-    encoding = data.get("encoding", "")
+    chart = data.get("chart", "")
     unit = data.get("unit", "")
 
     results = {}   # store metric per layer
@@ -485,8 +490,63 @@ def comparison_view():
         "metric": metric,
         "unit": unit,
         "values": results,
-        "encoding": encoding,
+        "chart": chart,
     })
+
+@app.post("/api/infer-filetype")
+def infer_filetype():
+    payload = request.get_json(silent=True) or {}
+    ref = payload.get("ref")
+    if not ref:
+        return jsonify({"ok": False, "error": "missing ref"}), 400
+    
+    result = {
+        "ok": True,
+        "ref": ref,
+        "kind": None,       # "vector" | "raster" | None
+        "is_dir": None,     # bool | None
+        "file_type": None,        # ".geojson" | ".png" | etc | None
+        "path": None,       # optional debug
+    }
+
+    vector_path = next(vector_subdir.glob(f"{ref}.*"), None)
+    if vector_path is not None:
+        return jsonify({
+            "ok": True,
+            "kind": "vector",
+            "is_dir": False,
+            "file_type": vector_path.suffix.lower(),
+        }), 200
+    
+    raster_path = raster_subdir / ref
+    if raster_path.exists():
+        if raster_path.is_file():
+            return jsonify({
+                "ok": True,
+                "kind": "raster",
+                "is_dir": False,
+                "file_type": raster_path.suffix.lower(),
+            }), 200
+        
+        any_file = next((p for p in raster_path.iterdir() if p.is_file()), None)
+        ext = any_file.suffix.lower() if any_file else None
+
+        return jsonify({
+            "ok": True,
+            "kind": "raster",
+            "is_dir": True,
+            "file_type": ext,
+        }), 200
+
+    # -------------------------
+    # 3) Not found
+    # -------------------------
+    return jsonify({
+        "ok": True,
+        "kind": None,
+        "is_dir": None,
+        "file_type": None,
+    }), 200
 
 
 if __name__ == '__main__':

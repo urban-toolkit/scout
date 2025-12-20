@@ -1,13 +1,10 @@
-// src/nodes/InteractionNode.tsx
-
 import { memo, useCallback, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { Handle, Position, useReactFlow, NodeResizer } from "@xyflow/react";
 import BaseGrammarNode, { BaseNodeData } from "./BaseGrammarNode";
-import schema from "../schemas/widgetDef.json";
+import schema from "../schemas/widget.json";
 
 import "./BaseGrammarNode.css";
-// import { ViewportNodeData } from "./ViewportNode";
 
 import expandPng from "../assets/expand.png";
 import restartPng from "../assets/restart.png";
@@ -36,16 +33,13 @@ const WidgetDefNode = memo(function WidgetDefNode(
 
       const curEdges = getEdges();
 
-      // Interaction spec from this node
       const wdValue = (n.data as BaseNodeData)?.value as any;
       const wdId: string | undefined = wdValue?.widget?.id;
 
-      // All targets currently connected FROM this physical node
       const targetIds = curEdges
         .filter((e) => e.source === nodeId)
         .map((e) => e.target);
 
-      // 1) Update connected view nodes: remove this physical layer ref
       setNodes((nds) =>
         nds
           //   .map((nn) => {
@@ -66,7 +60,6 @@ const WidgetDefNode = memo(function WidgetDefNode(
           //       } as ViewportNodeData,
           //     };
           //   })
-          // 2) Remove this physical-layer node itself
           .filter((nn) => nn.id !== nodeId)
       );
 
@@ -137,7 +130,7 @@ const WidgetDefNode = memo(function WidgetDefNode(
           selected={selected}
           data={{
             ...data,
-            title: data.title ?? "Grammar • widget",
+            title: data.title ?? "Widget",
             schema,
             pickInner: (v) => (v as any)?.widget,
             onClose: onCloseWidgetDefNode,
@@ -156,7 +149,7 @@ const WidgetDefNode = memo(function WidgetDefNode(
           <div className="gnode__minimized">
             {/* Big fetch button */}
             <button type="button" className="gnode__minimizedNodeTtitleBtn">
-              {data.title ?? "Grammar • widget"}
+              {data.title ?? "Widget"}
             </button>
             {/* Floating restore (top-left) */}
             <button

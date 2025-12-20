@@ -31,11 +31,11 @@ const checkedIcon = <CheckBoxIcon fontSize="small" />;
 export function renderWidgetFromWidgetDef(
   widgetDef: WidgetDef | undefined,
   value: any,
-  onValueChange?: (id: string, variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void
 ): ReactNode {
   if (!widgetDef) return null;
 
-  switch (widgetDef.type) {
+  switch (widgetDef.wtype) {
     case "radio-group":
       return renderRadioGroup(widgetDef, value, onValueChange);
 
@@ -66,7 +66,7 @@ export function renderWidgetFromWidgetDef(
     default:
       return (
         <div style={{ fontSize: 12 }}>
-          Unsupported widget type: <code>{widgetDef.type}</code>
+          Unsupported widget type: <code>{widgetDef.wtype}</code>
         </div>
       );
   }
@@ -75,19 +75,19 @@ export function renderWidgetFromWidgetDef(
 export function renderTextInputWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (widgetId: string, variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void
 ): React.ReactNode {
-  const variable = widget.variable ?? widget.id;
+  const variable = widget.variable;
 
   const currentVal: string =
     typeof value === "string"
       ? value
-      : typeof widget["default-value"] === "string"
-      ? widget["default-value"]
+      : typeof widget["default"] === "string"
+      ? widget["default"]
       : "";
 
   const inputKind =
-    (widget["input-kind"] as
+    (widget["props"]["input-kind"] as
       | "text"
       | "email"
       | "password"
@@ -96,35 +96,42 @@ export function renderTextInputWidget(
       | "tel"
       | undefined) ?? "text";
 
-  const multiline = widget.multiline === true;
+  const multiline = widget["props"]["multiline"] === true;
   const maxLength =
-    typeof widget["max-length"] === "number" ? widget["max-length"] : undefined;
+    typeof widget["props"]["max-length"] === "number"
+      ? widget["props"]["max-length"]
+      : undefined;
 
   const minRows =
-    typeof (widget as any).minRows === "number" ? (widget as any).minRows : 2;
+    typeof (widget as any)["props"]["minRows"] === "number"
+      ? (widget as any)["props"]["minRows"]
+      : 2;
+
   const maxRows =
-    typeof (widget as any).maxRows === "number"
-      ? (widget as any).maxRows
+    typeof (widget as any)["props"]["maxRows"] === "number"
+      ? (widget as any)["props"]["maxRows"]
       : undefined;
 
   return (
     <div style={{ width: "100%", marginTop: "4px" }}>
       <TextField
-        label={widget.title ?? variable}
+        label={widget["props"]["title"] ?? variable}
         fullWidth
         size="small"
         type={inputKind}
         value={currentVal}
         onChange={(e) => {
-          onValueChange?.(widget.id, variable, e.target.value);
+          onValueChange?.(variable, e.target.value);
         }}
-        placeholder={widget.placeholder}
-        helperText={widget.description || undefined}
+        placeholder={widget["props"]["placeholder"]}
+        helperText={widget["props"]["description"] || undefined}
         multiline={multiline}
         minRows={multiline ? minRows : undefined}
         maxRows={multiline ? maxRows : undefined}
-        inputProps={{
-          maxLength,
+        slotProps={{
+          htmlInput: {
+            maxLength,
+          },
         }}
       />
     </div>
@@ -135,14 +142,14 @@ export function renderTextWidget(
   widget: WidgetDef,
   value: any
 ): React.ReactNode {
-  const text = value ?? widget["default-value"] ?? "";
+  const text = value ?? widget["default"] ?? "";
 
-  const fontSize = widget["text-size"] ?? 12;
-  const color = widget.color ?? "#000";
-  const align = widget.align ?? "left";
-  const underline = widget.underline === true;
-  const italic = widget.italic === true;
-  const bold = widget.bold === true;
+  const fontSize = widget["props"]["text-size"] ?? 12;
+  const color = widget["props"].color ?? "#000";
+  const align = widget["props"].align ?? "left";
+  const underline = widget["props"].underline === true;
+  const italic = widget["props"].italic === true;
+  const bold = widget["props"].bold === true;
 
   // Compute a single style string
   const style: React.CSSProperties = {
@@ -161,7 +168,7 @@ export function renderTextWidget(
         {text}
       </Typography>
 
-      {widget.description && (
+      {widget["props"].description && (
         <div
           style={{
             marginTop: 4,
@@ -170,7 +177,7 @@ export function renderTextWidget(
             textAlign: "center",
           }}
         >
-          {widget.description}
+          {widget["props"].description}
         </div>
       )}
     </div>
@@ -180,40 +187,40 @@ export function renderTextWidget(
 export function renderCheckboxWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (widgetId: string, variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void
 ): React.ReactNode {
-  const variable = widget.variable ?? widget.id;
-  const mode = widget.mode === "group" ? "group" : "single";
+  const variable = widget.variable;
+  const mode = widget["props"].mode === "group" ? "group" : "single";
   const orientation =
-    widget.orientation === "horizontal" ? "horizontal" : "vertical";
+    widget["props"].orientation === "horizontal" ? "horizontal" : "vertical";
 
   // ----- SINGLE MODE -----
   if (mode === "single") {
     const checked =
       typeof value === "boolean"
         ? value
-        : typeof widget["default-value"] === "boolean"
-        ? widget["default-value"]
+        : typeof widget["default"] === "boolean"
+        ? widget["default"]
         : false;
 
     return (
       <div className="nodrag" style={{ width: "100%" }}>
         <FormControl>
-          <FormLabel>{widget.title ?? ""}</FormLabel>
+          <FormLabel>{widget["props"].title ?? ""}</FormLabel>
           <FormGroup>
             <FormControlLabel
               control={
                 <Checkbox
                   checked={checked}
                   onChange={(_, isChecked) => {
-                    onValueChange?.(widget.id, variable, isChecked);
+                    onValueChange?.(variable, isChecked);
                   }}
                 />
               }
-              label={widget.title ?? variable}
+              label={widget["props"].title ?? variable}
             />
           </FormGroup>
-          {widget.description && (
+          {widget["props"].description && (
             <FormHelperText
               style={{
                 textAlign: "center",
@@ -221,7 +228,7 @@ export function renderCheckboxWidget(
                 paddingRight: 0,
               }}
             >
-              {widget.description}
+              {widget["props"].description}
             </FormHelperText>
           )}
         </FormControl>
@@ -230,11 +237,11 @@ export function renderCheckboxWidget(
   }
 
   // ----- GROUP MODE -----
-  const items: string[] = (widget as any).items ?? [];
+  const items: string[] = (widget as any).choices ?? [];
   const selected: string[] = Array.isArray(value)
     ? value
-    : Array.isArray(widget["default-value"])
-    ? widget["default-value"]
+    : Array.isArray(widget["default"])
+    ? widget["default"]
     : [];
 
   const isHorizontal = orientation === "horizontal";
@@ -242,7 +249,7 @@ export function renderCheckboxWidget(
   return (
     <div className="nodrag" style={{ width: "100%" }}>
       <FormControl component="fieldset">
-        <FormLabel>{widget.title ?? variable}</FormLabel>
+        <FormLabel>{widget["props"].title ?? variable}</FormLabel>
         <FormGroup row={isHorizontal}>
           {items.map((item) => {
             const checked = selected.includes(item);
@@ -261,7 +268,7 @@ export function renderCheckboxWidget(
                         // remove item
                         next = selected.filter((v) => v !== item);
                       }
-                      onValueChange?.(widget.id, variable, next);
+                      onValueChange?.(variable, next);
                     }}
                   />
                 }
@@ -270,7 +277,7 @@ export function renderCheckboxWidget(
             );
           })}
         </FormGroup>
-        {widget.description && (
+        {widget["props"].description && (
           <FormHelperText
             style={{
               textAlign: "center",
@@ -278,7 +285,7 @@ export function renderCheckboxWidget(
               paddingRight: 0,
             }}
           >
-            {widget.description}
+            {widget["props"].description}
           </FormHelperText>
         )}
       </FormControl>
@@ -289,14 +296,14 @@ export function renderCheckboxWidget(
 export function renderDropdownWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (id: string, variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void
 ) {
-  const variable = widget.variable ?? widget.id;
+  const variable = widget.variable;
 
-  const items: string[] = Array.isArray(widget.items) ? widget.items : [];
-  const multiple = widget["multi-select"] === true;
-  const basePlaceholder = widget.placeholder;
-  const hasDescription = !!widget.description;
+  const items: string[] = Array.isArray(widget.choices) ? widget.choices : [];
+  const multiple = widget["props"]["multi-select"] === true;
+  const basePlaceholder = widget["props"].placeholder;
+  const hasDescription = widget["props"].description;
 
   // current value(s)
   let currentVal: any = multiple ? [] : null;
@@ -304,15 +311,15 @@ export function renderDropdownWidget(
   if (multiple) {
     currentVal = Array.isArray(value)
       ? value
-      : Array.isArray(widget["default-value"])
-      ? widget["default-value"]
+      : Array.isArray(widget["default"])
+      ? widget["default"]
       : [];
   } else {
     currentVal =
       typeof value === "string"
         ? value
-        : typeof widget["default-value"] === "string"
-        ? widget["default-value"]
+        : typeof widget["default"] === "string"
+        ? widget["default"]
         : null;
   }
 
@@ -333,7 +340,7 @@ export function renderDropdownWidget(
         disableCloseOnSelect={multiple}
         value={currentVal}
         onChange={(_, newValue) => {
-          onValueChange?.(widget.id, variable, newValue);
+          onValueChange?.(variable, newValue);
         }}
         renderOption={(props, option, state) => {
           if (!multiple) {
@@ -364,10 +371,10 @@ export function renderDropdownWidget(
         renderInput={(params) => (
           <TextField
             {...params}
-            label={widget.title ?? variable}
+            label={widget["props"].title ?? variable}
             placeholder={placeholder}
             size="small"
-            helperText={widget.description || undefined}
+            helperText={widget["props"].description || undefined}
             slotProps={{
               formHelperText: hasDescription
                 ? {
@@ -384,7 +391,6 @@ export function renderDropdownWidget(
         )}
         sx={{
           mt: 1,
-          // 🔑 Hide the chips so the input stays a single line
           "& .MuiAutocomplete-tag": {
             display: "none",
           },
@@ -397,15 +403,15 @@ export function renderDropdownWidget(
 export function renderLocationFieldWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (widgetId: string, variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void
 ): React.ReactNode {
-  const variable = widget.variable ?? widget.id;
+  const variable = widget.variable;
 
   const initialVal: string =
-    typeof widget["default-value"] === "string" ? widget["default-value"] : "";
+    typeof widget["default"] === "string" ? widget["default"] : "";
 
-  const placeholder = widget.placeholder;
-  const hasDescription = !!widget.description;
+  const placeholder = widget["props"].placeholder;
+  const hasDescription = widget["props"].description;
 
   return (
     <div style={{ width: "100%", marginTop: "4px" }}>
@@ -420,23 +426,23 @@ export function renderLocationFieldWidget(
             const [lon, lat] = feat.geometry.coordinates;
 
             // Commit ONLY coordinates to widget state
-            onValueChange?.(widget.id, variable, { lat, lon });
+            onValueChange?.(variable, { lat, lon });
           }}
         >
           <TextField
-            label={widget.title ?? variable}
+            label={widget["props"].title ?? variable}
             fullWidth
             size="small"
             defaultValue={initialVal}
             placeholder={placeholder}
             sx={{ mt: 1 }}
-            helperText={widget.description || undefined}
+            helperText={widget["props"].description || undefined}
             slotProps={{
               htmlInput: {
                 autoComplete: "street-address",
                 maxLength:
-                  typeof widget["max-length"] === "number"
-                    ? widget["max-length"]
+                  typeof widget["props"]["max-length"] === "number"
+                    ? widget["props"]["max-length"]
                     : undefined,
               },
               formHelperText: hasDescription
@@ -459,38 +465,38 @@ export function renderLocationFieldWidget(
 export function renderNumberInputWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (widgetId: string, variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void
 ) {
-  const variable = widget.variable ?? widget.id;
+  const variable = widget.variable;
 
-  const min = widget.min;
-  const max = widget.max;
+  const min = widget["props"].min;
+  const max = widget["props"].max;
   const step: number | undefined =
-    typeof widget.step === "number" ? widget.step : undefined;
+    typeof widget["props"].step === "number" ? widget["props"].step : undefined;
 
   const currentVal: number | null =
     typeof value === "number"
       ? value
-      : typeof widget["default-value"] === "number"
-      ? widget["default-value"]
+      : typeof widget["default"] === "number"
+      ? widget["default"]
       : null;
 
   const handleChange = (v: number | null) => {
-    onValueChange?.(widget.id, variable, v);
+    onValueChange?.(variable, v);
   };
 
   return (
     <div style={{ width: "100%", marginTop: "4px" }}>
       <MNumberField
-        label={widget.title}
-        helperText={widget.description}
+        label={widget["props"].title}
+        helperText={widget["props"].description}
         min={min}
         max={max}
         step={step}
         value={currentVal}
-        placeholder={widget.placeholder}
+        placeholder={widget["props"].placeholder}
         onChange={handleChange}
-        showStepper={!widget.hideStepper}
+        showStepper={!widget["props"].hideStepper}
       />
     </div>
   );
@@ -499,23 +505,23 @@ export function renderNumberInputWidget(
 export function renderSliderWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (widgetId: string, variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void
 ): React.ReactNode {
-  const variable = widget.variable ?? widget.id;
+  const variable = widget.variable;
 
   const currentVal =
     typeof value === "number"
       ? value
-      : typeof widget["default-value"] === "number"
-      ? widget["default-value"]
-      : widget.min;
+      : typeof widget["default"] === "number"
+      ? widget["default"]
+      : widget["props"].min;
 
-  const min = widget.min;
-  const max = widget.max;
-  const step = widget.step ?? 1;
+  const min = widget["props"].min;
+  const max = widget["props"].max;
+  const step = widget["props"].step ?? 1;
 
   const orientation =
-    widget.orientation === "vertical" ? "vertical" : "horizontal";
+    widget["props"].orientation === "vertical" ? "vertical" : "horizontal";
   const isVertical = orientation === "vertical";
 
   return (
@@ -534,11 +540,10 @@ export function renderSliderWidget(
           textAlign: "center",
         }}
       >
-        {widget.title ?? variable}
+        {widget["props"].title ?? variable}
       </div>
 
       {isVertical ? (
-        // 🔹 Vertical layout: labels top/bottom, slider with fixed height
         <div
           style={{
             display: "flex",
@@ -567,7 +572,7 @@ export function renderSliderWidget(
             valueLabelDisplay="on"
             onChange={(_, v) => {
               if (typeof v === "number") {
-                onValueChange?.(widget.id, variable, v);
+                onValueChange?.(variable, v);
               }
             }}
             sx={{ height: 200 }}
@@ -588,7 +593,6 @@ export function renderSliderWidget(
         //
         <div style={{ padding: "0 16px" }}>
           {" "}
-          {/* 🔹 equal left/right space */}
           <Slider
             value={currentVal}
             min={min}
@@ -598,7 +602,7 @@ export function renderSliderWidget(
             valueLabelDisplay="on"
             onChange={(_, v) => {
               if (typeof v === "number") {
-                onValueChange?.(widget.id, variable, v);
+                onValueChange?.(variable, v);
               }
             }}
             sx={{ mt: 1 }}
@@ -618,7 +622,7 @@ export function renderSliderWidget(
         </div>
       )}
 
-      {widget.description && (
+      {widget["props"].description && (
         <div
           style={{
             fontSize: "0.75rem",
@@ -627,7 +631,7 @@ export function renderSliderWidget(
             marginTop: 4,
           }}
         >
-          {widget.description}
+          {widget["props"].description}
         </div>
       )}
     </div>
@@ -637,21 +641,21 @@ export function renderSliderWidget(
 function renderDateTimePickerWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (widgetId: string, variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void
 ): React.ReactNode {
-  const variable = widget.variable ?? widget.id;
+  const variable = widget.variable;
 
   // parse current value or default-value
   let currentVal: Dayjs | null = null;
   if (typeof value === "string" && value) {
     const p = dayjs(value);
     currentVal = p.isValid() ? p : null;
-  } else if (widget["default-value"]) {
-    const p = dayjs(widget["default-value"]);
+  } else if (widget["default"]) {
+    const p = dayjs(widget["default"]);
     currentVal = p.isValid() ? p : null;
   }
 
-  const fmt = widget["display-format"] ?? "YYYY-MM-DD HH:mm";
+  const fmt = widget["props"]["display-format"] ?? "YYYY-MM-DD HH:mm";
 
   // Build textField props safely
   const textFieldProps: any = {
@@ -661,8 +665,8 @@ function renderDateTimePickerWidget(
   };
 
   // Add helper text only if it exists
-  if (widget.description) {
-    textFieldProps.helperText = widget.description;
+  if (widget["props"].description) {
+    textFieldProps.helperText = widget["props"].description;
     textFieldProps.FormHelperTextProps = {
       sx: {
         display: "flex",
@@ -675,11 +679,11 @@ function renderDateTimePickerWidget(
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <DateTimePicker
-        label={widget.title ?? variable}
+        label={widget["props"].title ?? variable}
         value={currentVal}
         onChange={(newVal: Dayjs | null) => {
           const out = newVal ? newVal.format("YYYY-MM-DDTHH:mm:ss") : null;
-          onValueChange?.(widget.id, variable, out);
+          onValueChange?.(variable, out);
         }}
         format={fmt}
         slotProps={{
@@ -693,29 +697,29 @@ function renderDateTimePickerWidget(
 function renderRadioGroup(
   def: WidgetDef,
   value: any,
-  onValueChange?: (id: string, variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void
 ): ReactNode {
-  const anyDef = def as any;
-  const labelId = `${def.id}-label`;
-  const items: string[] = anyDef.items ?? [];
+  const anyDef = def;
+  const labelId = `${def.variable}-label`;
+  const items: string[] = anyDef.choices ?? [];
   const orientation: "horizontal" | "vertical" =
-    anyDef.orientation ?? "vertical";
-  const defaultValue = anyDef["default-value"];
+    anyDef["props"].orientation ?? "vertical";
+  const defaultValue = anyDef["default"];
 
   const currentValue = value ?? defaultValue;
 
   return (
     <FormControl style={{ alignItems: "center" }}>
-      <FormLabel id={labelId}>{def.title}</FormLabel>
+      <FormLabel id={labelId}>{def["props"].title}</FormLabel>
 
       <RadioGroup
         aria-labelledby={labelId}
         value={currentValue} // controlled
         onChange={(e) => {
           const v = (e.target as HTMLInputElement).value;
-          onValueChange?.(def.id, def.variable, v);
+          onValueChange?.(def.variable, v);
         }}
-        name={def.id}
+        name={def.variable}
         row={orientation === "horizontal"}
       >
         {items.map((item) => (
@@ -728,7 +732,7 @@ function renderRadioGroup(
         ))}
       </RadioGroup>
 
-      {def.description && (
+      {def["props"].description && (
         <FormHelperText
           style={{
             textAlign: "center",
@@ -737,7 +741,7 @@ function renderRadioGroup(
             paddingRight: 0,
           }}
         >
-          {def.description}
+          {def["props"].description}
         </FormHelperText>
       )}
     </FormControl>

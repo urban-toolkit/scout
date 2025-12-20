@@ -4,7 +4,6 @@ import { Position, NodeResizer, useReactFlow, Handle } from "@xyflow/react";
 import "./PyCodeEditorNode.css";
 import restartPng from "../assets/restart.png";
 import runPng from "../assets/run.png";
-import runPng2 from "../assets/run-icon-2.png";
 import checkPng from "../assets/check-mark.png";
 import expandPng from "../assets/expand.png";
 import { WidgetOutput } from "./utils/types";

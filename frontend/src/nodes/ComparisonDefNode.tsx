@@ -1,22 +1,17 @@
-// src/nodes/InteractionNode.tsx
-
 import { memo, useCallback, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { Handle, Position, useReactFlow, NodeResizer } from "@xyflow/react";
 import BaseGrammarNode, { BaseNodeData } from "./BaseGrammarNode";
 
-// **
-import schema from "../schemas/comparisonDef.json";
+import schema from "../schemas/comparison.json";
 
 import "./BaseGrammarNode.css";
 
 import expandPng from "../assets/expand.png";
 import restartPng from "../assets/restart.png";
 
-// **
 export type ComparisonDefNodeData = BaseNodeData;
 
-// **
 export type ComparisonDefNode = Node<
   ComparisonDefNodeData,
   "comparisonDefNode"
@@ -46,12 +41,10 @@ const ComparisonDefNode = memo(function ComparisonDefNode(
       const cmValue = (n.data as BaseNodeData)?.value as any;
       const cmId: string | undefined = cmValue?.comparison?.id;
 
-      // All targets currently connected FROM this physical node
       const targetIds = curEdges
         .filter((e) => e.source === nodeId)
         .map((e) => e.target);
 
-      // 1) Update connected view nodes: remove this physical layer ref
       setNodes((nds) =>
         nds
           //   .map((nn) => {
@@ -72,7 +65,6 @@ const ComparisonDefNode = memo(function ComparisonDefNode(
           //       } as ViewportNodeData,
           //     };
           //   })
-          // 2) Remove this physical-layer node itself
           .filter((nn) => nn.id !== nodeId)
       );
 
@@ -143,7 +135,7 @@ const ComparisonDefNode = memo(function ComparisonDefNode(
           selected={selected}
           data={{
             ...data,
-            title: data.title ?? "Grammar • comparison",
+            title: data.title ?? "Comparison",
             schema,
             pickInner: (v) => (v as any)?.comparison,
             onClose: onCloseComparisonDefNode,
@@ -162,7 +154,7 @@ const ComparisonDefNode = memo(function ComparisonDefNode(
           <div className="gnode__minimized">
             {/* Big fetch button */}
             <button type="button" className="gnode__minimizedNodeTtitleBtn">
-              {data.title ?? "Grammar • comparison"}
+              {data.title ?? "Comparison"}
             </button>
             {/* Floating restore (top-left) */}
             <button

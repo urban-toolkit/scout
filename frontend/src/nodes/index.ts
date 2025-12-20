@@ -1,8 +1,8 @@
 import { BaseNodeData } from "./BaseGrammarNode";
 
-import PhysicalLayerNode, {
-  PhysicalLayerNode as PhysicalLayerNodeType,
-} from "./PhysicalLayerNode";
+import DataLayerNode, {
+  DataLayerNode as DataLayerNodeType,
+} from "./DataLayerNode";
 
 import ViewNode, { ViewNode as ViewNodeType, ViewNodeData } from "./ViewNode";
 
@@ -48,7 +48,7 @@ import ComparisonViewNode, {
 
 // register all implemented node types
 export const nodeTypes = {
-  physicalLayerNode: PhysicalLayerNode,
+  dataLayerNode: DataLayerNode,
   viewNode: ViewNode,
   viewportNode: ViewportNode,
   pyCodeEditorNode: PyCodeEditorNode,
@@ -64,7 +64,7 @@ export const nodeTypes = {
 
 // union helpers (extend as you add more)
 export type AnyNode =
-  | PhysicalLayerNodeType
+  | DataLayerNodeType
   | ViewNodeType
   | ViewportNodeType
   | InteractionNodeType

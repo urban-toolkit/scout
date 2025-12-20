@@ -1,12 +1,16 @@
 // types.ts
 
 // DataLayerDef
-export type PhysicalLayerDef = {
+export type DataLayerDef = {
   id: string;
-  type: "raster" | "vector";
-  datafile: string;
-  region_of_interest: { type: "bbox" | "geojson"; value: number[] | string };
-  layers: { tag: string; features: string[] }[];
+  source: string;
+
+  // type: "raster" | "vector";
+  dtype: string;
+
+  roi: { datafile: string; type: "bbox" | "geojson"; value: number[] | string };
+
+  osm_features: { feature: string; attributes: string[] }[];
 };
 
 // ViewDef only. No ParsedView should exist.
@@ -25,8 +29,10 @@ export type ViewDef = {
 export type InteractionDef = {
   id: string;
 
+  ref: string;
+
   // "click" or "hover"
-  type: string;
+  itype: string;
 
   // - "remove"
   // - "modify_feature"
@@ -34,33 +40,31 @@ export type InteractionDef = {
   // - "highlight+show"
   action: string;
 
-  ref: string;
-
-  // layer: {
-  //   tag: string;
-  feature?: string;
-  // };
+  attribute?: string;
 };
 
 export type WidgetDef = {
-  id: string;
+  // id: string;
+  wtype: string;
   variable: string;
-  type: string;
-  title: string;
-  description: string;
-  "default-value": any;
+  choices: any[];
+  default: any;
 
-  [key: string]: any;
+  props: Record<string, any>;
+
+  // title: string;
+  // description: string;
+  // [key: string]: any;
 };
 
 export type ComparisonDef = {
   key: string[];
   metric: string;
-  encoding: string;
+  chart: string;
 };
 
 export type WidgetOutput = {
-  id: string;
+  // id: string;
   variable: string;
   value: any;
 };

@@ -8,7 +8,7 @@ import { ComparisonTable } from "./comparisonTable";
 type ComparisonAPIResponse = {
   status: string;
   metric: string;
-  encoding: string;
+  chart: string;
   unit: string;
   values: Record<string, number>;
 };
@@ -32,7 +32,7 @@ export async function renderComparisonFromDef(
 
   const data: ComparisonAPIResponse = await res.json();
 
-  if (data.encoding === "bar") {
+  if (data.chart === "bar") {
     return (
       <ComparisonBarChart
         values={data.values}
@@ -42,7 +42,7 @@ export async function renderComparisonFromDef(
     );
   }
 
-  if (data.encoding === "pie") {
+  if (data.chart === "pie") {
     return (
       <ComparisonPieChart
         values={data.values}
@@ -52,7 +52,7 @@ export async function renderComparisonFromDef(
     );
   }
 
-  if (data.encoding === "table") {
+  if (data.chart === "table") {
     return (
       <ComparisonTable
         values={data.values}

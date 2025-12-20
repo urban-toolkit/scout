@@ -363,7 +363,7 @@ const ViewportNode = memo(function ViewportNode({
           <input
             type="text"
             className="pcenode__titleInput"
-            value={data?.title ?? "Viewport"}
+            value={data?.title ?? "View"}
             onChange={handleTitleChange}
           />
         </div>

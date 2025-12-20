@@ -12,7 +12,7 @@ import { renderComparisonFromDef } from "./utils/renderComparison";
 export type ComparisonViewNodeData = {
   onClose?: (id: string) => void;
   onRun?: (srcId: string, trgId?: string) => void;
-  comparison?: ComparisonDef;
+  comparison: ComparisonDef;
 };
 
 export type ComparisonViewNode = Node<

@@ -123,7 +123,7 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
           selected={selected}
           data={{
             ...data,
-            title: data.title ?? "Grammar • view",
+            title: data.title ?? "View",
             schema,
             pickInner: (v) => (v as any)?.view,
             onClose: onCloseViewNode,
@@ -141,7 +141,7 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
           <div className="gnode__minimized">
             {/* Big fetch button */}
             <button type="button" className="gnode__minimizedNodeTtitleBtn">
-              {data.title ?? "Grammar • view"}
+              {data.title ?? "View"}
             </button>
             {/* Floating restore (top-left) */}
             <button

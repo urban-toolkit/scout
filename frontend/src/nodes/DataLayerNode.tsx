@@ -3,9 +3,8 @@ import type { NodeProps, Node } from "@xyflow/react";
 import { useReactFlow, Handle, Position, NodeResizer } from "@xyflow/react";
 
 import BaseGrammarNode, { BaseNodeData } from "./BaseGrammarNode";
-import schema from "../schemas/physical_layer.json";
+import schema from "../schemas/data_layer.json";
 
-import fetchPng from "../assets/fetch.png";
 import fetchPng2 from "../assets/fetch_2.png";
 
 import checkPng from "../assets/check-mark.png";
@@ -13,10 +12,10 @@ import checkPng from "../assets/check-mark.png";
 import expandPng from "../assets/expand.png";
 import restartPng from "../assets/restart.png";
 
-import "./PhysicalLayerNode.css";
+import "./DataLayerNode.css";
 import "./BaseGrammarNode.css";
 
-export type PhysicalLayerNode = Node<BaseNodeData, "physicalLayerNode">;
+export type DataLayerNode = Node<BaseNodeData, "dataLayerNode">;
 
 const NODE_MIN_WIDTH = 300;
 const NODE_MIN_HEIGHT = 180;
@@ -24,8 +23,8 @@ const NODE_MIN_HEIGHT = 180;
 const NODE_MINIMIZED_WIDTH = 150;
 const NODE_MINIMIZED_HEIGHT = 48;
 
-const PhysicalLayerNode = memo(function PhysicalLayerNode(
-  props: NodeProps<PhysicalLayerNode>
+const DataLayerNode = memo(function DataLayerNode(
+  props: NodeProps<DataLayerNode>
 ) {
   const { id, data, selected } = props;
   const rf = useReactFlow();
@@ -36,11 +35,10 @@ const PhysicalLayerNode = memo(function PhysicalLayerNode(
   const [minimized, setMinimized] = useState(false);
 
   const onFetch = useCallback(async () => {
-    // console.log(data.title, "fetching physical layer data...");
-    const val: any = (data.value as any)?.physical_layer;
+    const val: any = (data.value as any)?.data_layer;
 
     if (!val) {
-      console.warn("No physical_layer data found for node", id);
+      console.warn("No data_layer data found for node", id);
       return;
     }
 
@@ -48,7 +46,7 @@ const PhysicalLayerNode = memo(function PhysicalLayerNode(
       setLoading(true);
       setLoadingSuccess(false);
       const response = await fetch(
-        "http://127.0.0.1:5000/api/ingest-physical-layer",
+        "http://127.0.0.1:5000/api/extract-data-layer",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -71,7 +69,7 @@ const PhysicalLayerNode = memo(function PhysicalLayerNode(
     }
   }, [data, id]);
 
-  const onClosePhysicalNode = useCallback(
+  const onCloseDataNode = useCallback(
     (nodeId: string) => {
       rf.setNodes((nds) => nds.filter((n) => n.id !== nodeId));
 
@@ -175,9 +173,7 @@ const PhysicalLayerNode = memo(function PhysicalLayerNode(
               )}
 
               <span className="gnode__minimizedText">
-                {loading
-                  ? "Fetching..."
-                  : data.title ?? "Grammar • physical_layer"}
+                {loading ? "Fetching..." : data.title ?? "Data layer"}
               </span>
             </button>
 
@@ -207,10 +203,10 @@ const PhysicalLayerNode = memo(function PhysicalLayerNode(
           selected={selected}
           data={{
             ...data,
-            title: data.title ?? "Grammar • physical_layer",
+            title: data.title ?? "Data layer",
             schema,
-            pickInner: (v) => (v as any)?.physical_layer,
-            onClose: onClosePhysicalNode,
+            pickInner: (v) => (v as any)?.data_layer,
+            onClose: onCloseDataNode,
             onToggleMinimize: handleToggleMinimize,
             footerActions: (
               <button
@@ -246,7 +242,7 @@ const PhysicalLayerNode = memo(function PhysicalLayerNode(
       <Handle
         type="source"
         position={Position.Right}
-        id="physical-out"
+        id="data-out"
         className={`gnode__handle gnode__handle--right ${
           minimized ? "gnode__handle--hidden" : ""
         }`}
@@ -255,4 +251,4 @@ const PhysicalLayerNode = memo(function PhysicalLayerNode(
   );
 });
 
-export default PhysicalLayerNode;
+export default DataLayerNode;

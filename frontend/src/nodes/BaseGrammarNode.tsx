@@ -17,7 +17,6 @@ import restartPng from "../assets/restart.png";
 export type GrammarValue = unknown;
 
 const nodeColor: Record<string, string> = {
-  physical_layer: "#f5d1d2",
   data_layer: "#f5d1d2",
   join: "#f5d1d2",
   interaction: "#D2E4F0",
@@ -27,7 +26,6 @@ const nodeColor: Record<string, string> = {
 };
 
 const nodeBorderColor: Record<string, string> = {
-  physical_layer: "#cb181d",
   data_layer: "#cb181d",
   join: "#cb181d",
   interaction: "#1f78b4",
@@ -173,13 +171,9 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
           />
         </div>
         <div className="gnode__headerActions">
-          <span
-            className={`gnode__badge ${
-              overallValid ? "is-valid" : "is-invalid"
-            }`}
-          >
-            {overallValid ? "VALID" : "INVALID"}
-          </span>
+          {!overallValid && (
+            <span className="gnode__badge is-invalid">INVALID</span>
+          )}
           <button
             type="button"
             className="gnode__iconBtn"

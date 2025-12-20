@@ -98,3 +98,10 @@ export function colorToRgb(str: string): [number, number, number] {
     .map((x) => Number(x));
   return [nums[0] ?? 0, nums[1] ?? 0, nums[2] ?? 0];
 }
+
+export function getGeometryTypeFromGeoJSON(fc: any): string | null {
+  if (!fc || !Array.isArray(fc.features) || !fc.features.length) return null;
+
+  const t = fc.features[0]?.geometry?.type;
+  return typeof t === "string" ? t : null;
+}

@@ -13,17 +13,15 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useCallback, useRef, useState } from "react";
 
-import { nodeTypes } from "./nodes"; // <-- { physicalLayerNode, viewNode, ... }
+import { nodeTypes } from "./nodes"; // <-- { dataLayerNode, viewNode, ... }
 import type { Node, Connection, Edge } from "@xyflow/react";
 import type { BaseNodeData } from "./nodes/BaseGrammarNode";
 
 import { TEMPLATES, TEMPLATE_LABELS, TemplateKey } from "./templates";
 import "./App.css";
-// import { ViewNodeData } from "./nodes/ViewNode";
 import type { ViewportNodeData } from "./nodes/ViewportNode";
 import type { WidgetViewNodeData } from "./nodes/WidgetViewNode";
 import type { PyCodeEditorNodeData } from "./nodes/PyCodeEditorNode";
-import { TransformationNodeData } from "./nodes/TransformationNode";
 import { ComparisonViewNodeData } from "./nodes/ComparisonViewNode";
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
@@ -61,16 +59,14 @@ function Canvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { getNode, getEdges } = useReactFlow();
 
-  const pushPhysicalToViews = useCallback(
+  const pushDataLayerToViews = useCallback(
     (srcId: string, trgId?: string) => {
-      // Don't think we need to pass anything from physical layer to view for now!!
-      // Later might need to pass some metadata? or will remove this function!
       const src = getNode(srcId);
-      if (!src || src.type !== "physicalLayerNode") return;
+      if (!src || src.type !== "dataLayerNode") return;
 
       const val: any = (src.data as BaseNodeData).value;
-      const pl_def = val?.physical_layer;
-      if (!pl_def) return;
+      const dl_def = val?.data_layer;
+      if (!dl_def) return;
 
       const targetIds = trgId
         ? [trgId]
@@ -88,7 +84,6 @@ function Canvas() {
 
   const pushViewToViewports = useCallback(
     (srcId: string, trgId?: string) => {
-      // console.log("Pushing view to viewports", srcId, trgId);
       const src = getNode(srcId);
       if (!src || src.type !== "viewNode") return;
 
@@ -134,17 +129,20 @@ function Canvas() {
         nds.map((n) => {
           if (!targetIds.includes(n.id) || n.type !== "viewportNode") return n;
 
-          const existing = (n.data as ViewportNodeData).interactions ?? [];
-          const already = existing.some((e) => e.id === i.id);
-          const nextInteractions = already
-            ? existing.map((e) => (e.id === i.id ? i : e))
-            : [...existing, i];
+          // const existing = (n.data as ViewportNodeData).interactions ?? [];
+          // const already = existing.some((e) => e.id === i.id);
+          // const nextInteractions = already
+          //   ? existing.map((e) => (e.id === i.id ? i : e))
+          //   : [...existing, i];
 
           return {
             ...n,
             data: {
               ...n.data,
-              interactions: nextInteractions,
+              interactions: [
+                ...((n.data as ViewportNodeData).interactions ?? []),
+                i,
+              ],
             } as ViewportNodeData,
           };
         })
@@ -181,7 +179,7 @@ function Canvas() {
             data: {
               ...n.data,
               widget: wDef,
-              pushToken: uuid, // 👈 always changes on push
+              pushToken: uuid,
             } as WidgetViewNodeData,
           };
         })
@@ -276,29 +274,6 @@ function Canvas() {
     [getNode, getEdges, setNodes]
   );
 
-  const pushViewportToTransformation = useCallback(
-    (srcId: string, trgId?: string) => {
-      // Don't think we need to pass anything from viewport to transformation for now!!
-      // Later might need to pass some metadata? or will remove this function!
-      const src = getNode(srcId);
-      if (!src || src.type !== "viewportNode") return;
-
-      const val: any = src.data as ViewportNodeData;
-
-      const targetIds = trgId
-        ? [trgId]
-        : getEdges()
-            .filter((e) => e.source === srcId)
-            .map((e) => e.target!)
-            .filter(Boolean);
-    },
-    [
-      getNode,
-      getEdges,
-      // setNodes
-    ]
-  );
-
   const handleCloseWidgetView = useCallback(
     (nodeId: string) => {
       const n = getNode(nodeId);
@@ -351,7 +326,7 @@ function Canvas() {
         setNodes,
         template: tpl,
         getNode,
-        onRunPhysical: pushPhysicalToViews,
+        onRunDataLayer: pushDataLayerToViews,
         onRunView: pushViewToViewports,
         onRunInteraction: pushInteractionToViewport,
         onRunWidgetDef: pushWidgetDefToWidgetView,
@@ -361,7 +336,7 @@ function Canvas() {
     [
       setNodes,
       getNode,
-      pushPhysicalToViews,
+      pushDataLayerToViews,
       pushViewToViewports,
       pushInteractionToViewport,
       pushWidgetDefToWidgetView,
@@ -374,9 +349,9 @@ function Canvas() {
     createViewportNode({
       id: nextId,
       setNodes,
-      onRunViewport: pushViewportToTransformation,
+      // onRunViewport: pushViewportToTransformation,
     });
-  }, [setNodes, pushViewportToTransformation]);
+  }, [setNodes]);
 
   const addPyCodeEditorNode = useCallback(() => {
     const nextId = `pyCodeEditor-${idCounter.current++}`;
@@ -406,18 +381,17 @@ function Canvas() {
     });
   }, [setNodes]);
 
-  // --- allow only physicalLayerNode -> viewNode
   const allow = useCallback(
     (conn: Connection) => {
       if (!conn.source || !conn.target) return false;
       const src = getNode(conn.source);
       const trg = getNode(conn.target);
       if (!src || !trg) return false;
-      const physToView =
-        src.type === "physicalLayerNode" && trg.type === "viewNode";
+      const dataLayerToView =
+        src.type === "dataLayerNode" && trg.type === "viewNode";
 
-      const physToViewPort =
-        src.type === "physicalLayerNode" && trg.type === "viewportNode";
+      const dataLayerToViewport =
+        src.type === "dataLayerNode" && trg.type === "viewportNode";
 
       const viewToViewport =
         src.type === "viewNode" && trg.type === "viewportNode";
@@ -464,8 +438,8 @@ function Canvas() {
         src.type === "pyCodeEditorNode" && trg.type === "comparisonViewNode";
 
       return (
-        physToView ||
-        physToViewPort ||
+        dataLayerToView ||
+        dataLayerToViewport ||
         viewToViewport ||
         interactionToViewport ||
         viewportToPyCodeEditor ||
@@ -498,8 +472,8 @@ function Canvas() {
       const trgId = conn.target!;
       if (!src || !trg) return;
 
-      if (src.type === "physicalLayerNode" && trg.type === "viewNode") {
-        pushPhysicalToViews(srcId, trgId);
+      if (src.type === "dataLayerNode" && trg.type === "viewNode") {
+        pushDataLayerToViews(srcId, trgId);
         return;
       }
 
@@ -510,21 +484,6 @@ function Canvas() {
 
       if (src.type === "interactionNode" && trg.type === "viewportNode") {
         pushInteractionToViewport(srcId, trgId);
-        return;
-      }
-
-      // This is not required, as instead of using transformation node, we are using code instead.
-      // Maybe later will remove this if block
-      if (src.type === "viewportNode" && trg.type === "transformationNode") {
-        pushViewportToTransformation(srcId, trgId);
-        return;
-      }
-
-      if (
-        src.type === "transformationNode" &&
-        trg.type === "pyCodeEditorNode"
-      ) {
-        // pushTransformationToPyCodeEditor(srcId, trgId);
         return;
       }
 
@@ -550,10 +509,9 @@ function Canvas() {
       allow,
       getNode,
       setEdges,
-      pushPhysicalToViews,
+      pushDataLayerToViews,
       pushViewToViewports,
       pushInteractionToViewport,
-      pushViewportToTransformation,
       pushWidgetDefToWidgetView,
       pushWidgetViewToPyCodeEditorNode,
       pushComparisonDefToComparisonView,
@@ -693,7 +651,7 @@ function Toolbar({
 
 // Map template key -> node type key from ./nodes
 const kindToType: Record<TemplateKey, keyof typeof nodeTypes> = {
-  physical_layer: "physicalLayerNode",
+  data_layer: "dataLayerNode",
   view: "viewNode",
   interaction: "interactionNode",
   // transformation: "transformationNode",
@@ -706,7 +664,7 @@ function createGrammarNode({
   setNodes,
   template,
   getNode,
-  onRunPhysical,
+  onRunDataLayer,
   onRunView,
   onRunInteraction,
   onRunWidgetDef,
@@ -726,7 +684,7 @@ function createGrammarNode({
   >;
   template: TemplateKey;
   getNode: (id: string) => Node | undefined;
-  onRunPhysical: (srcId: string) => void;
+  onRunDataLayer: (srcId: string) => void;
   onRunView: (srcId: string) => void;
   onRunInteraction: (srcId: string) => void;
   onRunWidgetDef: (srcId: string) => void;
@@ -753,15 +711,12 @@ function createGrammarNode({
       onRun: (nodeId) => {
         const node = getNode(nodeId);
         if (!node) return;
-        if (node.type === "physicalLayerNode") {
-          onRunPhysical(nodeId);
+        if (node.type === "dataLayerNode") {
+          onRunDataLayer(nodeId);
         } else if (node.type === "viewNode") {
           onRunView(nodeId);
         } else if (node.type === "interactionNode") {
           onRunInteraction(nodeId);
-        } else if (node.type === "transformationNode") {
-          const data = node.data as TransformationNodeData;
-          console.log("Transformation node data:", data);
         } else if (node.type === "widgetDefNode") {
           onRunWidgetDef(nodeId);
         } else if (node.type === "comparisonDefNode") {

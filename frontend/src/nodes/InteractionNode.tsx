@@ -1,5 +1,3 @@
-// src/nodes/InteractionNode.tsx
-
 import { memo, useCallback, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { Handle, Position, useReactFlow, NodeResizer } from "@xyflow/react";
@@ -38,14 +36,12 @@ const InteractionNode = memo(function InteractionNode(
 
       // Interaction spec from this node
       const iValue = (n.data as BaseNodeData)?.value as any;
-      const iId: string | undefined = iValue?.interaction?.id;
+      // const iId: string | undefined = iValue?.interaction?.id;
 
-      // All targets currently connected FROM this physical node
       const targetIds = curEdges
         .filter((e) => e.source === nodeId)
         .map((e) => e.target);
 
-      // 1) Update connected view nodes: remove this physical layer ref
       setNodes((nds) =>
         nds
           .map((nn) => {
@@ -56,7 +52,13 @@ const InteractionNode = memo(function InteractionNode(
             const vpData = nn.data as ViewportNodeData;
             const existing = vpData.interactions ?? [];
 
-            const next = iId ? existing.filter((d) => d.id !== iId) : existing;
+            // not with id. match by whole object and remove interaction from viewport
+            const next = iValue
+              ? existing.filter(
+                  (d) =>
+                    JSON.stringify(d) !== JSON.stringify(iValue.interaction)
+                )
+              : existing;
 
             return {
               ...nn,
@@ -66,7 +68,6 @@ const InteractionNode = memo(function InteractionNode(
               } as ViewportNodeData,
             };
           })
-          // 2) Remove this physical-layer node itself
           .filter((nn) => nn.id !== nodeId)
       );
 
@@ -137,7 +138,7 @@ const InteractionNode = memo(function InteractionNode(
           selected={selected}
           data={{
             ...data,
-            title: data.title ?? "Grammar • interaction",
+            title: data.title ?? "Interaction",
             schema,
             pickInner: (v) => (v as any)?.interaction,
             onClose: onCloseInteractionNode,
@@ -156,7 +157,7 @@ const InteractionNode = memo(function InteractionNode(
           <div className="gnode__minimized">
             {/* Big fetch button */}
             <button type="button" className="gnode__minimizedNodeTtitleBtn">
-              {data.title ?? "Grammar • interaction"}
+              {data.title ?? "Interaction"}
             </button>
             {/* Floating restore (top-left) */}
             <button
