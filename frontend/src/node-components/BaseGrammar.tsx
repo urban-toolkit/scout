@@ -10,8 +10,8 @@ import { NodeResizer, useReactFlow } from "@xyflow/react";
 import type { NodeProps, Node } from "@xyflow/react";
 import Ajv, { ErrorObject } from "ajv";
 import addFormats from "ajv-formats";
-import JsonCodeEditor from "../components/JsonCodeEditor";
-import "./BaseGrammarNode.css";
+import JsonCodeEditor from "./JsonCodeEditor";
+import "./BaseGrammar.css";
 import restartPng from "../assets/restart.png";
 
 export type GrammarValue = unknown;

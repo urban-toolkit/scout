@@ -11,13 +11,13 @@ import { Position, NodeResizer, useReactFlow, Handle } from "@xyflow/react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./ViewportNode.css";
-import restartPng from "../assets/restart.png";
-import persistPng from "../assets/update-data.png";
-import mapPng from "../assets/map.png";
-import checkPng from "../assets/check-mark.png";
+import restartPng from "../../assets/restart.png";
+import persistPng from "../../assets/update-data.png";
+import mapPng from "../../assets/map.png";
+import checkPng from "../../assets/check-mark.png";
 import * as d3 from "d3";
-import { ViewDef, InteractionDef } from "./utils/types";
-import { renderLayers } from "./utils/renderViewLayers";
+import { ViewDef, InteractionDef } from "../../utils/types";
+import { renderLayers } from "../../utils/renderViewLayers";
 
 export type ViewportNodeData = {
   title?: string;

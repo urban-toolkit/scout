@@ -2,12 +2,12 @@ import { memo, useCallback, useState, type ChangeEvent } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { Position, NodeResizer, useReactFlow, Handle } from "@xyflow/react";
 import "./PyCodeEditorNode.css";
-import restartPng from "../assets/restart.png";
-import runPng from "../assets/run.png";
-import checkPng from "../assets/check-mark.png";
-import expandPng from "../assets/expand.png";
-import { WidgetOutput } from "./utils/types";
-import PythonCodeEditor from "../components/PythonCodeEditor";
+import restartPng from "../../assets/restart.png";
+import runPng from "../../assets/run.png";
+import checkPng from "../../assets/check-mark.png";
+import expandPng from "../../assets/expand.png";
+import { WidgetOutput } from "../../utils/types";
+import PythonCodeEditor from "../../node-components/PythonCodeEditor";
 
 export type PyCodeEditorNodeData = {
   title?: string;
@@ -136,7 +136,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
         stderr: "",
       });
 
-      const res = await fetch("http://localhost:5000/api/run-python", {
+      const res = await fetch("http://127.0.0.1:5000/api/run-python", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: finalCode }),

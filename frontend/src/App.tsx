@@ -15,14 +15,14 @@ import { useCallback, useRef, useState } from "react";
 
 import { nodeTypes } from "./nodes"; // <-- { dataLayerNode, viewNode, ... }
 import type { Node, Connection, Edge } from "@xyflow/react";
-import type { BaseNodeData } from "./nodes/BaseGrammarNode";
+import type { BaseNodeData } from "./node-components/BaseGrammar";
 
 import { TEMPLATES, TEMPLATE_LABELS, TemplateKey } from "./templates";
 import "./App.css";
-import type { ViewportNodeData } from "./nodes/ViewportNode";
-import type { WidgetViewNodeData } from "./nodes/WidgetViewNode";
-import type { PyCodeEditorNodeData } from "./nodes/PyCodeEditorNode";
-import { ComparisonViewNodeData } from "./nodes/ComparisonViewNode";
+import type { ViewportNodeData } from "./nodes/view/ViewportNode";
+import type { WidgetViewNodeData } from "./nodes/widget/WidgetViewNode";
+import type { PyCodeEditorNodeData } from "./nodes/computation/PyCodeEditorNode";
+import { ComparisonViewNodeData } from "./nodes/comparison/ComparisonViewNode";
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
   style: {
@@ -242,12 +242,13 @@ function Canvas() {
           if (!targetIds.includes(n.id) || n.type !== "pyCodeEditorNode")
             return n;
           const existing = (n.data as PyCodeEditorNodeData).widgetOutputs ?? [];
-          const already = existing.some((e) => e.id === val.output?.id);
+          const already = existing.some(
+            (e) => e.variable === val.output?.variable
+          );
           const nextWidgetOutputs = already
             ? existing.map((e) =>
-                e.id === val.output?.id
+                e.variable === val.output?.variable
                   ? {
-                      id: val.output?.id,
                       variable: val.output.variable,
                       value: val.output.value,
                     }
@@ -256,7 +257,6 @@ function Canvas() {
             : [
                 ...existing,
                 {
-                  id: val.output?.id,
                   variable: val.output?.variable,
                   value: val.output?.value,
                 },
@@ -655,8 +655,8 @@ const kindToType: Record<TemplateKey, keyof typeof nodeTypes> = {
   view: "viewNode",
   interaction: "interactionNode",
   // transformation: "transformationNode",
-  widget_def: "widgetDefNode",
-  comparison_def: "comparisonDefNode",
+  widget: "widgetDefNode",
+  comparison: "comparisonNode",
 };
 
 function createGrammarNode({

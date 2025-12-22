@@ -1,42 +1,42 @@
 import { memo, useCallback, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { Handle, Position, useReactFlow, NodeResizer } from "@xyflow/react";
-import BaseGrammarNode, { BaseNodeData } from "./BaseGrammarNode";
-import schema from "../schemas/interaction.json";
+import BaseGrammarNode, {
+  BaseNodeData,
+} from "../../node-components/BaseGrammar";
+import schema from "../../schemas/widget.json";
 
-import "./BaseGrammarNode.css";
-import { ViewportNodeData } from "./ViewportNode";
+import "../../node-components/BaseGrammar.css";
 
-import expandPng from "../assets/expand.png";
-import restartPng from "../assets/restart.png";
+import expandPng from "../../assets/expand.png";
+import restartPng from "../../assets/restart.png";
 
-export type InteractionNodeData = BaseNodeData;
+export type WidgetDefNodeData = BaseNodeData;
 
-export type InteractionNode = Node<InteractionNodeData, "interactionNode">;
+export type WidgetDefNode = Node<WidgetDefNodeData, "widgetDefNode">;
 
 const NODE_MIN_WIDTH = 300;
 const NODE_MIN_HEIGHT = 180;
 const NODE_MINIMIZED_WIDTH = 150;
 const NODE_MINIMIZED_HEIGHT = 48;
 
-const InteractionNode = memo(function InteractionNode(
-  props: NodeProps<InteractionNode>
+const WidgetDefNode = memo(function WidgetDefNode(
+  props: NodeProps<WidgetDefNode>
 ) {
   const { id, data, selected } = props;
   const { getNode, getEdges, setNodes, setEdges } = useReactFlow();
   const rf = useReactFlow();
   const [minimized, setMinimized] = useState(false);
 
-  const onCloseInteractionNode = useCallback(
+  const onCloseWidgetDefNode = useCallback(
     (nodeId: string) => {
       const n = getNode(nodeId);
-      if (!n || n.type !== "interactionNode") return;
+      if (!n || n.type !== "widgetDefNode") return;
 
       const curEdges = getEdges();
 
-      // Interaction spec from this node
-      const iValue = (n.data as BaseNodeData)?.value as any;
-      // const iId: string | undefined = iValue?.interaction?.id;
+      const wdValue = (n.data as BaseNodeData)?.value as any;
+      const wdId: string | undefined = wdValue?.widget?.id;
 
       const targetIds = curEdges
         .filter((e) => e.source === nodeId)
@@ -44,30 +44,24 @@ const InteractionNode = memo(function InteractionNode(
 
       setNodes((nds) =>
         nds
-          .map((nn) => {
-            if (nn.type !== "viewportNode" || !targetIds.includes(nn.id)) {
-              return nn;
-            }
+          //   .map((nn) => {
+          //     if (nn.type !== "viewportNode" || !targetIds.includes(nn.id)) {
+          //       return nn;
+          //     }
 
-            const vpData = nn.data as ViewportNodeData;
-            const existing = vpData.interactions ?? [];
+          //     const vpData = nn.data as ViewportNodeData;
+          //     const existing = vpData.interactions ?? [];
 
-            // not with id. match by whole object and remove interaction from viewport
-            const next = iValue
-              ? existing.filter(
-                  (d) =>
-                    JSON.stringify(d) !== JSON.stringify(iValue.interaction)
-                )
-              : existing;
+          //     const next = iId ? existing.filter((d) => d.id !== iId) : existing;
 
-            return {
-              ...nn,
-              data: {
-                ...nn.data,
-                interactions: next.length ? next : undefined,
-              } as ViewportNodeData,
-            };
-          })
+          //     return {
+          //       ...nn,
+          //       data: {
+          //         ...nn.data,
+          //         interactions: next.length ? next : undefined,
+          //       } as ViewportNodeData,
+          //     };
+          //   })
           .filter((nn) => nn.id !== nodeId)
       );
 
@@ -138,10 +132,10 @@ const InteractionNode = memo(function InteractionNode(
           selected={selected}
           data={{
             ...data,
-            title: data.title ?? "Interaction",
+            title: data.title ?? "Widget",
             schema,
-            pickInner: (v) => (v as any)?.interaction,
-            onClose: onCloseInteractionNode,
+            pickInner: (v) => (v as any)?.widget,
+            onClose: onCloseWidgetDefNode,
             onToggleMinimize: handleToggleMinimize,
             // no custom onClose; BaseGrammarNode default remove is fine
           }}
@@ -157,7 +151,7 @@ const InteractionNode = memo(function InteractionNode(
           <div className="gnode__minimized">
             {/* Big fetch button */}
             <button type="button" className="gnode__minimizedNodeTtitleBtn">
-              {data.title ?? "Interaction"}
+              {data.title ?? "Widget"}
             </button>
             {/* Floating restore (top-left) */}
             <button
@@ -180,21 +174,34 @@ const InteractionNode = memo(function InteractionNode(
         </div>
       )}
 
-      <Handle
+      {/* <Handle
         type="source"
         position={Position.Left}
-        id="interaction-out-1"
-        className={`interactionnode__handle ${
+        id="widgetDef-out-1"
+        className="gnode__handle__source"
+      />
+
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="widgetDef-out-2"
+        className="gnode__handle__source"
+      /> */}
+
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="widgetDef-out-3"
+        className={`gnode__handle__source ${
           minimized ? "gnode__handle--hidden" : ""
         }`}
       />
 
-      {/* Source: to ViewportNode */}
       <Handle
         type="source"
-        position={Position.Right}
-        id="interaction-out-2"
-        className={`interactionnode__handle ${
+        position={Position.Bottom}
+        id="widgetDef-out-4"
+        className={`gnode__handle__source ${
           minimized ? "gnode__handle--hidden" : ""
         }`}
       />
@@ -202,4 +209,4 @@ const InteractionNode = memo(function InteractionNode(
   );
 });
 
-export default InteractionNode;
+export default WidgetDefNode;

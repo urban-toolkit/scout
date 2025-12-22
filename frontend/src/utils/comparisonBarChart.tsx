@@ -1,20 +1,21 @@
 import * as d3 from "d3";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function ComparisonBarChart({
   values,
   metric,
-  unit,
+  props,
 }: {
   values: Record<string, number>;
   metric: string;
-  unit: string;
+  props?: Record<string, any>;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const [width, setWidth] = useState(400);
   const height = 220;
+  console.log(props);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -107,8 +108,8 @@ export function ComparisonBarChart({
       .attr("text-anchor", "middle")
       .style("font-size", "16px")
       .style("font-family", "Inter, sans-serif")
-      .text(`${metric} (${unit})`);
-  }, [values, metric, width, unit]);
+      .text(`${metric} (${props?.unit ?? ""})`);
+  }, [values, metric, width, props]);
 
   return (
     <div ref={containerRef} style={{ width: "100%", overflow: "hidden" }}>

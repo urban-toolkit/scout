@@ -2,10 +2,10 @@ import { memo, useCallback, useEffect, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { Position, NodeResizer, useReactFlow, Handle } from "@xyflow/react";
 import "./WidgetViewNode.css";
-import restartPng from "../assets/restart.png";
-import expandPng from "../assets/expand.png";
-import type { WidgetDef, WidgetOutput } from "./utils/types";
-import { renderWidgetFromWidgetDef } from "./utils/renderWidget";
+import restartPng from "../../assets/restart.png";
+import expandPng from "../../assets/expand.png";
+import type { WidgetDef, WidgetOutput } from "../../utils/types";
+import { renderWidgetFromWidgetDef } from "../../utils/renderWidget";
 
 export type WidgetViewNodeData = {
   onClose?: (id: string) => void;
@@ -66,11 +66,11 @@ const WidgetViewNode = memo(function WidgetViewNode({
     if (!w) return;
 
     const out: WidgetOutput = {
-      id: w.id,
+      // id: w.id,
       variable: w["variable"],
-      value: w["default-value"],
+      value: w["default"],
     };
-    console.log("Setting widget default value:", out.value);
+    // console.log("Setting widget default value:", out.value);
 
     setWidgetValue(out);
 
@@ -125,14 +125,14 @@ const WidgetViewNode = memo(function WidgetViewNode({
         {renderWidgetFromWidgetDef(
           data?.widget,
           widgetValue?.value,
-          (wid, v, val) => {
+          (v, val) => {
             const out: WidgetOutput = {
-              id: wid,
+              // id: wid,
               variable: v,
               value: val,
             };
             setWidgetValue(out);
-            console.log("Widget value changed:", wid, v, val);
+            console.log("Widget value changed:", v, val);
 
             setNodes((nds) =>
               nds.map((n) =>
@@ -219,7 +219,7 @@ const WidgetViewNode = memo(function WidgetViewNode({
           </button>
 
           {/* Bottom-right: run/update with restartPng */}
-          {data.widget?.type !== "text" && (
+          {data.widget?.wtype !== "text" && (
             <button
               type="button"
               className="wvnode__floatingBtn wvnode__floatingBtn--bottomRight"

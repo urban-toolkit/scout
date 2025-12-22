@@ -9,7 +9,7 @@ type ComparisonAPIResponse = {
   status: string;
   metric: string;
   chart: string;
-  unit: string;
+  props: Record<string, any>;
   values: Record<string, number>;
 };
 
@@ -19,7 +19,7 @@ export async function renderComparisonFromDef(
 ): Promise<ReactNode> {
   console.log("Rendering comparison from definition:", def);
 
-  const res = await fetch("http://localhost:5000/api/comparison-view", {
+  const res = await fetch("http://127.0.0.1:5000/api/comparison-view", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(def),
@@ -37,7 +37,7 @@ export async function renderComparisonFromDef(
       <ComparisonBarChart
         values={data.values}
         metric={data.metric}
-        unit={data.unit}
+        props={data.props}
       />
     );
   }
@@ -47,7 +47,7 @@ export async function renderComparisonFromDef(
       <ComparisonPieChart
         values={data.values}
         metric={data.metric}
-        unit={data.unit}
+        props={data.props}
       />
     );
   }
@@ -57,7 +57,7 @@ export async function renderComparisonFromDef(
       <ComparisonTable
         values={data.values}
         metric={data.metric}
-        unit={data.unit}
+        props={data.props}
       />
     );
   }

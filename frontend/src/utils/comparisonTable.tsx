@@ -1,18 +1,18 @@
 // utils/comparisonTable.tsx
-import React from "react";
+// import React from "react";
 
 export function ComparisonTable({
   values,
   metric,
-  unit,
+  props,
 }: {
   values: Record<string, number>;
   metric: string;
-  unit: string; // <-- optional unit
+  props?: Record<string, any>;
 }) {
   const entries = Object.entries(values);
 
-  const label = unit ? `${metric} (${unit})` : metric; // final header label
+  const label = props?.unit ? `${metric} (${props.unit})` : metric; // final header label
 
   return (
     <div

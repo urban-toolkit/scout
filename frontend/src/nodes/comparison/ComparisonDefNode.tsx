@@ -1,14 +1,15 @@
 import { memo, useCallback, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { Handle, Position, useReactFlow, NodeResizer } from "@xyflow/react";
-import BaseGrammarNode, { BaseNodeData } from "./BaseGrammarNode";
+import BaseGrammarNode, {
+  BaseNodeData,
+} from "../../node-components/BaseGrammar";
 
-import schema from "../schemas/comparison.json";
+import schema from "../../schemas/comparison.json";
 
-import "./BaseGrammarNode.css";
-
-import expandPng from "../assets/expand.png";
-import restartPng from "../assets/restart.png";
+import "../../node-components/BaseGrammar.css";
+import expandPng from "../../assets/expand.png";
+import restartPng from "../../assets/restart.png";
 
 export type ComparisonDefNodeData = BaseNodeData;
 
@@ -152,11 +153,9 @@ const ComparisonDefNode = memo(function ComparisonDefNode(
             maxHeight={minimized ? NODE_MINIMIZED_HEIGHT : Infinity}
           />
           <div className="gnode__minimized">
-            {/* Big fetch button */}
             <button type="button" className="gnode__minimizedNodeTtitleBtn">
               {data.title ?? "Comparison"}
             </button>
-            {/* Floating restore (top-left) */}
             <button
               type="button"
               className="gnode__minimizedRestoreCircle_1 gnode__minimizedRestoreCircle--topLeft"

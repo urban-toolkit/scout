@@ -473,7 +473,7 @@ def comparison_view():
     key = data.get("key", [])
     metric = data.get("metric", "")
     chart = data.get("chart", "")
-    unit = data.get("unit", "")
+    props = data.get("props", {})
 
     results = {}   # store metric per layer
     for k in key:
@@ -488,7 +488,7 @@ def comparison_view():
     return jsonify({
         "status": "ok",
         "metric": metric,
-        "unit": unit,
+        "props": props,
         "values": results,
         "chart": chart,
     })

@@ -1,15 +1,15 @@
 // utils/comparisonPieChart.tsx
 import * as d3 from "d3";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function ComparisonPieChart({
   values,
   metric,
-  unit,
+  props,
 }: {
   values: Record<string, number>;
   metric: string;
-  unit: string;
+  props?: Record<string, any>;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -175,7 +175,7 @@ export function ComparisonPieChart({
           fontWeight: 500,
         }}
       >
-        {metric} ({unit})
+        {metric} ({props?.unit ?? ""})
       </div>
     </div>
   );

@@ -1,40 +1,48 @@
-import { BaseNodeData } from "./BaseGrammarNode";
+import { BaseNodeData } from "../node-components/BaseGrammar";
 
 import DataLayerNode, {
   DataLayerNode as DataLayerNodeType,
-} from "./DataLayerNode";
+} from "./data-layer/DataLayerNode";
 
-import ViewNode, { ViewNode as ViewNodeType, ViewNodeData } from "./ViewNode";
+import ViewNode, {
+  ViewNode as ViewNodeType,
+  ViewNodeData,
+} from "./view/ViewNode";
 
 import ViewportNode, {
   ViewportNode as ViewportNodeType,
   ViewportNodeData,
-} from "./ViewportNode";
+} from "./view/ViewportNode";
 
 import PyCodeEditorNode, {
   PyCodeEditorNode as PyCodeEditorNodeType,
   PyCodeEditorNodeData,
-} from "./PyCodeEditorNode";
+} from "./computation/PyCodeEditorNode";
 
 import InteractionNode, {
   InteractionNode as InteractionNodeType,
   InteractionNodeData,
-} from "./InteractionNode";
+} from "./interaction/InteractionNode";
 
 import WidgetDefNode, {
   WidgetDefNode as WidgetDefNodeType,
   WidgetDefNodeData,
-} from "./WidgetDefNode";
+} from "./widget/WidgetDefNode";
 
 import ComparisonDefNode, {
   ComparisonDefNode as ComparisonDefNodeType,
   ComparisonDefNodeData,
-} from "./ComparisonDefNode";
+} from "./comparison/ComparisonDefNode";
+
+import ComparisonNode, {
+  ComparisonNode as ComparisonNodeType,
+  ComparisonNodeData,
+} from "./comparison/ComparisonNode";
 
 import WidgetViewNode, {
   WidgetViewNode as WidgetViewNodeType,
   WidgetViewNodeData,
-} from "./WidgetViewNode";
+} from "./widget/WidgetViewNode";
 
 // import TransformationNode, {
 //   TransformationNode as TransformationNodeType,
@@ -44,7 +52,7 @@ import WidgetViewNode, {
 import ComparisonViewNode, {
   ComparisonViewNode as ComparisonViewNodeType,
   ComparisonViewNodeData,
-} from "./ComparisonViewNode";
+} from "./comparison/ComparisonViewNode";
 
 // register all implemented node types
 export const nodeTypes = {
@@ -57,9 +65,9 @@ export const nodeTypes = {
   widgetViewNode: WidgetViewNode,
   // joinNode: JoinNode,
   // transformationNode: TransformationNode,
-  // choiceNode: ChoiceNode,
   comparisonDefNode: ComparisonDefNode,
   comparisonViewNode: ComparisonViewNode,
+  comparisonNode: ComparisonNode,
 } as const;
 
 // union helpers (extend as you add more)
@@ -73,7 +81,8 @@ export type AnyNode =
   | WidgetDefNodeType
   | WidgetViewNodeType
   | ComparisonDefNodeType
-  | ComparisonViewNodeType;
+  | ComparisonViewNodeType
+  | ComparisonNodeType;
 
 export type AnyNodeData =
   | BaseNodeData
@@ -85,4 +94,5 @@ export type AnyNodeData =
   | WidgetDefNodeData
   | WidgetViewNodeData
   | ComparisonDefNodeData
-  | ComparisonViewNodeData;
+  | ComparisonViewNodeData
+  | ComparisonNodeData;

@@ -1,14 +1,16 @@
 import { memo, useCallback, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { useReactFlow, Handle, Position, NodeResizer } from "@xyflow/react";
-import BaseGrammarNode, { BaseNodeData } from "./BaseGrammarNode";
-import schema from "../schemas/view.json";
+import BaseGrammarNode, {
+  BaseNodeData,
+} from "../../node-components/BaseGrammar";
+import schema from "../../schemas/view.json";
 import type { ViewportNodeData } from "./ViewportNode";
 
-import "./BaseGrammarNode.css";
+import "../../node-components/BaseGrammar.css";
 
-import expandPng from "../assets/expand.png";
-import restartPng from "../assets/restart.png";
+import expandPng from "../../assets/expand.png";
+import restartPng from "../../assets/restart.png";
 
 export type ViewNodeData = BaseNodeData;
 

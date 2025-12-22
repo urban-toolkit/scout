@@ -2,17 +2,16 @@ import { memo, useCallback, useEffect, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { Position, NodeResizer, useReactFlow, Handle } from "@xyflow/react";
 import "./ComparisonViewNode.css";
-// import restartPng from "../assets/restart.png";
 import type { ReactNode } from "react";
 
 // Have to configure these
-import type { ComparisonDef } from "./utils/types";
-import { renderComparisonFromDef } from "./utils/renderComparison";
+import type { ComparisonDef } from "../../utils/types";
+import { renderComparisonFromDef } from "../../utils/renderComparison";
 
 export type ComparisonViewNodeData = {
   onClose?: (id: string) => void;
   onRun?: (srcId: string, trgId?: string) => void;
-  comparison: ComparisonDef;
+  comparison?: ComparisonDef;
 };
 
 export type ComparisonViewNode = Node<
@@ -60,7 +59,8 @@ const ComparisonViewNode = memo(function ComparisonViewNode({
 
   useEffect(() => {
     // no comparison → clear view
-    if (!data.comparison) {
+    const comparison = data.comparison;
+    if (!comparison) {
       setBodyContent(null);
       setError(null);
       setLoading(false);
@@ -73,10 +73,7 @@ const ComparisonViewNode = memo(function ComparisonViewNode({
 
     (async () => {
       try {
-        const content = await renderComparisonFromDef(
-          data.comparison,
-          ctrl.signal
-        );
+        const content = await renderComparisonFromDef(comparison, ctrl.signal);
         if (!ctrl.signal.aborted) {
           setBodyContent(content);
         }

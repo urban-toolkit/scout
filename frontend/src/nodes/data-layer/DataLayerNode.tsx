@@ -2,18 +2,18 @@ import { memo, useCallback, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { useReactFlow, Handle, Position, NodeResizer } from "@xyflow/react";
 
-import BaseGrammarNode, { BaseNodeData } from "./BaseGrammarNode";
-import schema from "../schemas/data_layer.json";
+import BaseGrammarNode, {
+  BaseNodeData,
+} from "../../node-components/BaseGrammar";
+import schema from "../../schemas/data_layer.json";
 
-import fetchPng2 from "../assets/fetch_2.png";
-
-import checkPng from "../assets/check-mark.png";
-
-import expandPng from "../assets/expand.png";
-import restartPng from "../assets/restart.png";
+import fetchPng2 from "../../assets/fetch_2.png";
+import checkPng from "../../assets/check-mark.png";
+import expandPng from "../../assets/expand.png";
+import restartPng from "../../assets/restart.png";
 
 import "./DataLayerNode.css";
-import "./BaseGrammarNode.css";
+import "../../node-components/BaseGrammar.css";
 
 export type DataLayerNode = Node<BaseNodeData, "dataLayerNode">;
 

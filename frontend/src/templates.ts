@@ -5,7 +5,6 @@ export type TemplateKey =
   // | "transformation"
   | "widget"
   | "comparison";
-// | "choice"
 // | "join"
 
 // for manhattan area
@@ -76,7 +75,6 @@ export const viewTemplate = {
 //   style: { colormap: "reds", legend: true, opacity: 0.7 },
 // },
 
-export const choiceTemplate = { choice: {} };
 export const joinTemplate = { join: {} };
 
 export const interactionTemplate = {
@@ -90,14 +88,15 @@ export const interactionTemplate = {
 
 export const widgetTemplate = {
   widget: {
-    id: "widget-0",
+    wtype: "radio-group",
     variable: "season",
-    title: "Season",
-    type: "radio-group",
-    description: "(select season for shadow analysis)",
-    items: ["spring", "summer", "winter"],
-    orientation: "horizontal",
-    "default-value": "summer",
+    choices: ["spring", "summer", "winter"],
+    default: "summer",
+    props: {
+      title: "Season",
+      description: "(select season for shadow analysis)",
+      orientation: "horizontal",
+    },
   },
 };
 
@@ -112,7 +111,6 @@ export const comparisonTemplate = {
 export const TEMPLATES: Record<TemplateKey, any> = {
   data_layer: dataLayerTemplate,
   view: viewTemplate,
-  // choice: choiceTemplate,
   // join: joinTemplate,
   // transformation: transformationTemplate,
   interaction: interactionTemplate,
@@ -123,7 +121,6 @@ export const TEMPLATES: Record<TemplateKey, any> = {
 export const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   data_layer: "Data layer",
   view: "View",
-  // choice: "choice",
   // join: "join",
   // transformation: "transformation",
   interaction: "Interaction",
@@ -132,51 +129,26 @@ export const TEMPLATE_LABELS: Record<TemplateKey, string> = {
 };
 
 // -------------------------------------------
-// Download data:
-// -------------------------------------------
-
-// from download_data import download_osm_data
-// from download_data import extract_buildings
-// from download_data import extract_roads
-
-// input_filename = "north-america-latest"
-// location = "Los Angeles, USA"
-// output_filename = "la"
-
-// download_osm_data(
-//   input_filename, location, output_filename
-// )
-
-// extract_buildings("la")
-// extract_roads("la")
-
-// -------------------------------------------
 // Conversion to raster:
 // -------------------------------------------
 
-// from convert_to_raster import convert_raster
+// from transformations.raster_conversion.scripts.convert_to_raster import convert_raster
 
-// ref = "A"
-// input = "%s"%(ref)
-// output = "%s_rasters"%(ref)
+// input = "A_buildings"
+// output = "A_rasters"
 
-// tag = "buildings"
-// feature = "height"
+// attribute = "height"
 // zoom = 16
 
-// convert_raster(input, tag, feature, zoom, output)
+// convert_raster(input, attribute, zoom, output
 
 // -------------------------------------------
 // Run shadow model:
 // -------------------------------------------
 
-// from deep_umbra import run_shadow_model
+// from models.shadow.scripts.deep_umbra import run_shadow_model
 
-// ref = "A"
-// input = '%s_rasters'%(ref)
-// output = '%s_shadow'%(ref)
+// input = 'A_rasters'
+// output = 'A_shadow'
 
-// # season = 'winter'
-// # colormap = 'Blues'
-
-// run_shadow_model(input, season, colormap, output)
+// run_shadow_model(input, season, output)
