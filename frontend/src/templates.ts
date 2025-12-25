@@ -43,10 +43,6 @@ export const viewTemplate = {
   view: [
     {
       ref: "A_buildings",
-      type: "vector",
-      file_type: "geojson",
-      geom_type: "multipolygon",
-
       style: {
         fill: {
           feature: "height",
@@ -57,32 +53,36 @@ export const viewTemplate = {
         opacity: 1,
       },
     },
-    // {
-    //   ref: "A_roads",
-    //   type: "vector",
-    //   file_type: "geojson",
-    //   geom_type: "linestring",
-    //   style: {
-    //     "stroke-color": "#333333",
-    //     opacity: 1,
-    //   },
-    // },
+    {
+      ref: "A_roads",
+      style: {
+        "stroke-color": "#333333",
+        opacity: 1,
+      },
+    },
   ],
 };
 // {
-//   thematic_layer: { ref: "S1" },
-//   type: "raster",
-//   style: { colormap: "reds", legend: true, opacity: 0.7 },
-// },
+//   "view": [
+//     {
+//       "ref_base": "B",
+//       "ref_comp": "A",
+
+//       "style": {
+//         "opacity": 1,
+//         "colormap": "reds"
+//       }
+//     }
+//   ]
+// }
 
 export const joinTemplate = { join: {} };
 
 export const interactionTemplate = {
   interaction: {
     ref: "A_buildings",
-    itype: "hover",
-    action: "highlight+show",
-    attribute: "height",
+    itype: "click",
+    action: "remove",
   },
 };
 
@@ -103,8 +103,11 @@ export const widgetTemplate = {
 export const comparisonTemplate = {
   comparison: {
     key: ["A_shadow", "B_shadow"],
-    metric: "mean",
-    chart: "bar",
+    metric: "Mean Acc shadow",
+    chart: "table",
+    props: {
+      unit: "minutes",
+    },
   },
 };
 
