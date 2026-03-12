@@ -79,7 +79,7 @@ function Canvas() {
       getNode,
       getEdges,
       // setNodes
-    ]
+    ],
   );
 
   const pushViewToViewports = useCallback(
@@ -103,10 +103,10 @@ function Canvas() {
           if (!targetIds.includes(n.id)) return n;
           if (n.type !== "viewportNode") return n;
           return { ...n, data: { ...n.data, view: viewSpec } };
-        })
+        }),
       );
     },
-    [getNode, getEdges, setNodes]
+    [getNode, getEdges, setNodes],
   );
 
   const pushInteractionToViewport = useCallback(
@@ -145,10 +145,10 @@ function Canvas() {
               ],
             } as ViewportNodeData,
           };
-        })
+        }),
       );
     },
-    [getNode, getEdges, setNodes]
+    [getNode, getEdges, setNodes],
   );
 
   const pushWidgetDefToWidgetView = useCallback(
@@ -182,10 +182,10 @@ function Canvas() {
               pushToken: uuid,
             } as WidgetViewNodeData,
           };
-        })
+        }),
       );
     },
-    [getNode, getEdges, setNodes]
+    [getNode, getEdges, setNodes],
   );
 
   const pushComparisonDefToComparisonView = useCallback(
@@ -218,10 +218,10 @@ function Canvas() {
               comparison: cDef,
             } as ComparisonViewNodeData,
           };
-        })
+        }),
       );
     },
-    [getNode, getEdges, setNodes]
+    [getNode, getEdges, setNodes],
   );
 
   const pushWidgetViewToPyCodeEditorNode = useCallback(
@@ -243,7 +243,7 @@ function Canvas() {
             return n;
           const existing = (n.data as PyCodeEditorNodeData).widgetOutputs ?? [];
           const already = existing.some(
-            (e) => e.variable === val.output?.variable
+            (e) => e.variable === val.output?.variable,
           );
           const nextWidgetOutputs = already
             ? existing.map((e) =>
@@ -252,7 +252,7 @@ function Canvas() {
                       variable: val.output.variable,
                       value: val.output.value,
                     }
-                  : e
+                  : e,
               )
             : [
                 ...existing,
@@ -268,10 +268,10 @@ function Canvas() {
               widgetOutputs: nextWidgetOutputs,
             } as PyCodeEditorNodeData,
           };
-        })
+        }),
       );
     },
-    [getNode, getEdges, setNodes]
+    [getNode, getEdges, setNodes],
   );
 
   const handleCloseWidgetView = useCallback(
@@ -307,14 +307,14 @@ function Canvas() {
 
             return { ...nn, data: nextData };
           })
-          .filter((nn) => nn.id !== nodeId)
+          .filter((nn) => nn.id !== nodeId),
       );
 
       setEdges((eds) =>
-        eds.filter((e) => e.source !== nodeId && e.target !== nodeId)
+        eds.filter((e) => e.source !== nodeId && e.target !== nodeId),
       );
     },
-    [getNode, getEdges, setNodes, setEdges]
+    [getNode, getEdges, setNodes, setEdges],
   );
 
   // Then remove the oncloseNode from createGrammarNode calls and declarations
@@ -341,7 +341,7 @@ function Canvas() {
       pushInteractionToViewport,
       pushWidgetDefToWidgetView,
       pushComparisonDefToComparisonView,
-    ]
+    ],
   );
 
   const addViewport = useCallback(() => {
@@ -456,7 +456,7 @@ function Canvas() {
         pyCodeToComparisonView
       );
     },
-    [getNode]
+    [getNode],
   );
 
   // onConnect is fine. Should be there.. Here we handle connections and onConnections between nodes
@@ -515,7 +515,7 @@ function Canvas() {
       pushWidgetDefToWidgetView,
       pushWidgetViewToPyCodeEditorNode,
       pushComparisonDefToComparisonView,
-    ]
+    ],
   );
 
   return (
@@ -577,7 +577,7 @@ function Toolbar({
       onAdd(tpl);
       setOpen(false);
     },
-    [getDropPosition, onAdd]
+    [getDropPosition, onAdd],
   );
 
   const handleAddViewport = useCallback(() => {
@@ -655,7 +655,7 @@ const kindToType: Record<TemplateKey, keyof typeof nodeTypes> = {
   view: "viewNode",
   interaction: "interactionNode",
   // transformation: "transformationNode",
-  widget: "widgetDefNode",
+  widget: "widgetNode",
   comparison: "comparisonNode",
 };
 
@@ -703,8 +703,8 @@ function createGrammarNode({
       onChange: (val, targetId) => {
         setNodes((nds) =>
           nds.map((n) =>
-            n.id === targetId ? { ...n, data: { ...n.data, value: val } } : n
-          )
+            n.id === targetId ? { ...n, data: { ...n.data, value: val } } : n,
+          ),
         );
       },
       // Each node type decides how to "run" itself

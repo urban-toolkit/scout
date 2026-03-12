@@ -13,6 +13,8 @@ import { renderComparisonFromDef } from "../../utils/renderComparison";
 
 import "./ComparisonViewNode.css"; // reuse if you want, or make a new css
 
+import flipPng from "../../assets/restart-2.png";
+
 export type ComparisonNodeData = BaseNodeData & {
   mode?: "def" | "view";
   previewToken?: string;
@@ -21,7 +23,7 @@ export type ComparisonNodeData = BaseNodeData & {
 export type ComparisonNode = Node<ComparisonNodeData, "comparisonNode">;
 
 const ComparisonNode = memo(function ComparisonNode(
-  props: NodeProps<ComparisonNode>
+  props: NodeProps<ComparisonNode>,
 ) {
   const { id, data, selected } = props;
   const { getNode, setNodes, setEdges } = useReactFlow();
@@ -55,8 +57,8 @@ const ComparisonNode = memo(function ComparisonNode(
               height: n.height ?? 320,
               data: { ...n.data, mode: "view", previewToken: token },
             }
-          : n
-      )
+          : n,
+      ),
     );
   }, [id, setNodes]);
 
@@ -65,8 +67,8 @@ const ComparisonNode = memo(function ComparisonNode(
       nds.map((n) =>
         n.id === id
           ? { ...n, data: { ...n.data, mode: "def" } as ComparisonNodeData }
-          : n
-      )
+          : n,
+      ),
     );
   }, [id, setNodes]);
 
@@ -124,7 +126,28 @@ const ComparisonNode = memo(function ComparisonNode(
           type="target"
           position={Position.Left}
           id="comparison-in-1"
-          className="gnode__handle__target"
+          className="cvnode__handle__target"
+        />
+
+        <Handle
+          type="target"
+          position={Position.Bottom}
+          id="comparison-in-2"
+          className="cvnode__handle__target"
+        />
+
+        <Handle
+          type="target"
+          position={Position.Right}
+          id="comparison-in-3"
+          className="cvnode__handle__target"
+        />
+
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="comparison-in-4"
+          className="cvnode__handle__target"
         />
       </>
     );
@@ -139,9 +162,9 @@ const ComparisonNode = memo(function ComparisonNode(
         <div className="cvnode__title">{data.title ?? "Comparison"}</div>
 
         <div className="cvnode__headerBtns">
-          <button type="button" className="cvnode__iconBtn" onClick={goToDef}>
+          {/* <button type="button" className="cvnode__iconBtn" onClick={goToDef}>
             ←
-          </button>
+          </button> */}
           <button
             type="button"
             className="cvnode__iconBtn cvnode__iconBtn--close"
@@ -158,6 +181,22 @@ const ComparisonNode = memo(function ComparisonNode(
         {!loading && !error && bodyContent}
       </div>
 
+      <div className="wvnode__footer">
+        <button
+          type="button"
+          onClick={goToDef}
+          title="Flip to grammar"
+          aria-label="Flip to grammar"
+          className="wvnode__actionBtn"
+        >
+          <img
+            src={flipPng}
+            alt="Flip to grammar"
+            className="wvnode__actionIcon"
+          />
+        </button>
+      </div>
+
       <Handle
         type="target"
         position={Position.Left}
@@ -169,6 +208,20 @@ const ComparisonNode = memo(function ComparisonNode(
         type="target"
         position={Position.Bottom}
         id="comparison-in-2"
+        className="cvnode__handle__target"
+      />
+
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="comparison-in-3"
+        className="cvnode__handle__target"
+      />
+
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="comparison-in-4"
         className="cvnode__handle__target"
       />
     </div>

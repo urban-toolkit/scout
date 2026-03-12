@@ -29,6 +29,16 @@ import WidgetDefNode, {
   WidgetDefNodeData,
 } from "./widget/WidgetDefNode";
 
+import WidgetViewNode, {
+  WidgetViewNode as WidgetViewNodeType,
+  WidgetViewNodeData,
+} from "./widget/WidgetViewNode";
+
+import WidgetNode, {
+  WidgetNode as WidgetNodeType,
+  WidgetNodeData,
+} from "./widget/WidgetNode";
+
 import ComparisonDefNode, {
   ComparisonDefNode as ComparisonDefNodeType,
   ComparisonDefNodeData,
@@ -38,11 +48,6 @@ import ComparisonNode, {
   ComparisonNode as ComparisonNodeType,
   ComparisonNodeData,
 } from "./comparison/ComparisonNode";
-
-import WidgetViewNode, {
-  WidgetViewNode as WidgetViewNodeType,
-  WidgetViewNodeData,
-} from "./widget/WidgetViewNode";
 
 // import TransformationNode, {
 //   TransformationNode as TransformationNodeType,
@@ -68,6 +73,7 @@ export const nodeTypes = {
   comparisonDefNode: ComparisonDefNode,
   comparisonViewNode: ComparisonViewNode,
   comparisonNode: ComparisonNode,
+  widgetNode: WidgetNode,
 } as const;
 
 // union helpers (extend as you add more)
@@ -82,7 +88,8 @@ export type AnyNode =
   | WidgetViewNodeType
   | ComparisonDefNodeType
   | ComparisonViewNodeType
-  | ComparisonNodeType;
+  | ComparisonNodeType
+  | WidgetNodeType;
 
 export type AnyNodeData =
   | BaseNodeData
@@ -95,4 +102,5 @@ export type AnyNodeData =
   | WidgetViewNodeData
   | ComparisonDefNodeData
   | ComparisonViewNodeData
-  | ComparisonNodeData;
+  | ComparisonNodeData
+  | WidgetNodeData;
