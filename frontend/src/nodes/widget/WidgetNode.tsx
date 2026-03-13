@@ -133,30 +133,36 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
   }, [id, rf]);
 
   const handleRun = useCallback(() => {
-    if (mode === "def") {
-      goToView();
-      return;
-    }
+    // if (mode === "def") {
+    //   goToView();
+    //   return;
+    // }
 
-    const token = crypto.randomUUID();
-    setNodes((nds) =>
-      nds.map((n) =>
-        n.id === id
-          ? {
-              ...n,
-              data: {
-                ...n.data,
-                pushToken: token,
-              },
-            }
-          : n,
-      ),
-    );
+    // const token = crypto.randomUUID();
+    // setNodes((nds) =>
+    //   nds.map((n) =>
+    //     n.id === id
+    //       ? {
+    //           ...n,
+    //           data: {
+    //             ...n.data,
+    //             pushToken: token,
+    //           },
+    //         }
+    //       : n,
+    //   ),
+    // );
 
     if (data?.onRun) {
       data.onRun(id);
     }
-  }, [mode, goToView, id, setNodes, data]);
+  }, [
+    // mode,
+    // goToView,
+    id,
+    // setNodes,
+    data,
+  ]);
 
   useEffect(() => {
     if (mode !== "view") return;
@@ -198,7 +204,7 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
               pickInner: (v) => (v as any)?.widget,
               onClose: () => handleClose(),
               onToggleMinimize: handleToggleMinimize,
-              onRun: () => handleRun(),
+              // onRun: () => handleRun(),
               footerActions: (
                 <button
                   type="button"
@@ -375,7 +381,7 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
       <Handle
         type="source"
         position={Position.Top}
-        id="widgetView-out-1"
+        id="widget-out-1"
         className={`wvnode__handle__source ${
           minimized ? "wvnode__handle--hidden" : ""
         }`}
@@ -384,7 +390,7 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
       <Handle
         type="source"
         position={Position.Left}
-        id="widgetView-out-2"
+        id="widget-out-2"
         className={`wvnode__handle__source ${
           minimized ? "wvnode__handle--hidden" : ""
         }`}
@@ -393,7 +399,7 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
       <Handle
         type="source"
         position={Position.Right}
-        id="widgetView-out-3"
+        id="widget-out-3"
         className={`wvnode__handle__source ${
           minimized ? "wvnode__handle--hidden" : ""
         }`}
@@ -402,7 +408,7 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
       <Handle
         type="source"
         position={Position.Bottom}
-        id="widgetView-out-4"
+        id="widget-out-4"
         className={`wvnode__handle__source ${
           minimized ? "wvnode__handle--hidden" : ""
         }`}

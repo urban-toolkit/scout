@@ -21,6 +21,7 @@ import { TEMPLATES, TEMPLATE_LABELS, TemplateKey } from "./templates";
 import "./App.css";
 import type { ViewportNodeData } from "./nodes/view/ViewportNode";
 import type { WidgetViewNodeData } from "./nodes/widget/WidgetViewNode";
+import type { WidgetNodeData } from "./nodes/widget/WidgetNode";
 import type { PyCodeEditorNodeData } from "./nodes/computation/PyCodeEditorNode";
 import { ComparisonViewNodeData } from "./nodes/comparison/ComparisonViewNode";
 
@@ -274,6 +275,58 @@ function Canvas() {
     [getNode, getEdges, setNodes],
   );
 
+  const pushWidgetToPyCodeEditorNode = useCallback(
+    (srcId: string, trgId?: string) => {
+      const src = getNode(srcId);
+      if (!src || src.type !== "widgetNode") return;
+      const val: WidgetNodeData = src.data as WidgetNodeData;
+
+      console.log(val);
+
+      const targetIds = trgId
+        ? [trgId]
+        : getEdges()
+            .filter((e) => e.source === srcId)
+            .map((e) => e.target!)
+            .filter(Boolean);
+
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (!targetIds.includes(n.id) || n.type !== "pyCodeEditorNode")
+            return n;
+          const existing = (n.data as PyCodeEditorNodeData).widgetOutputs ?? [];
+          const already = existing.some(
+            (e) => e.variable === val.output?.variable,
+          );
+          const nextWidgetOutputs = already
+            ? existing.map((e) =>
+                e.variable === val.output?.variable
+                  ? {
+                      variable: val.output.variable,
+                      value: val.output.value,
+                    }
+                  : e,
+              )
+            : [
+                ...existing,
+                {
+                  variable: val.output?.variable,
+                  value: val.output?.value,
+                },
+              ];
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              widgetOutputs: nextWidgetOutputs,
+            } as PyCodeEditorNodeData,
+          };
+        }),
+      );
+    },
+    [getNode, getEdges, setNodes],
+  );
+
   const handleCloseWidgetView = useCallback(
     (nodeId: string) => {
       const n = getNode(nodeId);
@@ -330,7 +383,9 @@ function Canvas() {
         onRunView: pushViewToViewports,
         onRunInteraction: pushInteractionToViewport,
         onRunWidgetDef: pushWidgetDefToWidgetView,
+        onRunWidget: pushWidgetToPyCodeEditorNode,
         onRunComparisonDef: pushComparisonDefToComparisonView,
+        onRunComparison: () => {}, // No specific action for comparison nodes on run for now
       });
     },
     [
@@ -341,6 +396,7 @@ function Canvas() {
       pushInteractionToViewport,
       pushWidgetDefToWidgetView,
       pushComparisonDefToComparisonView,
+      pushWidgetToPyCodeEditorNode,
     ],
   );
 
@@ -430,12 +486,18 @@ function Canvas() {
       const widgetViewToPyCodeEditor =
         src.type === "widgetViewNode" && trg.type === "pyCodeEditorNode";
 
+      const widgetToPyCodeEditor =
+        src.type === "widgetNode" && trg.type === "pyCodeEditorNode";
+
       // After defining comparisonViewNode
       const comparisonDefToComparisonView =
         src.type === "comparisonDefNode" && trg.type === "comparisonViewNode";
 
       const pyCodeToComparisonView =
         src.type === "pyCodeEditorNode" && trg.type === "comparisonViewNode";
+
+      const pyCodeToComparison =
+        src.type === "pyCodeEditorNode" && trg.type === "comparisonNode";
 
       return (
         dataLayerToView ||
@@ -449,11 +511,13 @@ function Canvas() {
         pyCodeEditorToPyCodeEditor ||
         widgetDefToWidgetView ||
         widgetViewToPyCodeEditor ||
+        widgetToPyCodeEditor ||
         comparisonDefToComparisonView ||
         pyCodeEditorToViewport ||
         pyCodeEditorToComparisonDef ||
         viewportToViewport ||
-        pyCodeToComparisonView
+        pyCodeToComparisonView ||
+        pyCodeToComparison
       );
     },
     [getNode],
@@ -492,6 +556,11 @@ function Canvas() {
         return;
       }
 
+      if (src.type === "widgetNode" && trg.type === "pyCodeEditorNode") {
+        pushWidgetToPyCodeEditorNode(srcId, trgId);
+        return;
+      }
+
       if (src.type === "widgetViewNode" && trg.type === "pyCodeEditorNode") {
         pushWidgetViewToPyCodeEditorNode(srcId, trgId);
         return;
@@ -514,6 +583,7 @@ function Canvas() {
       pushInteractionToViewport,
       pushWidgetDefToWidgetView,
       pushWidgetViewToPyCodeEditorNode,
+      pushWidgetToPyCodeEditorNode,
       pushComparisonDefToComparisonView,
     ],
   );
@@ -669,6 +739,8 @@ function createGrammarNode({
   onRunInteraction,
   onRunWidgetDef,
   onRunComparisonDef,
+  onRunWidget,
+  onRunComparison,
 }: // onRunWidgetView
 {
   id: string;
@@ -689,6 +761,8 @@ function createGrammarNode({
   onRunInteraction: (srcId: string) => void;
   onRunWidgetDef: (srcId: string) => void;
   onRunComparisonDef: (srcId: string) => void;
+  onRunWidget: (srcId: string) => void;
+  onRunComparison: (srcId: string) => void;
 }) {
   const pos = (window as any)._desiredGrammarPos ?? { x: 100, y: 100 };
   const type = kindToType[template];
@@ -721,6 +795,10 @@ function createGrammarNode({
           onRunWidgetDef(nodeId);
         } else if (node.type === "comparisonDefNode") {
           onRunComparisonDef(nodeId);
+        } else if (node.type === "widgetNode") {
+          onRunWidget(nodeId);
+        } else if (node.type === "comparisonNode") {
+          onRunComparison(nodeId);
         }
       },
     },

@@ -55,15 +55,15 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
             return { ...nn, data: nextData };
           })
           // 2) Remove this view node itself
-          .filter((nn) => nn.id !== nodeId)
+          .filter((nn) => nn.id !== nodeId),
       );
 
       // 3) Remove all edges touching the closed view node
       setEdges((eds) =>
-        eds.filter((e) => e.source !== nodeId && e.target !== nodeId)
+        eds.filter((e) => e.source !== nodeId && e.target !== nodeId),
       );
     },
-    [getNode, getEdges, setNodes, setEdges]
+    [getNode, getEdges, setNodes, setEdges],
   );
 
   const handleToggleMinimize = useCallback(() => {
@@ -97,14 +97,14 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
               height: nextHeight,
             };
           }
-        })
+        }),
       );
 
       // Hide/show edges
       setEdges((eds) =>
         eds.map((e) =>
-          e.source === id || e.target === id ? { ...e, hidden: next } : e
-        )
+          e.source === id || e.target === id ? { ...e, hidden: next } : e,
+        ),
       );
 
       return next;

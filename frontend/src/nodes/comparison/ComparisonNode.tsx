@@ -118,7 +118,22 @@ const ComparisonNode = memo(function ComparisonNode(
             onClose: handleClose,
             // Add a "Run" hook: your BaseGrammarNode likely already has a run button that calls data.onRun(id)
             // If you want Run to switch to view mode, do it here by overriding onRun:
-            onRun: () => goToView(),
+            // onRun: () => goToView(),
+            footerActions: (
+              <button
+                type="button"
+                onClick={goToView}
+                title="Generate comparison view"
+                aria-label="Generate comparison view"
+                className="gnode__actionBtn"
+              >
+                <img
+                  src={flipPng}
+                  alt="Generate comparison view"
+                  className="gnode__actionIcon"
+                />
+              </button>
+            ),
           }}
         />
 

@@ -63,8 +63,8 @@ import ComparisonViewNode, {
 export const nodeTypes = {
   dataLayerNode: DataLayerNode,
   viewNode: ViewNode,
-  viewportNode: ViewportNode,
   pyCodeEditorNode: PyCodeEditorNode,
+  viewportNode: ViewportNode,
   interactionNode: InteractionNode,
   widgetDefNode: WidgetDefNode,
   widgetViewNode: WidgetViewNode,
