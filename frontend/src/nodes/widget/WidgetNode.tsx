@@ -1,6 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
-import { Handle, Position, NodeResizer, useReactFlow } from "@xyflow/react";
+import {
+  Handle,
+  Position,
+  NodeResizer,
+  useReactFlow,
+  useUpdateNodeInternals,
+} from "@xyflow/react";
 
 import BaseGrammarNode, {
   BaseNodeData,
@@ -33,10 +39,17 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
   const { id, data, selected } = props;
   const rf = useReactFlow();
   const { getNode, setNodes, setEdges } = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
 
   const mode = data.mode ?? "def";
   const [minimized, setMinimized] = useState(false);
   const [widgetValue, setWidgetValue] = useState<WidgetOutput | null>(null);
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      updateNodeInternals(id);
+    });
+  }, [id, mode, minimized, updateNodeInternals]);
 
   const widget: WidgetDef | undefined = useMemo(() => {
     const v: any = (data as BaseNodeData)?.value;

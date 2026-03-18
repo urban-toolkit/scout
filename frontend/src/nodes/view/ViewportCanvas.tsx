@@ -147,7 +147,7 @@ const ViewportCanvas = memo(function ViewportCanvas({
       {
         maxZoom: 19,
         attribution: "&copy; OpenStreetMap contributors",
-        opacity: showBasemap ? 0.5 : 0,
+        opacity: 0,
       },
     ).addTo(map);
 
@@ -197,7 +197,13 @@ const ViewportCanvas = memo(function ViewportCanvas({
         leafletRef.current = null;
       }
     };
-  }, [center, showBasemap, clearAllSvgLayers, redrawAll]);
+  }, [clearAllSvgLayers, redrawAll, center]);
+
+  useEffect(() => {
+    if (baseLayerRef.current) {
+      baseLayerRef.current.setOpacity(showBasemap ? 0.5 : 0);
+    }
+  }, [showBasemap]);
 
   useEffect(() => {
     if (baseLayerRef.current) {
@@ -237,7 +243,7 @@ const ViewportCanvas = memo(function ViewportCanvas({
       onPointerDown={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onTouchStart={(e) => e.stopPropagation()}
-      style={{ width: "100%", height: "100%" }}
+      // style={{ width: "100%", height: "100%" }}
     />
   );
 });

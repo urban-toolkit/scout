@@ -216,7 +216,8 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
 
       {/* Footer action bar */}
       <div className="gnode__footer">
-        {key === "widget" ? null : key === "comparison" ? null : (
+        {key === "widget" ? null : key === "comparison" ? null : key ===
+          "data_layer" ? null : key === "view" ? null : (
           <button
             type="button"
             onClick={onRun}

@@ -1,6 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
-import { Handle, Position, NodeResizer, useReactFlow } from "@xyflow/react";
+import {
+  Handle,
+  Position,
+  NodeResizer,
+  useReactFlow,
+  useUpdateNodeInternals,
+} from "@xyflow/react";
 import type { ReactNode } from "react";
 
 import BaseGrammarNode, {
@@ -27,6 +33,7 @@ const ComparisonNode = memo(function ComparisonNode(
 ) {
   const { id, data, selected } = props;
   const { getNode, setNodes, setEdges } = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
 
   const mode = data.mode ?? "def";
 
@@ -39,6 +46,12 @@ const ComparisonNode = memo(function ComparisonNode(
     setNodes((nds) => nds.filter((n) => n.id !== id));
     setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
   }, [id, setNodes, setEdges]);
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      updateNodeInternals(id);
+    });
+  }, [id, mode, updateNodeInternals]);
 
   // read comparison def from grammar value
   const comparison: ComparisonDef | undefined = useMemo(() => {

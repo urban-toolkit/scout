@@ -1,6 +1,12 @@
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState, useEffect } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
-import { useReactFlow, Handle, Position, NodeResizer } from "@xyflow/react";
+import {
+  useReactFlow,
+  Handle,
+  Position,
+  NodeResizer,
+  useUpdateNodeInternals,
+} from "@xyflow/react";
 import BaseGrammarNode, {
   type BaseNodeData,
 } from "../../node-components/BaseGrammar";
@@ -45,7 +51,15 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
 
   const pendingRef = useRef<Record<string, any>>({});
 
+  const updateNodeInternals = useUpdateNodeInternals();
+
   const mode = data.mode ?? "def";
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      updateNodeInternals(id);
+    });
+  }, [id, mode, minimized, updateNodeInternals]);
 
   const viewSpec = useMemo(() => {
     const v: any = (data as BaseNodeData)?.value;
@@ -224,6 +238,27 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
     }
   }, [mode, goToView, goToDef]);
 
+  const handleDirty = useCallback(
+    ({ ref, featureCollection }: { ref: string; featureCollection: any }) => {
+      pendingRef.current[ref] = {
+        ref,
+        geojson: featureCollection,
+      };
+    },
+    [],
+  );
+
+  const stableView = useMemo(() => {
+    return Array.isArray(viewSpec) ? viewSpec : [];
+  }, [viewSpec]);
+
+  const stableInteractions = useMemo(() => {
+    const interactions = (data as any)?.interactions;
+    return Array.isArray(interactions) ? interactions : [];
+  }, [data]);
+
+  const stableCenter = useMemo<[number, number]>(() => [41.881, -87.63], []);
+
   if (mode === "def") {
     return (
       <>
@@ -238,7 +273,7 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
               pickInner: (v) => (v as any)?.view,
               onClose: onCloseViewNode,
               onToggleMinimize: handleToggleMinimize,
-              onRun: handleRun,
+              // onRun: handleRun,
               footerActions: (
                 <button
                   type="button"
@@ -347,22 +382,17 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
         <div className="vpnode__body">
           <ViewportCanvas
             id={id}
-            center={[41.881, -87.63]}
-            view={Array.isArray(viewSpec) ? viewSpec : []}
-            interactions={[]}
+            center={stableCenter}
+            view={stableView}
+            interactions={stableInteractions}
             showBasemap={showBasemap}
             className="vpnode__map nodrag nowheel"
-            onDirty={({ ref, featureCollection }) => {
-              pendingRef.current[ref] = {
-                ref,
-                geojson: featureCollection,
-              };
-            }}
+            onDirty={handleDirty}
           />
 
           {!minimized && (
             <div className="vpnode__footer">
-              <button
+              {/* <button
                 type="button"
                 onClick={handleRun}
                 title="update"
@@ -374,7 +404,7 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
                   alt="update"
                   className="vpnode__actionIcon"
                 />
-              </button>
+              </button> */}
 
               <button
                 type="button"
@@ -448,6 +478,9 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
           className={`vpnode__handle vpnode__handle--right ${
             minimized ? "gnode__handle--hidden" : ""
           }`}
+          // className={`gnode__handle gnode__handle--right ${
+          //   minimized ? "gnode__handle--hidden" : ""
+          // }`}
         />
       </div>
     </>

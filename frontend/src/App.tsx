@@ -110,6 +110,46 @@ function Canvas() {
     [getNode, getEdges, setNodes],
   );
 
+  const pushInteractionToView = useCallback(
+    (srcId: string, trgId?: string) => {
+      const src = getNode(srcId);
+      if (!src || src.type !== "interactionNode") return;
+
+      const val: any = (src.data as BaseNodeData).value;
+      const i = val?.interaction;
+      if (!i) return;
+
+      const targetIds = trgId
+        ? [trgId]
+        : getEdges()
+            .filter((e) => e.source === srcId)
+            .map((e) => e.target!)
+            .filter(Boolean);
+
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (!targetIds.includes(n.id) || n.type !== "viewNode") return n;
+
+          const existing = (n.data as any).interactions ?? [];
+          const already = existing.some((e: any) => e.id === i.id);
+
+          const nextInteractions = already
+            ? existing.map((e: any) => (e.id === i.id ? i : e))
+            : [...existing, i];
+
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              interactions: nextInteractions,
+            },
+          };
+        }),
+      );
+    },
+    [getNode, getEdges, setNodes],
+  );
+
   const pushInteractionToViewport = useCallback(
     (srcId: string, trgId?: string) => {
       const src = getNode(srcId);
@@ -381,7 +421,8 @@ function Canvas() {
         getNode,
         onRunDataLayer: pushDataLayerToViews,
         onRunView: pushViewToViewports,
-        onRunInteraction: pushInteractionToViewport,
+        // onRunInteraction: pushInteractionToViewport,
+        onRunInteraction: pushInteractionToView,
         onRunWidgetDef: pushWidgetDefToWidgetView,
         onRunWidget: pushWidgetToPyCodeEditorNode,
         onRunComparisonDef: pushComparisonDefToComparisonView,
@@ -393,7 +434,8 @@ function Canvas() {
       getNode,
       pushDataLayerToViews,
       pushViewToViewports,
-      pushInteractionToViewport,
+      // pushInteractionToViewport,
+      pushInteractionToView,
       pushWidgetDefToWidgetView,
       pushComparisonDefToComparisonView,
       pushWidgetToPyCodeEditorNode,
@@ -454,6 +496,9 @@ function Canvas() {
       const interactionToViewport =
         src.type === "interactionNode" && trg.type === "viewportNode";
 
+      const interactionToView =
+        src.type === "interactionNode" && trg.type === "viewNode";
+
       // This is not required, as instead of using transformation node, we are using code instead.
       // Maybe later will remove this condition block
       const viewportToTransformation =
@@ -504,6 +549,7 @@ function Canvas() {
         dataLayerToViewport ||
         viewToViewport ||
         interactionToViewport ||
+        interactionToView ||
         viewportToPyCodeEditor ||
         viewportToTransformation ||
         transformationToPyCodeEditor ||
@@ -551,6 +597,11 @@ function Canvas() {
         return;
       }
 
+      if (src.type === "interactionNode" && trg.type === "viewNode") {
+        pushInteractionToView(srcId, trgId);
+        return;
+      }
+
       if (src.type === "widgetDefNode" && trg.type === "widgetViewNode") {
         pushWidgetDefToWidgetView(srcId, trgId);
         return;
@@ -581,6 +632,7 @@ function Canvas() {
       pushDataLayerToViews,
       pushViewToViewports,
       pushInteractionToViewport,
+      pushInteractionToView,
       pushWidgetDefToWidgetView,
       pushWidgetViewToPyCodeEditorNode,
       pushWidgetToPyCodeEditorNode,
