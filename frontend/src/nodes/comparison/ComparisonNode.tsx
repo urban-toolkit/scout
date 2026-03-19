@@ -1,6 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
-import { Handle, Position, NodeResizer, useReactFlow } from "@xyflow/react";
+import {
+  Handle,
+  Position,
+  NodeResizer,
+  useReactFlow,
+  useUpdateNodeInternals,
+} from "@xyflow/react";
 import type { ReactNode } from "react";
 
 import BaseGrammarNode, {
@@ -13,6 +19,8 @@ import { renderComparisonFromDef } from "../../utils/renderComparison";
 
 import "./ComparisonViewNode.css"; // reuse if you want, or make a new css
 
+import flipPng from "../../assets/restart-2.png";
+
 export type ComparisonNodeData = BaseNodeData & {
   mode?: "def" | "view";
   previewToken?: string;
@@ -21,10 +29,11 @@ export type ComparisonNodeData = BaseNodeData & {
 export type ComparisonNode = Node<ComparisonNodeData, "comparisonNode">;
 
 const ComparisonNode = memo(function ComparisonNode(
-  props: NodeProps<ComparisonNode>
+  props: NodeProps<ComparisonNode>,
 ) {
   const { id, data, selected } = props;
   const { getNode, setNodes, setEdges } = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
 
   const mode = data.mode ?? "def";
 
@@ -37,6 +46,12 @@ const ComparisonNode = memo(function ComparisonNode(
     setNodes((nds) => nds.filter((n) => n.id !== id));
     setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
   }, [id, setNodes, setEdges]);
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      updateNodeInternals(id);
+    });
+  }, [id, mode, updateNodeInternals]);
 
   // read comparison def from grammar value
   const comparison: ComparisonDef | undefined = useMemo(() => {
@@ -55,8 +70,8 @@ const ComparisonNode = memo(function ComparisonNode(
               height: n.height ?? 320,
               data: { ...n.data, mode: "view", previewToken: token },
             }
-          : n
-      )
+          : n,
+      ),
     );
   }, [id, setNodes]);
 
@@ -65,8 +80,8 @@ const ComparisonNode = memo(function ComparisonNode(
       nds.map((n) =>
         n.id === id
           ? { ...n, data: { ...n.data, mode: "def" } as ComparisonNodeData }
-          : n
-      )
+          : n,
+      ),
     );
   }, [id, setNodes]);
 
@@ -116,7 +131,22 @@ const ComparisonNode = memo(function ComparisonNode(
             onClose: handleClose,
             // Add a "Run" hook: your BaseGrammarNode likely already has a run button that calls data.onRun(id)
             // If you want Run to switch to view mode, do it here by overriding onRun:
-            onRun: () => goToView(),
+            // onRun: () => goToView(),
+            footerActions: (
+              <button
+                type="button"
+                onClick={goToView}
+                title="Generate comparison view"
+                aria-label="Generate comparison view"
+                className="gnode__actionBtn"
+              >
+                <img
+                  src={flipPng}
+                  alt="Generate comparison view"
+                  className="gnode__actionIcon"
+                />
+              </button>
+            ),
           }}
         />
 
@@ -124,7 +154,28 @@ const ComparisonNode = memo(function ComparisonNode(
           type="target"
           position={Position.Left}
           id="comparison-in-1"
-          className="gnode__handle__target"
+          className="cvnode__handle__target"
+        />
+
+        <Handle
+          type="target"
+          position={Position.Bottom}
+          id="comparison-in-2"
+          className="cvnode__handle__target"
+        />
+
+        <Handle
+          type="target"
+          position={Position.Right}
+          id="comparison-in-3"
+          className="cvnode__handle__target"
+        />
+
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="comparison-in-4"
+          className="cvnode__handle__target"
         />
       </>
     );
@@ -139,9 +190,9 @@ const ComparisonNode = memo(function ComparisonNode(
         <div className="cvnode__title">{data.title ?? "Comparison"}</div>
 
         <div className="cvnode__headerBtns">
-          <button type="button" className="cvnode__iconBtn" onClick={goToDef}>
+          {/* <button type="button" className="cvnode__iconBtn" onClick={goToDef}>
             ←
-          </button>
+          </button> */}
           <button
             type="button"
             className="cvnode__iconBtn cvnode__iconBtn--close"
@@ -158,6 +209,22 @@ const ComparisonNode = memo(function ComparisonNode(
         {!loading && !error && bodyContent}
       </div>
 
+      <div className="wvnode__footer">
+        <button
+          type="button"
+          onClick={goToDef}
+          title="Flip to grammar"
+          aria-label="Flip to grammar"
+          className="wvnode__actionBtn"
+        >
+          <img
+            src={flipPng}
+            alt="Flip to grammar"
+            className="wvnode__actionIcon"
+          />
+        </button>
+      </div>
+
       <Handle
         type="target"
         position={Position.Left}
@@ -169,6 +236,20 @@ const ComparisonNode = memo(function ComparisonNode(
         type="target"
         position={Position.Bottom}
         id="comparison-in-2"
+        className="cvnode__handle__target"
+      />
+
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="comparison-in-3"
+        className="cvnode__handle__target"
+      />
+
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="comparison-in-4"
         className="cvnode__handle__target"
       />
     </div>

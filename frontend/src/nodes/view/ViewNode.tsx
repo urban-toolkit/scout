@@ -1,18 +1,33 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState, useEffect } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
-import { useReactFlow, Handle, Position, NodeResizer } from "@xyflow/react";
+import {
+  useReactFlow,
+  Handle,
+  Position,
+  NodeResizer,
+  useUpdateNodeInternals,
+} from "@xyflow/react";
 import BaseGrammarNode, {
-  BaseNodeData,
+  type BaseNodeData,
 } from "../../node-components/BaseGrammar";
 import schema from "../../schemas/view.json";
 import type { ViewportNodeData } from "./ViewportNode";
+import ViewportCanvas from "./ViewportCanvas";
 
 import "../../node-components/BaseGrammar.css";
+import "./ViewportNode.css";
 
 import expandPng from "../../assets/expand.png";
 import restartPng from "../../assets/restart.png";
+import flipPng from "../../assets/restart-2.png";
+import persistPng from "../../assets/update-data.png";
+import mapPng from "../../assets/map.png";
+import checkPng from "../../assets/check-mark.png";
 
-export type ViewNodeData = BaseNodeData;
+export type ViewNodeData = BaseNodeData & {
+  mode?: "def" | "view";
+  pushToken?: string;
+};
 
 export type ViewNode = Node<ViewNodeData, "viewNode">;
 
@@ -21,11 +36,35 @@ const NODE_MIN_HEIGHT = 180;
 const NODE_MINIMIZED_WIDTH = 150;
 const NODE_MINIMIZED_HEIGHT = 48;
 
+const VIS_MIN_WIDTH = 300;
+const VIS_MIN_HEIGHT = 260;
+
 const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
   const { id, data, selected } = props;
   const { getNode, getEdges, setNodes, setEdges } = useReactFlow();
   const rf = useReactFlow();
+
   const [minimized, setMinimized] = useState(false);
+  const [persisting, setPersisting] = useState(false);
+  const [persistSuccess, setPersistSuccess] = useState(false);
+  const [showBasemap, setShowBasemap] = useState(false);
+
+  const pendingRef = useRef<Record<string, any>>({});
+
+  const updateNodeInternals = useUpdateNodeInternals();
+
+  const mode = data.mode ?? "def";
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      updateNodeInternals(id);
+    });
+  }, [id, mode, minimized, updateNodeInternals]);
+
+  const viewSpec = useMemo(() => {
+    const v: any = (data as BaseNodeData)?.value;
+    return v?.view;
+  }, [data]);
 
   const onCloseViewNode = useCallback(
     (nodeId: string) => {
@@ -34,17 +73,16 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
 
       const curEdges = getEdges();
 
-      // All targets currently connected FROM this view node
       const targetIds = curEdges
         .filter((e) => e.source === nodeId)
         .map((e) => e.target);
 
-      // 1) Clear view on connected viewport nodes
       setNodes((nds) =>
         nds
           .map((nn) => {
-            if (nn.type !== "viewportNode" || !targetIds.includes(nn.id))
+            if (nn.type !== "viewportNode" || !targetIds.includes(nn.id)) {
               return nn;
+            }
 
             const vd = nn.data as ViewportNodeData;
             const nextData: ViewportNodeData = {
@@ -54,62 +92,65 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
 
             return { ...nn, data: nextData };
           })
-          // 2) Remove this view node itself
-          .filter((nn) => nn.id !== nodeId)
+          .filter((nn) => nn.id !== nodeId),
       );
 
-      // 3) Remove all edges touching the closed view node
       setEdges((eds) =>
-        eds.filter((e) => e.source !== nodeId && e.target !== nodeId)
+        eds.filter((e) => e.source !== nodeId && e.target !== nodeId),
       );
     },
-    [getNode, getEdges, setNodes, setEdges]
+    [getNode, getEdges, setNodes, setEdges],
   );
 
   const handleToggleMinimize = useCallback(() => {
     setMinimized((prev) => {
       const next = !prev;
 
-      // Resize node
       rf.setNodes((nodes) =>
         nodes.map((n) => {
           if (n.id !== id) return n;
 
           if (next) {
-            // going to minimized
             return {
               ...n,
               width: NODE_MINIMIZED_WIDTH,
               height: NODE_MINIMIZED_HEIGHT,
             };
-          } else {
-            // restoring
-            const nextWidth =
-              n.width && n.width > NODE_MIN_WIDTH ? n.width : NODE_MIN_WIDTH;
-            const nextHeight =
-              n.height && n.height > NODE_MIN_HEIGHT
-                ? n.height
+          }
+
+          const nextWidth =
+            n.width &&
+            n.width > (mode === "view" ? VIS_MIN_WIDTH : NODE_MIN_WIDTH)
+              ? n.width
+              : mode === "view"
+                ? VIS_MIN_WIDTH
+                : NODE_MIN_WIDTH;
+
+          const nextHeight =
+            n.height &&
+            n.height > (mode === "view" ? VIS_MIN_HEIGHT : NODE_MIN_HEIGHT)
+              ? n.height
+              : mode === "view"
+                ? VIS_MIN_HEIGHT
                 : NODE_MIN_HEIGHT;
 
-            return {
-              ...n,
-              width: nextWidth,
-              height: nextHeight,
-            };
-          }
-        })
+          return {
+            ...n,
+            width: nextWidth,
+            height: nextHeight,
+          };
+        }),
       );
 
-      // Hide/show edges
       setEdges((eds) =>
         eds.map((e) =>
-          e.source === id || e.target === id ? { ...e, hidden: next } : e
-        )
+          e.source === id || e.target === id ? { ...e, hidden: next } : e,
+        ),
       );
 
       return next;
     });
-  }, [id, rf, setEdges]);
+  }, [id, mode, rf, setEdges]);
 
   const handleRun = useCallback(() => {
     if (data?.onRun) {
@@ -117,72 +158,331 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
     }
   }, [data, id]);
 
+  const onPersist = useCallback(async () => {
+    const entries = Object.values(pendingRef.current) as {
+      ref: string;
+      geojson: any;
+    }[];
+
+    if (!entries.length) return;
+
+    setPersisting(true);
+    setPersistSuccess(false);
+
+    try {
+      const tasks = entries.map(({ ref, geojson }) =>
+        fetch("http://127.0.0.1:5000/api/update-data-layer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ref,
+            geojson,
+          }),
+        }),
+      );
+
+      await Promise.allSettled(tasks);
+      pendingRef.current = {};
+
+      setPersistSuccess(true);
+      setTimeout(() => setPersistSuccess(false), 2000);
+    } finally {
+      setPersisting(false);
+    }
+
+    pendingRef.current = {};
+  }, []);
+
+  const goToView = useCallback(() => {
+    const token = crypto.randomUUID();
+
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? {
+              ...n,
+              width: n.width ?? 420,
+              height: n.height ?? 320,
+              data: {
+                ...n.data,
+                mode: "view",
+                pushToken: token,
+              } as ViewNodeData,
+            }
+          : n,
+      ),
+    );
+  }, [id, setNodes]);
+
+  const goToDef = useCallback(() => {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                mode: "def",
+              } as ViewNodeData,
+            }
+          : n,
+      ),
+    );
+  }, [id, setNodes]);
+
+  const handleFlip = useCallback(() => {
+    if (mode === "def") {
+      goToView();
+    } else {
+      goToDef();
+    }
+  }, [mode, goToView, goToDef]);
+
+  const handleDirty = useCallback(
+    ({ ref, featureCollection }: { ref: string; featureCollection: any }) => {
+      pendingRef.current[ref] = {
+        ref,
+        geojson: featureCollection,
+      };
+    },
+    [],
+  );
+
+  const stableView = useMemo(() => {
+    return Array.isArray(viewSpec) ? viewSpec : [];
+  }, [viewSpec]);
+
+  const stableInteractions = useMemo(() => {
+    const interactions = (data as any)?.interactions;
+    return Array.isArray(interactions) ? interactions : [];
+  }, [data]);
+
+  const stableCenter = useMemo<[number, number]>(() => [41.881, -87.63], []);
+
+  if (mode === "def") {
+    return (
+      <>
+        {!minimized ? (
+          <BaseGrammarNode
+            id={id}
+            selected={selected}
+            data={{
+              ...data,
+              title: data.title ?? "View",
+              schema,
+              pickInner: (v) => (v as any)?.view,
+              onClose: onCloseViewNode,
+              onToggleMinimize: handleToggleMinimize,
+              // onRun: handleRun,
+              footerActions: (
+                <button
+                  type="button"
+                  onClick={handleFlip}
+                  title="Flip to view"
+                  aria-label="Flip to view"
+                  className="gnode__actionBtn"
+                >
+                  <img
+                    src={flipPng}
+                    alt="Flip to view"
+                    className="gnode__actionIcon"
+                  />
+                </button>
+              ),
+            }}
+          />
+        ) : (
+          <div className="gnode gnode--minimized">
+            <NodeResizer
+              minWidth={NODE_MINIMIZED_WIDTH}
+              maxWidth={Infinity}
+              minHeight={NODE_MINIMIZED_HEIGHT}
+              maxHeight={NODE_MINIMIZED_HEIGHT}
+            />
+            <div className="gnode__minimized">
+              <button type="button" className="gnode__minimizedNodeTtitleBtn">
+                {data.title ?? "View"}
+              </button>
+
+              <button
+                type="button"
+                className="gnode__minimizedRestoreCircle_1 gnode__minimizedRestoreCircle--topLeft"
+                onClick={handleToggleMinimize}
+              >
+                <img src={expandPng} alt="Restore" />
+              </button>
+
+              <button
+                type="button"
+                className="gnode__minimizedRestoreCircle_2 gnode__minimizedRestoreCircle--bottomRight"
+                onClick={handleRun}
+              >
+                <img src={restartPng} alt="Fetch / update" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="view-in"
+          className={`gnode__handle gnode__handle--left ${
+            minimized ? "gnode__handle--hidden" : ""
+          }`}
+        />
+
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="view-out"
+          className={`gnode__handle gnode__handle--right ${
+            minimized ? "gnode__handle--hidden" : ""
+          }`}
+        />
+      </>
+    );
+  }
+
   return (
     <>
-      {!minimized ? (
-        <BaseGrammarNode
-          id={id}
-          selected={selected}
-          data={{
-            ...data,
-            title: data.title ?? "View",
-            schema,
-            pickInner: (v) => (v as any)?.view,
-            onClose: onCloseViewNode,
-            onToggleMinimize: handleToggleMinimize,
-          }}
-        />
-      ) : (
-        <div className="gnode gnode--minimized">
-          <NodeResizer
-            minWidth={minimized ? NODE_MINIMIZED_WIDTH : NODE_MIN_WIDTH}
-            maxWidth={Infinity}
-            minHeight={minimized ? NODE_MINIMIZED_HEIGHT : NODE_MIN_HEIGHT}
-            maxHeight={minimized ? NODE_MINIMIZED_HEIGHT : Infinity}
-          />
-          <div className="gnode__minimized">
-            {/* Big fetch button */}
-            <button type="button" className="gnode__minimizedNodeTtitleBtn">
-              {data.title ?? "View"}
-            </button>
-            {/* Floating restore (top-left) */}
-            <button
-              type="button"
-              className="gnode__minimizedRestoreCircle_1 gnode__minimizedRestoreCircle--topLeft"
-              onClick={handleToggleMinimize}
-            >
-              <img src={expandPng} alt="Restore" />
-            </button>
+      <div className="vpnode">
+        <NodeResizer minWidth={VIS_MIN_WIDTH} minHeight={VIS_MIN_HEIGHT} />
 
-            {/* Floating fetch/update (bottom-right) */}
+        {!minimized && (
+          <div className="vpnode__header">
+            <div className="vpnode__titleWrapper">
+              <input
+                type="text"
+                className="vpnode__titleInput"
+                value={data.title ?? "View"}
+                onChange={(e) => {
+                  const nextTitle = e.target.value;
+                  rf.setNodes((nodes) =>
+                    nodes.map((n) =>
+                      n.id === id
+                        ? { ...n, data: { ...n.data, title: nextTitle } }
+                        : n,
+                    ),
+                  );
+                }}
+              />
+            </div>
+
             <button
               type="button"
-              className="gnode__minimizedRestoreCircle_2 gnode__minimizedRestoreCircle--bottomRight"
-              onClick={handleRun}
+              className="vpnode__iconBtn vpnode__iconBtn--close"
+              onClick={() => onCloseViewNode(id)}
             >
-              <img src={restartPng} alt="Fetch / update" />
+              ✕
             </button>
           </div>
-        </div>
-      )}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="view-in"
-        className={`gnode__handle gnode__handle--left ${
-          minimized ? "gnode__handle--hidden" : ""
-        }`}
-      />
+        )}
 
-      {/* Source: to ViewportNode */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="view-out"
-        className={`gnode__handle gnode__handle--right ${
-          minimized ? "gnode__handle--hidden" : ""
-        }`}
-      />
+        <div className="vpnode__body">
+          <ViewportCanvas
+            id={id}
+            center={stableCenter}
+            view={stableView}
+            interactions={stableInteractions}
+            showBasemap={showBasemap}
+            className="vpnode__map nodrag nowheel"
+            onDirty={handleDirty}
+          />
+
+          {!minimized && (
+            <div className="vpnode__footer">
+              {/* <button
+                type="button"
+                onClick={handleRun}
+                title="update"
+                aria-label="update"
+                className="vpnode__actionBtn"
+              >
+                <img
+                  src={restartPng}
+                  alt="update"
+                  className="vpnode__actionIcon"
+                />
+              </button> */}
+
+              <button
+                type="button"
+                onClick={onPersist}
+                title="Save edits"
+                aria-label="Save edits"
+                className="vpnode__actionBtn"
+                disabled={persisting}
+              >
+                {persisting ? (
+                  <span className="vpnode__spinner" />
+                ) : persistSuccess ? (
+                  <img
+                    src={checkPng}
+                    alt="Success"
+                    className="vpnode__actionIcon"
+                  />
+                ) : (
+                  <img
+                    src={persistPng}
+                    alt="Save edits"
+                    className="vpnode__actionIcon"
+                  />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowBasemap((b) => !b)}
+                title="toggle map"
+                aria-label="toggle map"
+                className="vpnode__actionBtn"
+              >
+                <img
+                  src={mapPng}
+                  alt="toggle map"
+                  className="vpnode__actionIcon"
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleFlip}
+                title="Flip to grammar"
+                aria-label="Flip to grammar"
+                className="vpnode__actionBtn"
+              >
+                <img
+                  src={flipPng}
+                  alt="Flip to grammar"
+                  className="vpnode__actionIcon"
+                />
+              </button>
+            </div>
+          )}
+        </div>
+
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="view-in"
+          className={`vpnode__handle vpnode__handle--left ${
+            minimized ? "gnode__handle--hidden" : ""
+          }`}
+        />
+
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="view-out"
+          className={`vpnode__handle vpnode__handle--right ${
+            minimized ? "gnode__handle--hidden" : ""
+          }`}
+          // className={`gnode__handle gnode__handle--right ${
+          //   minimized ? "gnode__handle--hidden" : ""
+          // }`}
+        />
+      </div>
     </>
   );
 });

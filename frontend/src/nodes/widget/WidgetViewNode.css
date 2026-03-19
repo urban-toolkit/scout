@@ -101,7 +101,7 @@
 .wvnode__handle__source {
   width: 10px !important;
   height: 10px !important;
-  background: #5c6bc0 !important;
+  background: #ff7043 !important;
   border: 2px solid #fff !important;
   border-radius: 50%;
   z-index: 5;
@@ -110,7 +110,7 @@
 .wvnode__handle__target {
   width: 10px !important;
   height: 10px !important;
-  background: #ff7043 !important;
+  background: #5c6bc0 !important;
   border: 2px solid #fff !important;
   border-radius: 50%;
   z-index: 5;

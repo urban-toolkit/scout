@@ -22,7 +22,7 @@ const NODE_MINIMIZED_WIDTH = 150;
 const NODE_MINIMIZED_HEIGHT = 48;
 
 const InteractionNode = memo(function InteractionNode(
-  props: NodeProps<InteractionNode>
+  props: NodeProps<InteractionNode>,
 ) {
   const { id, data, selected } = props;
   const { getNode, getEdges, setNodes, setEdges } = useReactFlow();
@@ -58,7 +58,7 @@ const InteractionNode = memo(function InteractionNode(
             const next = iValue
               ? existing.filter(
                   (d) =>
-                    JSON.stringify(d) !== JSON.stringify(iValue.interaction)
+                    JSON.stringify(d) !== JSON.stringify(iValue.interaction),
                 )
               : existing;
 
@@ -70,15 +70,15 @@ const InteractionNode = memo(function InteractionNode(
               } as ViewportNodeData,
             };
           })
-          .filter((nn) => nn.id !== nodeId)
+          .filter((nn) => nn.id !== nodeId),
       );
 
       // 3) Remove all edges touching this node
       setEdges((eds) =>
-        eds.filter((e) => e.source !== nodeId && e.target !== nodeId)
+        eds.filter((e) => e.source !== nodeId && e.target !== nodeId),
       );
     },
-    [getNode, getEdges, setNodes, setEdges]
+    [getNode, getEdges, setNodes, setEdges],
   );
 
   const handleToggleMinimize = useCallback(() => {
@@ -112,14 +112,14 @@ const InteractionNode = memo(function InteractionNode(
               height: nextHeight,
             };
           }
-        })
+        }),
       );
 
       // Hide/show edges
       setEdges((eds) =>
         eds.map((e) =>
-          e.source === id || e.target === id ? { ...e, hidden: next } : e
-        )
+          e.source === id || e.target === id ? { ...e, hidden: next } : e,
+        ),
       );
 
       return next;

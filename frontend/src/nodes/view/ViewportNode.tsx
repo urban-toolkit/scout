@@ -71,11 +71,11 @@ const ViewportNode = memo(function ViewportNode({
       const nextTitle = e.target.value;
       rf.setNodes((nodes) =>
         nodes.map((n) =>
-          n.id === id ? { ...n, data: { ...n.data, title: nextTitle } } : n
-        )
+          n.id === id ? { ...n, data: { ...n.data, title: nextTitle } } : n,
+        ),
       );
     },
-    [id, rf]
+    [id, rf],
   );
 
   const shouldHandleClick = useCallback(() => {
@@ -108,7 +108,7 @@ const ViewportNode = memo(function ViewportNode({
             ref,
             geojson,
           }),
-        })
+        }),
       );
 
       await Promise.allSettled(tasks);
@@ -167,7 +167,7 @@ const ViewportNode = memo(function ViewportNode({
 
       g.selectAll<SVGPathElement, any>("path.geom, path.geom-border").attr(
         "d",
-        path as any
+        path as any,
       );
     });
   }, [makeLeafletPath]);
@@ -211,7 +211,7 @@ const ViewportNode = memo(function ViewportNode({
       id,
       makeLeafletPath,
       shouldHandleClick,
-    ]
+    ],
   );
 
   // Init Leaflet + SVG overlay once
@@ -235,7 +235,7 @@ const ViewportNode = memo(function ViewportNode({
         maxZoom: 19,
         attribution: "&copy; OpenStreetMap contributors",
         opacity: 0,
-      }
+      },
     ).addTo(map);
 
     baseLayerRef.current = baseLayer;
@@ -306,7 +306,7 @@ const ViewportNode = memo(function ViewportNode({
   useEffect(() => {
     if (!leafletRef.current) return;
     const observer = new ResizeObserver(() =>
-      leafletRef.current?.invalidateSize()
+      leafletRef.current?.invalidateSize(),
     );
     if (mapRef.current) observer.observe(mapRef.current);
     return () => observer.disconnect();

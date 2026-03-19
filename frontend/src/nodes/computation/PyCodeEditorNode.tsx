@@ -47,11 +47,11 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
       const nextTitle = e.target.value;
       rf.setNodes((nodes) =>
         nodes.map((n) =>
-          n.id === id ? { ...n, data: { ...n.data, title: nextTitle } } : n
-        )
+          n.id === id ? { ...n, data: { ...n.data, title: nextTitle } } : n,
+        ),
       );
     },
-    [id, rf]
+    [id, rf],
   );
 
   // ---------- CLOSE ACTION ----------
@@ -92,14 +92,14 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
               height: nextHeight,
             };
           }
-        })
+        }),
       );
 
       // Hide/show edges connected to this node
       rf.setEdges((eds) =>
         eds.map((e) =>
-          e.source === id || e.target === id ? { ...e, hidden: next } : e
-        )
+          e.source === id || e.target === id ? { ...e, hidden: next } : e,
+        ),
       );
 
       return next;
@@ -164,11 +164,11 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
       // store inside node.data
       rf.setNodes((nodes) =>
         nodes.map((n) =>
-          n.id === id ? { ...n, data: { ...n.data, code: nextCode } } : n
-        )
+          n.id === id ? { ...n, data: { ...n.data, code: nextCode } } : n,
+        ),
       );
     },
-    [id, rf]
+    [id, rf],
   );
 
   return (
@@ -214,7 +214,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
             )}
 
             <span className="pcenode__minimizedRunText">
-              {running ? "Running..." : data?.title ?? "Code"}
+              {running ? "Running..." : (data?.title ?? "Code")}
             </span>
           </button>
 
@@ -228,13 +228,13 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
           </button>
 
           {/* Floating restore (bottom-right) */}
-          <button
+          {/* <button
             type="button"
             className="pcenode__minimizedRestoreCircle_2 pcenode__minimizedRestoreCircle--bottomRight"
             onClick={() => {}}
           >
             <img src={restartPng} alt="Run / update" />
-          </button>
+          </button> */}
         </div>
       ) : (
         <>
@@ -290,7 +290,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
           </div>
 
           <div className="pcenode__footer">
-            <button
+            {/* <button
               type="button"
               onClick={() => {}}
               title="update"
@@ -302,7 +302,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
                 alt="update"
                 className="pcenode__actionIcon"
               />
-            </button>
+            </button> */}
 
             <button
               type="button"

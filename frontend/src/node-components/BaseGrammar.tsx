@@ -13,6 +13,7 @@ import addFormats from "ajv-formats";
 import JsonCodeEditor from "./JsonCodeEditor";
 import "./BaseGrammar.css";
 import restartPng from "../assets/restart.png";
+import flipPng from "../assets/restart-2.png";
 
 export type GrammarValue = unknown;
 
@@ -82,7 +83,7 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
 
   const innerValue = useMemo(
     () => (data.pickInner ? data.pickInner(data.value) : data.value),
-    [data]
+    [data],
   );
 
   const runValidation = useCallback(
@@ -101,7 +102,7 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
         setErrors([String(e)]);
       }
     },
-    [validate]
+    [validate],
   );
 
   const handleChange = useCallback(
@@ -109,7 +110,7 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
       data?.onChange?.(val, id);
       runValidation(data.pickInner ? data.pickInner(val) : val);
     },
-    [data, id, runValidation]
+    [data, id, runValidation],
   );
 
   const handleTitleChange = useCallback(
@@ -119,11 +120,11 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
       const nextTitle = e.target.value;
       rf.setNodes((nodes) =>
         nodes.map((n) =>
-          n.id === id ? { ...n, data: { ...n.data, title: nextTitle } } : n
-        )
+          n.id === id ? { ...n, data: { ...n.data, title: nextTitle } } : n,
+        ),
       );
     },
-    [id, rf]
+    [id, rf],
   );
 
   useMemo(() => {
@@ -174,13 +175,15 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
           {!overallValid && (
             <span className="gnode__badge is-invalid">INVALID</span>
           )}
-          <button
-            type="button"
-            className="gnode__iconBtn"
-            onClick={() => data?.onToggleMinimize?.(id)}
-          >
-            &#8211;
-          </button>
+          {key !== "widget" && key !== "comparison" && (
+            <button
+              type="button"
+              className="gnode__iconBtn"
+              onClick={() => data?.onToggleMinimize?.(id)}
+            >
+              &#8211;
+            </button>
+          )}
           <button
             type="button"
             className="gnode__iconBtn gnode__iconBtn--close"
@@ -213,15 +216,18 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
 
       {/* Footer action bar */}
       <div className="gnode__footer">
-        <button
-          type="button"
-          onClick={onRun}
-          title="update"
-          aria-label="update"
-          className="gnode__actionBtn"
-        >
-          <img src={restartPng} alt="update" className="gnode__actionIcon" />
-        </button>
+        {key === "widget" ? null : key === "comparison" ? null : key ===
+          "data_layer" ? null : key === "view" ? null : (
+          <button
+            type="button"
+            onClick={onRun}
+            title="update"
+            aria-label="update"
+            className="gnode__actionBtn"
+          >
+            <img src={restartPng} alt="update" className="gnode__actionIcon" />
+          </button>
+        )}
 
         {data.footerActions}
       </div>
