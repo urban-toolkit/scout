@@ -13,7 +13,7 @@ import addFormats from "ajv-formats";
 import JsonCodeEditor from "./JsonCodeEditor";
 import "./BaseGrammar.css";
 import restartPng from "../assets/restart.png";
-import flipPng from "../assets/restart-2.png";
+// import flipPng from "../assets/restart-2.png";
 
 export type GrammarValue = unknown;
 
@@ -175,7 +175,7 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
           {!overallValid && (
             <span className="gnode__badge is-invalid">INVALID</span>
           )}
-          {key !== "widget" && key !== "comparison" && (
+          {key !== "widget" && key !== "comparison" && key !== "view" && (
             <button
               type="button"
               className="gnode__iconBtn"

@@ -7,7 +7,7 @@ import BaseGrammarNode, {
 import schema from "../../schemas/interaction.json";
 
 import "../../node-components/BaseGrammar.css";
-import { ViewportNodeData } from "../view/ViewportNode";
+// import { ViewportNodeData } from "../view/ViewportNode";
 
 import expandPng from "../../assets/expand.png";
 import restartPng from "../../assets/restart.png";
@@ -47,12 +47,14 @@ const InteractionNode = memo(function InteractionNode(
       setNodes((nds) =>
         nds
           .map((nn) => {
-            if (nn.type !== "viewportNode" || !targetIds.includes(nn.id)) {
+            if (nn.type !== "viewNode" || !targetIds.includes(nn.id)) {
               return nn;
             }
 
-            const vpData = nn.data as ViewportNodeData;
-            const existing = vpData.interactions ?? [];
+            // const vpData = nn.data as ViewportNodeData;
+            // const existing = vpData.interactions ?? [];
+
+            const existing = ((nn.data as any).interactions ?? []) as any[];
 
             // not with id. match by whole object and remove interaction from viewport
             const next = iValue
@@ -67,7 +69,7 @@ const InteractionNode = memo(function InteractionNode(
               data: {
                 ...nn.data,
                 interactions: next.length ? next : undefined,
-              } as ViewportNodeData,
+              },
             };
           })
           .filter((nn) => nn.id !== nodeId),
@@ -196,6 +198,24 @@ const InteractionNode = memo(function InteractionNode(
         type="source"
         position={Position.Right}
         id="interaction-out-2"
+        className={`interactionnode__handle ${
+          minimized ? "gnode__handle--hidden" : ""
+        }`}
+      />
+
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="interaction-out-3"
+        className={`interactionnode__handle ${
+          minimized ? "gnode__handle--hidden" : ""
+        }`}
+      />
+
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="interaction-out-4"
         className={`interactionnode__handle ${
           minimized ? "gnode__handle--hidden" : ""
         }`}

@@ -10,7 +10,7 @@ import schema from "../../schemas/data_layer.json";
 import fetchPng2 from "../../assets/fetch_2.png";
 import checkPng from "../../assets/check-mark.png";
 import expandPng from "../../assets/expand.png";
-import restartPng from "../../assets/restart.png";
+// import restartPng from "../../assets/restart.png";
 
 import "./DataLayerNode.css";
 import "../../node-components/BaseGrammar.css";
@@ -24,7 +24,7 @@ const NODE_MINIMIZED_WIDTH = 150;
 const NODE_MINIMIZED_HEIGHT = 48;
 
 const DataLayerNode = memo(function DataLayerNode(
-  props: NodeProps<DataLayerNode>
+  props: NodeProps<DataLayerNode>,
 ) {
   const { id, data, selected } = props;
   const rf = useReactFlow();
@@ -51,7 +51,7 @@ const DataLayerNode = memo(function DataLayerNode(
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(val),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -75,10 +75,10 @@ const DataLayerNode = memo(function DataLayerNode(
 
       // 3) Remove all edges touching this node
       setEdges((eds) =>
-        eds.filter((e) => e.source !== nodeId && e.target !== nodeId)
+        eds.filter((e) => e.source !== nodeId && e.target !== nodeId),
       );
     },
-    [rf, setEdges]
+    [rf, setEdges],
   );
 
   const handleToggleMinimize = useCallback(() => {
@@ -112,25 +112,25 @@ const DataLayerNode = memo(function DataLayerNode(
               height: nextHeight,
             };
           }
-        })
+        }),
       );
 
       // Hide/show edges
       setEdges((eds) =>
         eds.map((e) =>
-          e.source === id || e.target === id ? { ...e, hidden: next } : e
-        )
+          e.source === id || e.target === id ? { ...e, hidden: next } : e,
+        ),
       );
 
       return next;
     });
   }, [id, rf, setEdges]);
 
-  const handleRun = useCallback(() => {
-    if (data?.onRun) {
-      return data.onRun(id);
-    }
-  }, [data, id]);
+  // const handleRun = useCallback(() => {
+  //   if (data?.onRun) {
+  //     return data.onRun(id);
+  //   }
+  // }, [data, id]);
   return (
     <>
       {minimized ? (
@@ -173,7 +173,7 @@ const DataLayerNode = memo(function DataLayerNode(
               )}
 
               <span className="gnode__minimizedText">
-                {loading ? "Fetching..." : data.title ?? "Data layer"}
+                {loading ? "Fetching..." : (data.title ?? "Data layer")}
               </span>
             </button>
 
@@ -187,14 +187,14 @@ const DataLayerNode = memo(function DataLayerNode(
             </button>
 
             {/* Floating fetch/update (bottom-right) */}
-            <button
+            {/* <button
               type="button"
               className="gnode__minimizedRestoreCircle_2 gnode__minimizedRestoreCircle--bottomRight"
               onClick={handleRun}
               disabled={loading}
             >
               <img src={restartPng} alt="Fetch / update" />
-            </button>
+            </button> */}
           </div>
         </div>
       ) : (

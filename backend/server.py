@@ -496,7 +496,15 @@ def comparison_view():
 @app.post("/api/infer-filetype")
 def infer_filetype():
     payload = request.get_json(silent=True) or {}
-    ref = payload.get("ref")
+
+    ref_keys = ["ref", "ref_base", "ref_comp"]
+    ref = None
+
+    for key in ref_keys:
+        if key in payload and payload[key]:
+            ref = payload[key]
+            break
+
     if not ref:
         return jsonify({"ok": False, "error": "missing ref"}), 400
     
@@ -518,16 +526,24 @@ def infer_filetype():
             "file_type": vector_path.suffix.lower(),
         }), 200
     
+    # -------------------------
+    # 2) Raster (file OR directory)
+    # -------------------------
+
+    # Case 1: direct file match (e.g., A.tif)
+    raster_file = next(raster_subdir.glob(f"{ref}.*"), None)
+    if raster_file is not None and raster_file.is_file():
+        return jsonify({
+            "ok": True,
+            "kind": "raster",
+            "is_dir": False,
+            "file_type": raster_file.suffix.lower(),
+        }), 200
+
+
+    # Case 2: directory match (e.g., raster/A/)
     raster_path = raster_subdir / ref
-    if raster_path.exists():
-        if raster_path.is_file():
-            return jsonify({
-                "ok": True,
-                "kind": "raster",
-                "is_dir": False,
-                "file_type": raster_path.suffix.lower(),
-            }), 200
-        
+    if raster_path.exists() and raster_path.is_dir():
         any_file = next((p for p in raster_path.iterdir() if p.is_file()), None)
         ext = any_file.suffix.lower() if any_file else None
 

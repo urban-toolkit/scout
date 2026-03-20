@@ -13,12 +13,12 @@ import BaseGrammarNode, {
 } from "../../node-components/BaseGrammar";
 import schema from "../../schemas/widget.json";
 
-import "./WidgetViewNode.css";
+import "./WidgetNode.css";
 import flipPng from "../../assets/restart-2.png";
 import restartPng from "../../assets/restart.png";
 import expandPng from "../../assets/expand.png";
 
-import type { ReactNode } from "react";
+// import type { ReactNode } from "react";
 import type { WidgetDef, WidgetOutput } from "../../utils/types";
 import { renderWidgetFromWidgetDef } from "../../utils/renderWidget";
 
@@ -38,7 +38,7 @@ const NODE_MINIMIZED_HEIGHT = 200;
 const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
   const { id, data, selected } = props;
   const rf = useReactFlow();
-  const { getNode, setNodes, setEdges } = useReactFlow();
+  const { setNodes, setEdges } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
 
   const mode = data.mode ?? "def";

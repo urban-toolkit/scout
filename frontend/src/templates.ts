@@ -2,7 +2,6 @@ export type TemplateKey =
   | "data_layer"
   | "view"
   | "interaction"
-  // | "transformation"
   | "widget"
   | "comparison";
 // | "join"
@@ -115,7 +114,6 @@ export const TEMPLATES: Record<TemplateKey, any> = {
   data_layer: dataLayerTemplate,
   view: viewTemplate,
   // join: joinTemplate,
-  // transformation: transformationTemplate,
   interaction: interactionTemplate,
   widget: widgetTemplate,
   comparison: comparisonTemplate,
@@ -125,7 +123,6 @@ export const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   data_layer: "Data layer",
   view: "View",
   // join: "join",
-  // transformation: "transformation",
   interaction: "Interaction",
   widget: "Widget",
   comparison: "Comparison",
@@ -143,7 +140,7 @@ export const TEMPLATE_LABELS: Record<TemplateKey, string> = {
 // attribute = "height"
 // zoom = 16
 
-// convert_raster(input, attribute, zoom, output
+// convert_raster(input, attribute, zoom, output)
 
 // -------------------------------------------
 // Run shadow model:

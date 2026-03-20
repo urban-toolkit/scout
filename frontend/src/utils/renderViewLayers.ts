@@ -94,7 +94,7 @@ async function renderPngForView(opts: {
   const cmap = (view as any).style?.colormap ?? "reds";
 
   const tiles: string[] = await fetch(
-    `http://127.0.0.1:5000/api/list-rasters/${ref}`
+    `http://127.0.0.1:5000/api/list-rasters/${ref}`,
   ).then((r) => r.json());
 
   const cacheBust = Date.now();
@@ -361,6 +361,8 @@ export async function renderLayers(opts: {
       });
       const info = await res.json();
 
+      console.log(info);
+
       if (info.file_type === ".png") {
         unionBounds = await renderPngForView({
           map,
@@ -553,7 +555,7 @@ export async function renderLayers(opts: {
                 });
               },
             },
-            strokeWidth
+            strokeWidth,
           );
         }
 
@@ -583,7 +585,7 @@ export async function renderLayers(opts: {
       const info_comp = await res_comp.json();
 
       if (info_base.file_type === ".png" && info_comp.file_type === ".png") {
-        const diff = ref_comp + "_minus_" + ref_base;
+        const diff = ref_base + "_minus_" + ref_comp;
 
         await fetch("http://127.0.0.1:5000/api/diff-png", {
           method: "POST",

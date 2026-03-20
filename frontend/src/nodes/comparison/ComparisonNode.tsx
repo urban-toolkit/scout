@@ -17,7 +17,7 @@ import schema from "../../schemas/comparison.json";
 import type { ComparisonDef } from "../../utils/types";
 import { renderComparisonFromDef } from "../../utils/renderComparison";
 
-import "./ComparisonViewNode.css"; // reuse if you want, or make a new css
+import "./ComparisonNode.css"; // reuse if you want, or make a new css
 
 import flipPng from "../../assets/restart-2.png";
 
@@ -32,7 +32,7 @@ const ComparisonNode = memo(function ComparisonNode(
   props: NodeProps<ComparisonNode>,
 ) {
   const { id, data, selected } = props;
-  const { getNode, setNodes, setEdges } = useReactFlow();
+  const { setNodes, setEdges } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
 
   const mode = data.mode ?? "def";
