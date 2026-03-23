@@ -9,3 +9,4 @@ env/
 data/served
 north-america-latest.osm.pbf
 nyc.osm.pbf
+test_env
