@@ -23,7 +23,7 @@ worker_lock = threading.Lock()
 worker_python_exe = None
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 DATA_DIR = Path("data")        
 OUT_DIR  = Path("data/served")
