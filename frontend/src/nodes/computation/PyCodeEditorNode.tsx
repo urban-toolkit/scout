@@ -136,11 +136,17 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
         stderr: "",
       });
 
-      const res = await fetch("http://127.0.0.1:5000/api/run-python", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: finalCode }),
-      });
+      const res = await fetch(
+        "https://giavanna-stripiest-mustafa.ngrok-free.dev/api/run-python",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "ngrok-skip-browser-warning": "true",
+          },
+          body: JSON.stringify({ code: finalCode }),
+        },
+      );
 
       const result = await res.json();
 

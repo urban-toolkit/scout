@@ -94,7 +94,12 @@ async function renderPngForView(opts: {
   const cmap = (view as any).style?.colormap ?? "reds";
 
   const tiles: string[] = await fetch(
-    `http://127.0.0.1:5000/api/list-rasters/${ref}`,
+    `https://giavanna-stripiest-mustafa.ngrok-free.dev/api/list-rasters/${ref}`,
+    {
+      headers: {
+        "ngrok-skip-browser-warning": "true",
+      },
+    },
   ).then((r) => r.json());
 
   const cacheBust = Date.now();
@@ -125,7 +130,7 @@ async function renderPngForView(opts: {
 
     // const url = `http://127.0.0.1:5000/generated/raster/${ref}/${name}?v=${cacheBust}`;
     const url =
-      `http://127.0.0.1:5000/generated/raster/${ref}/${name}` +
+      `https://giavanna-stripiest-mustafa.ngrok-free.dev/generated/raster/${ref}/${name}` +
       `?v=${cacheBust}&cmap=${encodeURIComponent(cmap)}`;
 
     console.log(url);
@@ -165,7 +170,7 @@ async function renderGeoTiffForView(opts: {
   const { map, view, ref, unionBounds } = opts;
 
   const cacheBust = Date.now();
-  const url = `http://127.0.0.1:5000/generated/raster/${ref}.tif?v=${cacheBust}`;
+  const url = `https://giavanna-stripiest-mustafa.ngrok-free.dev/generated/raster/${ref}.tif?v=${cacheBust}`;
 
   const colormapName = (view as any).style.colormap || undefined;
 
@@ -331,6 +336,8 @@ export async function renderLayers(opts: {
     shouldHandleClick,
   } = opts;
 
+  console.log(`[Viewport ${id}] Rendering layers with views:`, views);
+
   // Remove old raster overlays from previous renders
   for (const overlay of rasterOverlays) {
     map.removeLayer(overlay);
@@ -354,14 +361,23 @@ export async function renderLayers(opts: {
     }
 
     if (ref) {
-      const res = await fetch("http://127.0.0.1:5000/api/infer-filetype", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ref }),
-      });
+      const res = await fetch(
+        "https://giavanna-stripiest-mustafa.ngrok-free.dev/api/infer-filetype",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "ngrok-skip-browser-warning": "true",
+          },
+          body: JSON.stringify({ ref }),
+        },
+      );
       const info = await res.json();
 
-      console.log(info);
+      console.log(
+        `[Viewport ${id}] Inferred file type for ref "${ref}":`,
+        info,
+      );
 
       if (info.file_type === ".png") {
         unionBounds = await renderPngForView({
@@ -379,10 +395,14 @@ export async function renderLayers(opts: {
         });
       } else if (info.file_type === ".geojson") {
         // --- render GeoJSON for view. Maybe later function ---
-        const url = `http://127.0.0.1:5000/generated/vector/${ref}.geojson`;
+        const url = `https://giavanna-stripiest-mustafa.ngrok-free.dev/generated/vector/${ref}.geojson`;
         let fc: any;
         try {
-          const res = await fetch(url);
+          const res = await fetch(url, {
+            headers: {
+              "ngrok-skip-browser-warning": "true",
+            },
+          });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           fc = await res.json();
         } catch (err) {
@@ -570,32 +590,50 @@ export async function renderLayers(opts: {
     } else if (ref_base && ref_comp) {
       // go to server side. check inside served-raster and served-vector and infer filetype
 
-      const res_base = await fetch("http://127.0.0.1:5000/api/infer-filetype", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ref_base }),
-      });
+      const res_base = await fetch(
+        "https://giavanna-stripiest-mustafa.ngrok-free.dev/api/infer-filetype",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "ngrok-skip-browser-warning": "true",
+          },
+          body: JSON.stringify({ ref_base }),
+        },
+      );
       const info_base = await res_base.json();
 
-      const res_comp = await fetch("http://127.0.0.1:5000/api/infer-filetype", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ref_comp }),
-      });
+      const res_comp = await fetch(
+        "https://giavanna-stripiest-mustafa.ngrok-free.dev/api/infer-filetype",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "ngrok-skip-browser-warning": "true",
+          },
+          body: JSON.stringify({ ref_comp }),
+        },
+      );
       const info_comp = await res_comp.json();
 
       if (info_base.file_type === ".png" && info_comp.file_type === ".png") {
         const diff = ref_base + "_minus_" + ref_comp;
 
-        await fetch("http://127.0.0.1:5000/api/diff-png", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            dir1: ref_base,
-            dir2: ref_comp,
-            colormap: view.style.colormap || "Reds",
-          }),
-        });
+        await fetch(
+          "https://giavanna-stripiest-mustafa.ngrok-free.dev/api/diff-png",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "ngrok-skip-browser-warning": "true",
+            },
+            body: JSON.stringify({
+              dir1: ref_base,
+              dir2: ref_comp,
+              colormap: view.style.colormap || "Reds",
+            }),
+          },
+        );
 
         unionBounds = await renderPngForView({
           map,
@@ -608,15 +646,21 @@ export async function renderLayers(opts: {
         (info_comp.file_type === ".tif" || info_comp.file_type === ".tiff")
       ) {
         const diff = ref_base + "_minus_" + ref_comp;
-        await fetch("http://127.0.0.1:5000/api/diff-tif", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tif1: ref_base,
-            tif2: ref_comp,
-            colormap: view.style.colormap || "Reds",
-          }),
-        });
+        await fetch(
+          "https://giavanna-stripiest-mustafa.ngrok-free.dev/api/diff-tif",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "ngrok-skip-browser-warning": "true",
+            },
+            body: JSON.stringify({
+              tif1: ref_base,
+              tif2: ref_comp,
+              colormap: view.style.colormap || "Reds",
+            }),
+          },
+        );
 
         unionBounds = await renderGeoTiffForView({
           map,

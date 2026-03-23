@@ -15,16 +15,22 @@ type ComparisonAPIResponse = {
 
 export async function renderComparisonFromDef(
   def: ComparisonDef,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<ReactNode> {
   console.log("Rendering comparison from definition:", def);
 
-  const res = await fetch("http://127.0.0.1:5000/api/comparison-view", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(def),
-    signal,
-  });
+  const res = await fetch(
+    "https://giavanna-stripiest-mustafa.ngrok-free.dev/api/comparison-view",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify(def),
+      signal,
+    },
+  );
 
   if (!res.ok) {
     throw new Error(`Comparison fetch failed: ${res.status}`);

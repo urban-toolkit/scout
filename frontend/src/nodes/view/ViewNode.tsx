@@ -83,15 +83,20 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
 
     try {
       const tasks = entries.map(({ ref, geojson }) =>
-        fetch("http://127.0.0.1:5000/api/update-data-layer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ref,
-            geojson,
-          }),
-        }),
+        fetch(
+          "https://giavanna-stripiest-mustafa.ngrok-free.dev/update-data-layer",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ref,
+              geojson,
+            }),
+          },
+        ),
       );
+
+      console.log(tasks);
 
       await Promise.allSettled(tasks);
       pendingRef.current = {};
@@ -161,6 +166,7 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
   );
 
   const stableView = useMemo(() => {
+    console.log("Computing stable view from viewSpec:", viewSpec);
     return Array.isArray(viewSpec) ? viewSpec : [];
   }, [viewSpec]);
 

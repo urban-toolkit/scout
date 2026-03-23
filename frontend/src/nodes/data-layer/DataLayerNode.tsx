@@ -43,16 +43,24 @@ const DataLayerNode = memo(function DataLayerNode(
     }
 
     try {
+      console.log("Sending data to Flask:", val);
       setLoading(true);
       setLoadingSuccess(false);
       const response = await fetch(
-        "http://127.0.0.1:5000/api/extract-data-layer",
+        "https://giavanna-stripiest-mustafa.ngrok-free.dev/api/extract-data-layer",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "ngrok-skip-browser-warning": "true",
+          },
           body: JSON.stringify(val),
         },
       );
+
+      const data = await response.json();
+
+      console.log("Response body:", data);
 
       if (!response.ok) {
         throw new Error(`Server returned ${response.status}`);
