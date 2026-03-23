@@ -84,7 +84,7 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
     try {
       const tasks = entries.map(({ ref, geojson }) =>
         fetch(
-          "https://giavanna-stripiest-mustafa.ngrok-free.dev/update-data-layer",
+          "https://giavanna-stripiest-mustafa.ngrok-free.dev/api/update-data-layer",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
