@@ -57,16 +57,16 @@ function Canvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { getNode, getNodes, getEdges, fitView } = useReactFlow();
 
-  const dumpWorkflow = useCallback(() => {
-    const nodes = getNodes();
-    const edges = getEdges();
+  // const dumpWorkflow = useCallback(() => {
+  //   const nodes = getNodes();
+  //   const edges = getEdges();
 
-    console.log("NODES");
-    console.log(JSON.stringify(nodes, null, 2));
+  //   console.log("NODES");
+  //   console.log(JSON.stringify(nodes, null, 2));
 
-    console.log("EDGES");
-    console.log(JSON.stringify(edges, null, 2));
-  }, [getNodes, getEdges]);
+  //   console.log("EDGES");
+  //   console.log(JSON.stringify(edges, null, 2));
+  // }, [getNodes, getEdges]);
 
   const pushInteractionToView = useCallback(
     (srcId: string, trgId?: string) => {

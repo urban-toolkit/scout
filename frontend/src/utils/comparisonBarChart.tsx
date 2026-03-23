@@ -39,7 +39,7 @@ export function ComparisonBarChart({
 
     d3.select(svgEl).selectAll("*").remove();
 
-    const margin = { top: 20, right: 0, bottom: 50, left: 60 };
+    const margin = { top: 20, right: 0, bottom: 50, left: 80 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -99,16 +99,15 @@ export function ComparisonBarChart({
       .style("font-size", "15px")
       .style("font-family", "Inter, sans-serif");
 
-    // 💡 LEFT-SIDE VERTICAL METRIC LABEL
-    svg
-      .append("text")
-      .attr("transform", `rotate(-90)`)
-      .attr("x", -height / 2)
-      .attr("y", 10) // closer to axis; adjust if needed
+    // Y-axis title
+    g.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", -60)
+      .attr("x", -height / 2.5)
       .attr("text-anchor", "middle")
-      .style("font-size", "16px")
+      .style("font-size", "15px")
       .style("font-family", "Inter, sans-serif")
-      .text(`${metric} (${props?.unit ?? ""})`);
+      .text(props?.labelY ?? `${metric} ${props?.unit ?? ""}`);
   }, [values, metric, width, props]);
 
   return (

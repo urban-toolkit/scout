@@ -178,8 +178,20 @@ async function renderGeoTiffForView(opts: {
     colormapName != null ? pickInterpolator(colormapName) : null;
 
   let tiff: GeoTIFF.GeoTIFF;
+
   try {
-    tiff = await GeoTIFF.fromUrl(url);
+    const res = await fetch(url, {
+      headers: {
+        "ngrok-skip-browser-warning": "true",
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const buf = await res.arrayBuffer();
+    tiff = await GeoTIFF.fromArrayBuffer(buf);
   } catch (err) {
     console.error(`[Viewport] Failed to load GeoTIFF ${url}`, err);
     return unionBounds;
