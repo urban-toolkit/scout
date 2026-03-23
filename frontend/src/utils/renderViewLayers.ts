@@ -197,7 +197,7 @@ async function renderGeoTiffForView(opts: {
     return unionBounds;
   }
 
-  let image: GeoTIFF.IFD;
+  let image;
   try {
     image = await tiff.getImage();
   } catch (err) {

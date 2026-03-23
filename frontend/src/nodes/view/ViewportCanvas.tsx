@@ -154,7 +154,7 @@ const ViewportCanvas = memo(function ViewportCanvas({
     baseLayerRef.current = baseLayer;
 
     const svgLayer = L.svg().addTo(map);
-    const overlaySvg = d3.select(svgLayer._container as SVGSVGElement);
+    const overlaySvg = d3.select((svgLayer as any)._container as SVGSVGElement);
     const gRoot = overlaySvg.append("g").attr("class", "d3-layer");
 
     leafletRef.current = map;

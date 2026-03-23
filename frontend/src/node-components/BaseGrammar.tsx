@@ -7,13 +7,19 @@ import {
   type ChangeEvent,
 } from "react";
 import { NodeResizer, useReactFlow } from "@xyflow/react";
-import type { NodeProps, Node } from "@xyflow/react";
+import type { Node } from "@xyflow/react";
 import Ajv, { ErrorObject } from "ajv";
 import addFormats from "ajv-formats";
 import JsonCodeEditor from "./JsonCodeEditor";
 import "./BaseGrammar.css";
 import restartPng from "../assets/restart.png";
 // import flipPng from "../assets/restart-2.png";
+
+type BaseGrammarNodeProps = {
+  id: string;
+  data: BaseNodeData;
+  selected?: boolean;
+};
 
 export type GrammarValue = unknown;
 
@@ -63,8 +69,8 @@ function fmt(errs: ErrorObject[] | null | undefined, max = 4): string[] {
 const BaseGrammarNode = memo(function BaseGrammarNode({
   id,
   data,
-}: NodeProps<BaseNode>) {
-  const [errors, setErrors] = useState<string[]>([]);
+}: BaseGrammarNodeProps) {
+  const [, setErrors] = useState<string[]>([]);
   const [isValid, setIsValid] = useState<boolean>(true);
   const [hasSyntaxError, setHasSyntaxError] = useState(false);
   const rf = useReactFlow();

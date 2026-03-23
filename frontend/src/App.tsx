@@ -55,7 +55,7 @@ function Canvas() {
     Node<BaseNodeData | PyCodeEditorNodeData>
   >([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const { getNode, getNodes, getEdges, fitView } = useReactFlow();
+  const { getNode, getEdges, fitView } = useReactFlow();
 
   // const dumpWorkflow = useCallback(() => {
   //   const nodes = getNodes();
@@ -187,7 +187,7 @@ function Canvas() {
   }, [setNodes]);
 
   const allow = useCallback(
-    (conn: Connection) => {
+    (conn: Connection | Edge) => {
       if (!conn.source || !conn.target) return false;
       const src = getNode(conn.source);
       const trg = getNode(conn.target);
