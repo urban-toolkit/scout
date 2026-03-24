@@ -83,7 +83,7 @@ export function loadShadowComparisonExample({
       data: {
         value: {
           data_layer: {
-            id: "C",
+            id: "A",
             source: "osm",
             dtype: "physical",
             roi: {
@@ -111,7 +111,7 @@ export function loadShadowComparisonExample({
         value: {
           view: [
             {
-              ref: "C_buildings",
+              ref: "A_buildings",
               style: {
                 fill: {
                   feature: "height",
@@ -135,7 +135,7 @@ export function loadShadowComparisonExample({
       data: {
         value: {
           data_layer: {
-            id: "D",
+            id: "B",
             source: "osm",
             dtype: "physical",
             roi: {
@@ -684,7 +684,7 @@ export function loadFloodingComparisonExample({
       data: {
         code: `from models.flooding.scripts.flood_simulation import simulate_flood_projection
 
-output = 'C'
+output = 'A'
 
 simulate_flood_projection(
     topleft,
@@ -722,7 +722,7 @@ simulate_flood_projection(
       data: {
         code: `from models.flooding.scripts.flood_simulation import simulate_flood_projection
 
-output = 'D'
+output = 'B'
 
 simulate_flood_projection(
     topleft,
@@ -768,7 +768,7 @@ simulate_flood_projection(
         value: {
           view: [
             {
-              ref: "D",
+              ref: "B",
               style: {
                 opacity: 1,
                 colormap: "blues",
@@ -790,7 +790,7 @@ simulate_flood_projection(
         value: {
           view: [
             {
-              ref: "C",
+              ref: "A",
               style: {
                 opacity: 1,
                 colormap: "blues",
@@ -812,8 +812,8 @@ simulate_flood_projection(
         value: {
           view: [
             {
-              ref_base: "D",
-              ref_comp: "C",
+              ref_base: "B",
+              ref_comp: "A",
               style: {
                 opacity: 1,
                 colormap: "blues",
@@ -834,7 +834,7 @@ simulate_flood_projection(
       data: {
         value: {
           comparison: {
-            key: ["C", "D"],
+            key: ["A", "B"],
             metric: "median flood depth",
             chart: "table",
             props: {
@@ -1319,10 +1319,10 @@ calculate_weather_route(
         value: {
           comparison: {
             key: ["C", "D"],
-            metric: "duration",
+            metric: "Travel time",
             chart: "bar",
             props: {
-              labelY: "Travel time (minutes)",
+              unit: "minutes",
             },
           },
         },
@@ -1338,11 +1338,8 @@ calculate_weather_route(
         value: {
           comparison: {
             key: ["C", "D"],
-            metric: "rain_exposure",
+            metric: "rain exposure",
             chart: "bar",
-            props: {
-              labelY: "Rain exposure",
-            },
           },
         },
       },
@@ -1357,10 +1354,10 @@ calculate_weather_route(
         value: {
           comparison: {
             key: ["C", "D"],
-            metric: "distance",
+            metric: "Distance",
             chart: "bar",
             props: {
-              labelY: "Distance (KM)",
+              unit: "km",
             },
           },
         },
@@ -1376,11 +1373,8 @@ calculate_weather_route(
         value: {
           comparison: {
             key: ["C", "D"],
-            metric: "wind_exposure",
+            metric: "wind exposure",
             chart: "bar",
-            props: {
-              labelY: "Wind exposure",
-            },
           },
         },
       },
