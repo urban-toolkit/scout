@@ -21,6 +21,7 @@ import flipPng from "../../assets/restart-2.png";
 import persistPng from "../../assets/update-data.png";
 import mapPng from "../../assets/map.png";
 import checkPng from "../../assets/check-mark.png";
+import { appUrl } from "../../utils/runtimePaths";
 
 export type ViewNodeData = BaseNodeData & {
   mode?: "def" | "view";
@@ -83,17 +84,14 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
 
     try {
       const tasks = entries.map(({ ref, geojson }) =>
-        fetch(
-          "https://giavanna-stripiest-mustafa.ngrok-free.dev/api/update-data-layer",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ref,
-              geojson,
-            }),
-          },
-        ),
+        fetch(appUrl("/api/update-data-layer"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ref,
+            geojson,
+          }),
+        }),
       );
 
       console.log(tasks);

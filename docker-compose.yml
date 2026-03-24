@@ -1,0 +1,17 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "9797:80"
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/models:/app/models
+      - ./backend/osm_downloader:/app/osm_downloader
+      - ./backend/transformations:/app/transformations

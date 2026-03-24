@@ -428,9 +428,9 @@ class DeepShadow():
             self.discriminator_optimizer = tf.keras.optimizers.legacy.Adam(
                 d_learning, beta_1=0.5)
         else:
-            self.generator_optimizer = tf.keras.optimizers.Adam(
+            self.generator_optimizer = tf.keras.optimizers.legacy.Adam(
                 g_learning, beta_1=0.5)
-            self.discriminator_optimizer = tf.keras.optimizers.Adam(
+            self.discriminator_optimizer = tf.keras.optimizers.legacy.Adam(
                 d_learning, beta_1=0.5)
 
         checkpoint = tf.train.Checkpoint(generator_optimizer=self.generator_optimizer,

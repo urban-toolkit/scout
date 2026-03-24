@@ -23,7 +23,7 @@ worker_lock = threading.Lock()
 worker_python_exe = None
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 
 DATA_DIR = Path("data")        
 OUT_DIR  = Path("data/served")
@@ -43,7 +43,10 @@ def start_worker():
         return
 
     project_dir = Path(__file__).parent
-    python_exe = project_dir / "envs" / ("python.exe" if os.name == "nt" else "bin/python")
+    python_exe = Path(sys.executable)
+
+    if not python_exe.exists():
+        python_exe = project_dir / "envs" / ("python.exe" if os.name == "nt" else "bin/python")
 
     if not python_exe.exists():
         raise RuntimeError(f"Python interpreter not found at: {python_exe}")
@@ -581,4 +584,4 @@ if __name__ == '__main__':
     except Exception as e:
         print("[WORKER] Failed to start:", e)
 
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=9797, debug=True)

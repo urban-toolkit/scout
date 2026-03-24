@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ComparisonBarChart } from "./comparisonBarChart";
 import { ComparisonPieChart } from "./comparisonPieChart";
 import { ComparisonTable } from "./comparisonTable";
+import { appUrl } from "./runtimePaths";
 
 type ComparisonAPIResponse = {
   status: string;
@@ -19,18 +20,14 @@ export async function renderComparisonFromDef(
 ): Promise<ReactNode> {
   console.log("Rendering comparison from definition:", def);
 
-  const res = await fetch(
-    "https://giavanna-stripiest-mustafa.ngrok-free.dev/api/comparison-view",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "ngrok-skip-browser-warning": "true",
-      },
-      body: JSON.stringify(def),
-      signal,
+  const res = await fetch(appUrl("/api/comparison-view"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify(def),
+    signal,
+  });
 
   if (!res.ok) {
     throw new Error(`Comparison fetch failed: ${res.status}`);
