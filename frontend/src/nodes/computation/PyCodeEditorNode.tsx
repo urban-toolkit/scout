@@ -2,7 +2,7 @@ import { memo, useCallback, useState, type ChangeEvent } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { Position, NodeResizer, useReactFlow, Handle } from "@xyflow/react";
 import "./PyCodeEditorNode.css";
-import restartPng from "../../assets/restart.png";
+// import restartPng from "../../assets/restart.png";
 import runPng from "../../assets/run.png";
 import checkPng from "../../assets/check-mark.png";
 import expandPng from "../../assets/expand.png";
