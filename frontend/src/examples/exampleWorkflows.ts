@@ -1246,7 +1246,7 @@ export function loadWeatherRoutingComparisonExample({
         y: 672.2394683238832,
       },
       width: 300,
-      height: 112,
+      height: 172,
       data: {
         code: `from models.routing.scripts.weather_routing import calculate_weather_route
 
@@ -1310,10 +1310,10 @@ calculate_weather_route(
       type: "dataLayerNode",
       position: {
         x: 639.0512662009569,
-        y: 655.8535821731028,
+        y: 625.8535821731028,
       },
       width: 300,
-      height: 116,
+      height: 176,
       data: {
         value: {
           data_layer: {
