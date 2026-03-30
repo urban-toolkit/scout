@@ -79,6 +79,9 @@
   color: #000;
   font: inherit;
   padding: 0;
+  font-size: 16px;
+  /* font-weight: 600; */
+  line-height: 1.2;
 }
 
 .vpnode__body {

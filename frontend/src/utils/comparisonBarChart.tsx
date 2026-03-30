@@ -8,14 +8,36 @@ export function ComparisonBarChart({
 }: {
   values: Record<string, number>;
   metric: string;
-  props?: Record<string, any>;
+  props?: {
+    unit?: string;
+    labelY?: string;
+    color?: string | string[] | Record<string, string>;
+    colors?: string[] | Record<string, string>;
+    [key: string]: any;
+  };
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const [width, setWidth] = useState(400);
   const height = 220;
-  console.log(props);
+  const entries = Object.entries(values);
+  const colorProp = props?.color ?? props?.colors;
+  const barColors = entries.map(([label], index) => {
+    if (typeof colorProp === "string") {
+      return colorProp;
+    }
+
+    if (Array.isArray(colorProp) && colorProp.length > 0) {
+      return colorProp[index % colorProp.length];
+    }
+
+    if (colorProp && typeof colorProp === "object" && !Array.isArray(colorProp)) {
+      return colorProp[label] ?? d3.schemeTableau10[index % d3.schemeTableau10.length];
+    }
+
+    return d3.schemeTableau10[index % d3.schemeTableau10.length];
+  });
 
   useEffect(() => {
     const el = containerRef.current;
@@ -34,8 +56,6 @@ export function ComparisonBarChart({
   useEffect(() => {
     const svgEl = svgRef.current;
     if (!svgEl) return;
-
-    const entries = Object.entries(values);
 
     d3.select(svgEl).selectAll("*").remove();
 
@@ -70,7 +90,7 @@ export function ComparisonBarChart({
       .attr("y", ([, v]) => y(v))
       .attr("width", x.bandwidth())
       .attr("height", ([, v]) => innerHeight - y(v))
-      .attr("fill", "#3182bd")
+      .attr("fill", (_d, i) => barColors[i])
       .attr("rx", 4)
       .attr("ry", 4);
 
@@ -108,7 +128,7 @@ export function ComparisonBarChart({
       .style("font-size", "15px")
       .style("font-family", "Inter, sans-serif")
       .text(props?.labelY ?? `${metric} ${props?.unit ?? ""}`);
-  }, [values, metric, width, props]);
+  }, [entries, metric, width, props, barColors]);
 
   return (
     <div ref={containerRef} style={{ width: "100%", overflow: "hidden" }}>

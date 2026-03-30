@@ -55,7 +55,7 @@ function Canvas() {
     Node<BaseNodeData | PyCodeEditorNodeData>
   >([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const { getNode, getEdges, fitView } = useReactFlow();
+  const { getNode, getNodes, getEdges, fitView } = useReactFlow();
 
   // const dumpWorkflow = useCallback(() => {
   //   const nodes = getNodes();

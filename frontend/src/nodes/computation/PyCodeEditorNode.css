@@ -20,12 +20,13 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  font-weight: 500;
-  font-size: 14px;
   background: #f5d1d2;
   border: 1.5px solid #cb181d;
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
+  font-size: 16px;
+  /* font-weight: 600; */
+  line-height: 1.2;
 }
 .pcenode__headerBtns {
   display: flex;

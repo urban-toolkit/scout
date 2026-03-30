@@ -42,6 +42,7 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
   const [persisting, setPersisting] = useState(false);
   const [persistSuccess, setPersistSuccess] = useState(false);
   const [showBasemap, setShowBasemap] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(data.title ?? "View");
 
   const pendingRef = useRef<Record<string, any>>({});
 
@@ -50,15 +51,19 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
   const mode = data.mode ?? "def";
 
   useEffect(() => {
+    setDraftTitle(data.title ?? "View");
+  }, [data.title]);
+
+  useEffect(() => {
     requestAnimationFrame(() => {
       updateNodeInternals(id);
     });
   }, [id, mode, updateNodeInternals]);
 
   const viewSpec = useMemo(() => {
-    const v: any = (data as BaseNodeData)?.value;
+    const v: any = data.value;
     return v?.view;
-  }, [data]);
+  }, [data.value]);
 
   const onCloseViewNode = useCallback(
     (nodeId: string) => {
@@ -171,9 +176,20 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
   const stableInteractions = useMemo(() => {
     const interactions = (data as any)?.interactions;
     return Array.isArray(interactions) ? interactions : [];
-  }, [data]);
+  }, [(data as any)?.interactions]);
 
   const stableCenter = useMemo<[number, number]>(() => [41.881, -87.63], []);
+
+  const commitTitle = useCallback(() => {
+    const nextTitle = draftTitle.trim() || "View";
+    if (nextTitle === (data.title ?? "View")) return;
+
+    rf.setNodes((nodes) =>
+      nodes.map((n) =>
+        n.id === id ? { ...n, data: { ...n.data, title: nextTitle } } : n,
+      ),
+    );
+  }, [data.title, draftTitle, id, rf]);
 
   if (mode === "def") {
     return (
@@ -246,16 +262,15 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
             <input
               type="text"
               className="vpnode__titleInput"
-              value={data.title ?? "View"}
+              value={draftTitle}
               onChange={(e) => {
-                const nextTitle = e.target.value;
-                rf.setNodes((nodes) =>
-                  nodes.map((n) =>
-                    n.id === id
-                      ? { ...n, data: { ...n.data, title: nextTitle } }
-                      : n,
-                  ),
-                );
+                setDraftTitle(e.target.value);
+              }}
+              onBlur={commitTitle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.currentTarget.blur();
+                }
               }}
             />
           </div>

@@ -388,8 +388,8 @@ run_shadow_model(input, season, output)`,
             props: {
               unit: "minutes",
               colors: {
-                A_shadow: "#6a51a3",
-                B_shadow: "#fd8d3c",
+                A_shadow: "#E3882E",
+                B_shadow: "#4D6D9C",
               },
             },
           },
@@ -1015,9 +1015,12 @@ export function loadWeatherRoutingComparisonExample({
     {
       id: "grammar-12",
       type: "widgetNode",
-      position: { x: -30.46559045483024, y: 190.95995416050903 },
-      width: 218,
-      height: 421,
+      position: {
+        x: 624.3588969569157,
+        y: 240.16794324359154,
+      },
+      width: 336,
+      height: 178,
       data: {
         value: {
           widget: {
@@ -1025,29 +1028,32 @@ export function loadWeatherRoutingComparisonExample({
             variable: "rain",
             default: 0.85834,
             props: {
-              title: "Rain",
-              description: "(choose a rain weight)",
+              title: "Rain weight",
               min: 0,
               max: 1,
               step: 0.00001,
-              orientation: "vertical",
+              orientation: "horizontal",
             },
           },
         },
         mode: "view",
-        pushToken: "ffca0aa3-7000-4816-8eea-465acaa9986e",
+        pushToken: "7f5ea8d5-2f20-4acb-914a-a9ef354e9085",
         output: {
           variable: "rain",
           value: 0.85834,
         },
+        title: "Widget",
       },
     },
     {
       id: "grammar-13",
       type: "widgetNode",
-      position: { x: -41.43107223839236, y: 874.5445406436346 },
-      width: 223,
-      height: 419,
+      position: {
+        x: 258.2933844920683,
+        y: 240.44011308900429,
+      },
+      width: 343,
+      height: 180,
       data: {
         value: {
           widget: {
@@ -1055,17 +1061,17 @@ export function loadWeatherRoutingComparisonExample({
             variable: "wind",
             default: 0.01657,
             props: {
-              title: "Wind",
+              title: "Wind weight",
               description: "(choose a wind weight)",
               min: 0,
               max: 1,
               step: 0.00001,
-              orientation: "vertical",
+              orientation: "horizontal",
             },
           },
         },
         mode: "view",
-        pushToken: "2648432b-6b0c-4c06-be02-c928c481454d",
+        pushToken: "1c7d5efc-39f3-4134-b209-708dd3a12710",
         output: {
           variable: "wind",
           value: 0.01657,
@@ -1075,9 +1081,12 @@ export function loadWeatherRoutingComparisonExample({
     {
       id: "grammar-14",
       type: "widgetNode",
-      position: { x: 290.67768179564655, y: 189.38439716296983 },
-      width: 355,
-      height: 190,
+      position: {
+        x: 258.40810413161466,
+        y: 47.114819498937834,
+      },
+      width: 346,
+      height: 179,
       data: {
         value: {
           widget: {
@@ -1085,7 +1094,6 @@ export function loadWeatherRoutingComparisonExample({
             variable: "origin",
             default: "1256 West Chicago Avenue",
             props: {
-              description: "Enter a place or address",
               title: "Origin",
               multiline: false,
               placeholder: "e.g., Chicago, IL",
@@ -1095,22 +1103,22 @@ export function loadWeatherRoutingComparisonExample({
           },
         },
         mode: "view",
-        pushToken: "41baace1-5c40-4eb3-9a29-aa054ccda5e0",
+        pushToken: "783ddc63-1533-43c0-a060-5c811d8914fa",
         output: {
           variable: "origin",
-          value: {
-            lat: 41.896438,
-            lon: -87.659758,
-          },
+          value: "1256 West Chicago Avenue",
         },
       },
     },
     {
       id: "grammar-15",
       type: "widgetNode",
-      position: { x: 290.78042197717434, y: 417.5049586949921 },
-      width: 356,
-      height: 191,
+      position: {
+        x: 624.7629644136255,
+        y: 47.105818514119875,
+      },
+      width: 339,
+      height: 180,
       data: {
         value: {
           widget: {
@@ -1118,7 +1126,6 @@ export function loadWeatherRoutingComparisonExample({
             variable: "destination",
             default: "1410 South Special Olympics Drive",
             props: {
-              description: "Enter a place or address",
               title: "Destination",
               multiline: false,
               placeholder: "e.g., Chicago, IL",
@@ -1128,22 +1135,22 @@ export function loadWeatherRoutingComparisonExample({
           },
         },
         mode: "view",
-        pushToken: "a770d1f9-5582-4feb-bd23-1ab366d8020b",
+        pushToken: "f5ed9f74-18e7-4ac0-b4e0-06d71f3d979d",
         output: {
           variable: "destination",
-          value: {
-            lat: 41.861649,
-            lon: -87.614034,
-          },
+          value: "1410 South Special Olympics Drive",
         },
       },
     },
     {
       id: "grammar-16",
       type: "widgetNode",
-      position: { x: 288.245749071263, y: 670.2310361122444 },
-      width: 356,
-      height: 171,
+      position: {
+        x: 623.3534522125582,
+        y: 433.89150592708484,
+      },
+      width: 340,
+      height: 170,
       data: {
         value: {
           widget: {
@@ -1173,9 +1180,12 @@ export function loadWeatherRoutingComparisonExample({
     {
       id: "grammar-17",
       type: "widgetNode",
-      position: { x: 286.97841261830746, y: 882.1375676543713 },
-      width: 356,
-      height: 171,
+      position: {
+        x: 256.88507237983384,
+        y: 618.8061243296587,
+      },
+      width: 343,
+      height: 180,
       data: {
         value: {
           widget: {
@@ -1201,9 +1211,12 @@ export function loadWeatherRoutingComparisonExample({
     {
       id: "grammar-18",
       type: "widgetNode",
-      position: { x: 288.2457490712631, y: 1086.8422409758386 },
-      width: 352,
-      height: 195,
+      position: {
+        x: 257.1440376532605,
+        y: 432.23005433247727,
+      },
+      width: 344,
+      height: 172,
       data: {
         value: {
           widget: {
@@ -1211,7 +1224,6 @@ export function loadWeatherRoutingComparisonExample({
             variable: "time",
             default: "2025-07-06T00:00:00",
             props: {
-              description: "Select the start date and time",
               title: "Start time",
               mode: "datetime",
               "display-format": "YYYY-MM-DD HH:mm",
@@ -1219,7 +1231,7 @@ export function loadWeatherRoutingComparisonExample({
           },
         },
         mode: "view",
-        pushToken: "c854d786-7fc9-4e1c-a4d5-48ed4ca67230",
+        pushToken: "8db070ab-345f-42a1-a3e4-7abb781a3836",
         output: {
           variable: "time",
           value: "2025-07-06T00:00:00",
@@ -1229,9 +1241,12 @@ export function loadWeatherRoutingComparisonExample({
     {
       id: "pyCodeEditor-20",
       type: "pyCodeEditorNode",
-      position: { x: 786.1395946155501, y: 400.38570778763955 },
-      width: 562,
-      height: 462,
+      position: {
+        x: 1110.1573107720985,
+        y: 672.2394683238832,
+      },
+      width: 300,
+      height: 112,
       data: {
         code: `from models.routing.scripts.weather_routing import calculate_weather_route
 
@@ -1287,12 +1302,18 @@ calculate_weather_route(
             value: 0.01657,
           },
         ],
+        title: "Generate alternate routes",
       },
     },
     {
       id: "grammar-21",
       type: "dataLayerNode",
-      position: { x: -394.849079949325, y: 380.9287846275125 },
+      position: {
+        x: 639.0512662009569,
+        y: 655.8535821731028,
+      },
+      width: 300,
+      height: 116,
       data: {
         value: {
           data_layer: {
@@ -1311,14 +1332,18 @@ calculate_weather_route(
             ],
           },
         },
+        title: "Fetch network data",
       },
     },
     {
       id: "grammar-22",
       type: "comparisonNode",
-      position: { x: 1427.6635025757732, y: 250.41855129787422 },
-      width: 300,
-      height: 367,
+      position: {
+        x: 1558.8877117516072,
+        y: 30.926194926872867,
+      },
+      width: 293,
+      height: 336,
       data: {
         value: {
           comparison: {
@@ -1327,17 +1352,26 @@ calculate_weather_route(
             chart: "bar",
             props: {
               labelY: "Travel time (minutes)",
+              colors: {
+                C: "#42A5F5",
+                D: "#00838F",
+              },
             },
           },
         },
+        mode: "view",
+        previewToken: "513e0e3a-a7f6-452c-943f-0b599f7adf17",
       },
     },
     {
       id: "grammar-23",
       type: "comparisonNode",
-      position: { x: 1427.8999411228542, y: 680.5361020199223 },
-      width: 300,
-      height: 356,
+      position: {
+        x: 1880.3653080927227,
+        y: 384.47547169673567,
+      },
+      width: 290,
+      height: 334,
       data: {
         value: {
           comparison: {
@@ -1346,17 +1380,26 @@ calculate_weather_route(
             chart: "bar",
             props: {
               labelY: "Rain exposure",
+              colors: {
+                C: "#42A5F5",
+                D: "#00838F",
+              },
             },
           },
         },
+        mode: "view",
+        previewToken: "0a6d8510-6be5-4c10-a476-a57eb184fa62",
       },
     },
     {
       id: "grammar-24",
       type: "comparisonNode",
-      position: { x: 1804.3558032104686, y: 144.9226504426457 },
-      width: 298,
-      height: 367,
+      position: {
+        x: 1880.5821846515726,
+        y: 30.709077480859833,
+      },
+      width: 288,
+      height: 338,
       data: {
         value: {
           comparison: {
@@ -1365,17 +1408,26 @@ calculate_weather_route(
             chart: "bar",
             props: {
               labelY: "Distance (km)",
+              colors: {
+                C: "#42A5F5",
+                D: "#00838F",
+              },
             },
           },
         },
+        mode: "view",
+        previewToken: "3a8b2cbb-cb54-4eb9-b6c3-3eeeb04463ab",
       },
     },
     {
       id: "grammar-25",
       type: "comparisonNode",
-      position: { x: 1806.071929868022, y: 829.9749887809029 },
-      width: 300,
-      height: 354,
+      position: {
+        x: 1559.167538706423,
+        y: 381.4669839926429,
+      },
+      width: 292,
+      height: 336,
       data: {
         value: {
           comparison: {
@@ -1384,9 +1436,78 @@ calculate_weather_route(
             chart: "bar",
             props: {
               labelY: "Wind exposure",
+              colors: {
+                C: "#42A5F5",
+                D: "#00838F",
+              },
             },
           },
         },
+        mode: "view",
+        previewToken: "d7858bb0-a7bb-400a-a8ae-a5f7a496cdef",
+      },
+    },
+    {
+      id: "grammar-26",
+      type: "viewNode",
+      position: {
+        x: 985.8268774270337,
+        y: 69.95975482283484,
+      },
+      width: 547,
+      height: 600,
+      data: {
+        value: {
+          view: [
+            {
+              ref: "route_C",
+              style: {
+                stroke: {
+                  color: "#90CAF9",
+                  width: 3,
+                },
+                "border-color": "#42A5F5",
+                "border-width": 6,
+              },
+            },
+            {
+              ref: "route_D",
+              style: {
+                stroke: {
+                  color: "#00ACC1",
+                  width: 3,
+                },
+                "border-color": "#00838F",
+                "border-width": 6,
+              },
+            },
+            {
+              ref: "route_origin",
+              style: {
+                fill: "#1A73E8",
+                stroke: {
+                  color: "white",
+                  width: 1,
+                },
+                size: 8,
+              },
+            },
+            {
+              ref: "route_destination",
+              style: {
+                fill: "#fc4e2a",
+                stroke: {
+                  color: "white",
+                  width: 1,
+                },
+                size: 8,
+                opacity: 1,
+              },
+            },
+          ],
+        },
+        mode: "view",
+        pushToken: "383e79df-3854-4a9d-be2e-9a15ad02bb24",
       },
     },
   ];
@@ -1399,6 +1520,7 @@ calculate_weather_route(
       targetHandle: "viewport-in-2",
       animated: true,
       id: "xy-edge__grammar-14widget-out-3-pyCodeEditor-20viewport-in-2",
+      hidden: true,
     },
     {
       source: "grammar-15",
@@ -1407,6 +1529,7 @@ calculate_weather_route(
       targetHandle: "viewport-in-2",
       animated: true,
       id: "xy-edge__grammar-15widget-out-3-pyCodeEditor-20viewport-in-2",
+      hidden: true,
     },
     {
       source: "grammar-16",
@@ -1415,6 +1538,7 @@ calculate_weather_route(
       targetHandle: "viewport-in-2",
       animated: true,
       id: "xy-edge__grammar-16widget-out-3-pyCodeEditor-20viewport-in-2",
+      hidden: true,
     },
     {
       source: "grammar-17",
@@ -1423,6 +1547,7 @@ calculate_weather_route(
       targetHandle: "viewport-in-2",
       animated: true,
       id: "xy-edge__grammar-17widget-out-3-pyCodeEditor-20viewport-in-2",
+      hidden: true,
     },
     {
       source: "grammar-18",
@@ -1431,6 +1556,7 @@ calculate_weather_route(
       targetHandle: "viewport-in-2",
       animated: true,
       id: "xy-edge__grammar-18widget-out-3-pyCodeEditor-20viewport-in-2",
+      hidden: true,
     },
     {
       source: "grammar-12",
@@ -1439,6 +1565,7 @@ calculate_weather_route(
       targetHandle: "viewport-in-2",
       animated: true,
       id: "xy-edge__grammar-12widget-out-3-pyCodeEditor-20viewport-in-2",
+      hidden: true,
     },
     {
       source: "grammar-13",
@@ -1447,6 +1574,7 @@ calculate_weather_route(
       targetHandle: "viewport-in-2",
       animated: true,
       id: "xy-edge__grammar-13widget-out-3-pyCodeEditor-20viewport-in-2",
+      hidden: true,
     },
     {
       source: "grammar-21",
@@ -1455,6 +1583,7 @@ calculate_weather_route(
       targetHandle: "viewport-in-2",
       animated: true,
       id: "xy-edge__grammar-21data-out-pyCodeEditor-20viewport-in-2",
+      hidden: true,
     },
     {
       source: "pyCodeEditor-20",
@@ -1463,6 +1592,7 @@ calculate_weather_route(
       targetHandle: "comparison-in-1",
       animated: true,
       id: "xy-edge__pyCodeEditor-20viewport-out-grammar-22comparison-in-1",
+      hidden: true,
     },
     {
       source: "pyCodeEditor-20",
@@ -1471,6 +1601,7 @@ calculate_weather_route(
       targetHandle: "comparison-in-1",
       animated: true,
       id: "xy-edge__pyCodeEditor-20viewport-out-grammar-23comparison-in-1",
+      hidden: true,
     },
     {
       source: "pyCodeEditor-20",
@@ -1479,6 +1610,7 @@ calculate_weather_route(
       targetHandle: "comparison-in-1",
       animated: true,
       id: "xy-edge__pyCodeEditor-20viewport-out-grammar-24comparison-in-1",
+      hidden: true,
     },
     {
       source: "pyCodeEditor-20",
@@ -1487,6 +1619,16 @@ calculate_weather_route(
       targetHandle: "comparison-in-1",
       animated: true,
       id: "xy-edge__pyCodeEditor-20viewport-out-grammar-25comparison-in-1",
+      hidden: true,
+    },
+    {
+      source: "pyCodeEditor-20",
+      sourceHandle: "viewport-out",
+      target: "grammar-26",
+      targetHandle: "view-in-2",
+      animated: true,
+      id: "xy-edge__pyCodeEditor-20viewport-out-grammar-26view-in-2",
+      hidden: true,
     },
   ];
 
@@ -1496,7 +1638,5 @@ calculate_weather_route(
 
   setNodes(hydratedNodes);
   setEdges(edges);
-
-  // next created node should start after 25
-  setIdCounter?.(26);
+  setIdCounter?.(27);
 }
