@@ -87,12 +87,13 @@ export const interactionTemplate = {
 
 export const widgetTemplate = {
   widget: {
-    wtype: "radio-group",
+    wtype: "checkbox",
     variable: "season",
     choices: ["spring", "summer", "winter"],
-    default: "summer",
+    default: ["spring", "winter"],
     props: {
       title: "Season",
+      mode: "group",
       description: "(select season for shadow analysis)",
       orientation: "horizontal",
     },

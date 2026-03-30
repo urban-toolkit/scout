@@ -547,7 +547,7 @@ function Toolbar({
             aria-haspopup="menu"
             aria-expanded={openGroup === "workflows"}
           >
-            Workflows
+            Examples
           </button>
 
           {openGroup === "workflows" && (

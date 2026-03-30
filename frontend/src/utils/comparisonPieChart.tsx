@@ -9,7 +9,12 @@ export function ComparisonPieChart({
 }: {
   values: Record<string, number>;
   metric: string;
-  props?: Record<string, any>;
+  props?: {
+    unit?: string;
+    color?: string | string[] | Record<string, string>;
+    colors?: string[] | Record<string, string>;
+    [key: string]: any;
+  };
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -18,12 +23,22 @@ export function ComparisonPieChart({
   const height = 220; // reduced so there's less vertical space
 
   const entries = Object.entries(values);
-  const labels = entries.map(([k]) => k);
+  const colorProp = props?.color ?? props?.colors;
+  const entryColors = entries.map(([label], index) => {
+    if (typeof colorProp === "string") {
+      return colorProp;
+    }
 
-  const color = d3
-    .scaleOrdinal<string, string>()
-    .domain(labels)
-    .range(d3.schemeTableau10);
+    if (Array.isArray(colorProp) && colorProp.length > 0) {
+      return colorProp[index % colorProp.length];
+    }
+
+    if (colorProp && typeof colorProp === "object" && !Array.isArray(colorProp)) {
+      return colorProp[label] ?? d3.schemeTableau10[index % d3.schemeTableau10.length];
+    }
+
+    return d3.schemeTableau10[index % d3.schemeTableau10.length];
+  });
 
   // Responsive observer
   useEffect(() => {
@@ -79,7 +94,7 @@ export function ComparisonPieChart({
       .enter()
       .append("path")
       .attr("d", arc as any)
-      .attr("fill", (d) => color(d.data[0]))
+      .attr("fill", (_d, i) => entryColors[i])
       .attr("stroke", "#fff")
       .attr("stroke-width", 1.2);
 
@@ -96,7 +111,7 @@ export function ComparisonPieChart({
       // .style("font-weight", "600")
       .style("fill", "#ffffff")
       .text((d) => d.data[1].toFixed(2));
-  }, [entries, color, width, height]);
+  }, [entries, width, height, entryColors]);
 
   return (
     <div
@@ -143,7 +158,7 @@ export function ComparisonPieChart({
             fontWeight: 500,
           }}
         >
-          {entries.map(([label]) => (
+          {entries.map(([label], index) => (
             <div
               key={label}
               style={{ display: "flex", alignItems: "center", gap: 6 }}
@@ -153,7 +168,7 @@ export function ComparisonPieChart({
                   width: 14,
                   height: 14,
                   borderRadius: 2,
-                  backgroundColor: color(label),
+                  backgroundColor: entryColors[index],
                 }}
               />
               <span>{label}</span>
