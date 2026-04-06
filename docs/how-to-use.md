@@ -156,8 +156,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 <table>
   <tr>
     <td  width="50%">
-      <pre><code>
-{
+      <pre><code>{
   "view": [
     {
       "ref": "A_buildings",
@@ -195,8 +194,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 <table>
   <tr>
     <td  width="50%">
-      <pre><code>
-{
+      <pre><code>{
   "view": [
     {
       "ref_base": "B",
@@ -332,24 +330,25 @@ widget := (wtype, variable, choices?, default?, props?)
 <table>
   <tr>
     <td  width="50%">
-      <pre><code>
-{
-  "view": [
-    {
-      "ref_base": "B",
-      "ref_comp": "A",
-      "style": {
-        "opacity": 1,
-        "colormap": "blues"
-      }
+      <pre><code>{
+  "widget": {
+    "wtype": "slider",
+    "variable": "wind",
+    "default": 0.01657,
+    "props": {
+      "title": "Wind weight",
+      "description": "(choose a wind weight)",
+      "min": 0,
+      "max": 1,
+      "step": 0.00001,
+      "orientation": "horizontal"
     }
-  ]
+  }
 }
 </code></pre>
     </td>
-    <td  width="50%"><img src="images/flood_compare.png"/>
-    <p align="center"><em>Difference map comparing flooding scenario A vs B</em></p></td>
-    
+    <td  width="50%"><img src="images/slider.png"/>
+    <p align="center"><em>Slider input control created through the grammar spec</em></p></td>
   </tr>
 </table>
 
