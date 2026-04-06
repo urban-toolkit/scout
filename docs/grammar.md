@@ -10,12 +10,12 @@ This page describes the core grammar components used in **SCOUT**. The grammar i
 
 ## `data_layer`
 
-A `data_layer` represents an urban dataset or model output that other nodes can render, transform, interact with, or compare.
+A `data_layer` represents an urban dataset or model output that other nodes can render, transform, or interact with.
 
 #### Structure
 
 ```txt
-data_layer := (id, source, feature, roi, attributes?, filters?)
+data_layer := (id, source, feature, roi, attributes?)
 ```
 
 #### Fields
@@ -25,7 +25,6 @@ data_layer := (id, source, feature, roi, attributes?, filters?)
 - `feature`: Type of data layer such as `buildings`, `streets`, `parks`, `water`.
 - `roi`: The region of interest.
 - `attributes`: Fields to use for each `feature`, such as building height, or road speed.
-- `filters`: Conditions used to filter the data based on `attributes` of `feature`. e.g., _height >= 50m_.
 
 #### Example
 
@@ -52,7 +51,17 @@ data_layer := (id, source, feature, roi, attributes?, filters?)
 
 #### Usage
 
-A `data_layer` usually feeds into a `view` node for visualization, or a `join` node for transformation. SCOUT supports common geospatial formats such as GeoTIFF, GeoJSON, and Feather; the underlying format is inferred from filename extension, so authors do not need to annotate it in the grammar.
+<table>
+  <tr>
+    <td>
+      A <code>data_layer</code> usually feeds into a <code>view</code> node for visualization, or a <code>join</code> node for transformation. SCOUT supports common geospatial formats such as GeoTIFF, GeoJSON, and Feather; the underlying format is inferred from filename extension, so authors do not need to annotate it in the grammar.
+    </td>
+    <td>
+      <img src="image.png" width="400" alt="alt text" />
+      <p align="center"><em>Defined data layer connecting to view</em></p>
+    </td>
+  </tr>
+</table>
 
 ---
 
@@ -99,7 +108,7 @@ The output of a `join` can be rendered in a `view`, or sent into a `computation 
 A `view` defines how SCOUT renders data layers (either defined or derived).
 
 - _Defined layers_ are created through `data_layer`.
-- _Derived layers_ are produced through operations such as `join`, or as scenario outputs from _computation node_.
+- _Derived layers_ are produced through operations such as `join`, or as scenario outputs from `computation node`.
 - A `view` can show a single layer, overlay multiple layers, or compare two scenarios such as baseline versus intervention.
 
 #### Structure
@@ -115,7 +124,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 - `ref_comp`: Reference to the intervention scenario layer.
 - `style`: Visual encoding properties such as fill, stroke, opacity, color scale, line width.
 
-#### Single-Layer Example
+#### Single-layer example
 
 <table>
   <tr>
@@ -141,7 +150,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
   </tr>
 </table>
 
-#### Multi-Layer Example
+#### Multi-layer example
 
 <table>
   <tr>
@@ -179,7 +188,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
   </tr>
 </table>
 
-### Compare two scenarios Example
+#### Compare two scenarios example
 
 <table>
   <tr>
@@ -203,23 +212,15 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
   </tr>
 </table>
 
-### Usage
+#### Usage
 
-A `view` usually consumes outputs from Intelligence nodes and reacts to Choice nodes. For example, a widget can change a floodwall height parameter, the model can produce a new flood layer, and the view can update to show the resulting scenario.
+A `view` can consume and visualize outputs from `Intelligence` nodes (i.e., defined or derived data layers). Or, it can also visualize derived scenario outputs from the `computation node` (e.g., model/`computation node` generates projection of a flooding scenario, and a `view` node is used to visualize the this scenario).
 
 ---
 
-<table>
-  <tr>
-    <td bgcolor="#D2E4F0"><strong>Choice</strong></td>
-  </tr>
-</table>
+## `Interaction`
 
-## Interaction
-
-An `interaction` defines how users directly manipulate a layer or scenario view.
-
-Interactions are useful when scenario alternatives depend on geometry edits, feature selection, or attribute changes.
+An `interaction` defines how users directly manipulate a `data_layer` through `view`. Interactions are useful when scenario alternatives depend on geometry edits, feature selection, or attribute changes.
 
 ### Structure
 
@@ -229,34 +230,29 @@ interaction := (ref, itype, action, attribute?, condition?)
 
 ### Fields
 
-- `ref`: Reference to the layer or view being manipulated.
+- `ref`: Reference to the `data_layer` being manipulated.
 - `itype`: The trigger, such as `click`, `draw`, `drag`, `select`, or `brush`.
-- `action`: What happens after the trigger, such as `remove_feature`, `add_feature`, `edit_geometry`, or `update_attribute`.
-- `attribute`: The field being changed when the interaction edits data values.
-- `condition`: Optional condition that limits when the interaction is active.
+- `action`: `add`/`remove`/`modify`/`highlight`. The operation performed after the trigger, such as `add` or `remove` an instance of the `data_layer`, or `update` an `attribute` of an instance.
+- `attribute`: The field being changed when `interaction` modifies that field for a data instance.
+- `condition`: Optional condition that limits when the interaction is applied for a group of data instances. e.g., _building height_ _>= 50m_.
 
 ### Example
 
-```txt
-interaction(
-  ref: buildings_intervention,
-  itype: click,
-  action: remove_feature
-)
-```
-
-```txt
-interaction(
-  ref: street_network,
-  itype: select,
-  action: update_attribute,
-  attribute: speed_limit
-)
+```json
+{
+  "interaction": {
+    "ref": "A_buildings",
+    "itype": "click",
+    "action": "remove"
+  }
+}
 ```
 
 ### Usage
 
-An `interaction` can feed edited layers into computation nodes and then into updated `view` or `comparison` outputs. For example, removing a high-rise building can trigger a shadow model and update sunlight-access comparison metrics.
+An `interaction` connects to a `view` node allowing to make changes to referenced `data_layer` in that `view`.
+
+---
 
 ## Widget
 
