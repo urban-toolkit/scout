@@ -1,6 +1,6 @@
-# SCOUT Grammar
+# SCOUT Components and Usage
 
-This page describes the core grammar components used in **SCOUT**. The grammar is organized into three groups:
+This page describes the core grammar components used in **SCOUT** and how they connect to each other through dataflows. We also provide concrete usage examples that are replicable using the toolkit. The grammar is organized into three groups:
 
 - **Intelligence**: `data_layer`, `join`
 - **Design**: `view`
@@ -236,13 +236,13 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 
 An `interaction` defines how users directly manipulate a `data_layer` through `view`. Interactions are useful when scenario alternatives depend on geometry edits, feature selection, or attribute changes.
 
-### Structure
+#### Structure
 
 ```txt
 interaction := (ref, itype, action, attribute?, condition?)
 ```
 
-### Fields
+#### Fields
 
 - `ref`: Reference to the `data_layer` being manipulated.
 - `itype`: The trigger, such as `click`, `draw`, `drag`, `select`, or `brush`.
@@ -250,7 +250,7 @@ interaction := (ref, itype, action, attribute?, condition?)
 - `attribute`: The field being changed when `interaction` modifies that field for a data instance.
 - `condition`: Optional condition that limits when the interaction is applied for a group of data instances. e.g., _building height_ _>= 50m_.
 
-### Example
+#### Example
 
 ```json
 {
@@ -262,7 +262,7 @@ interaction := (ref, itype, action, attribute?, condition?)
 }
 ```
 
-### Usage
+#### Usage
 
 <table>
   <tr>
@@ -271,7 +271,7 @@ interaction := (ref, itype, action, attribute?, condition?)
     </td>
     <td width="50%">
       <img src="images/interaction_to_view.png" width="100%" alt="alt text" />
-      <p align="center"><em>Interaction node allowing to remove any buildings upon clicking them</em></p>
+      <p align="center"><em>Interaction node allowing to remove buildings upon clicking them</em></p>
     </td>
   </tr>
 </table>
@@ -280,52 +280,79 @@ interaction := (ref, itype, action, attribute?, condition?)
 
 ## Widget
 
-A `widget` exposes a model or scenario parameter as a user-facing control.
+A `widget` exposes a model or scenario parameter as a user-facing control. Widgets help technical authors turn complex dataflow pipelines into dashboards that non-technical users can operate.
 
-Widgets help technical authors turn complex dataflow pipelines into dashboards that non-technical users can operate.
-
-### Structure
+#### Structure
 
 ```txt
 widget := (wtype, variable, choices?, default?, props?)
 ```
 
-### Fields
+#### Fields
 
 - `wtype`: The control type, such as `radio`, `checkbox`, `dropdown`, `slider`, `number_input`, or `location_input`.
-- `variable`: The scenario or model parameter controlled by the widget.
+- `variable`: The model parameter controlled by the widget.
 - `choices`: Available options for discrete or stepped inputs.
 - `default`: The initial value.
 - `props`: Display and validation options, such as label, units, min, max, or step.
 
-### Example
+#### Example
 
-```txt
-widget(
-  wtype: slider,
-  variable: floodwall_height,
-  choices: [0.5, 1.0, 1.5, 2.0],
-  default: 1.5,
-  props: { label: "Floodwall height", unit: "m" }
-)
-```
+<table>
+  <tr>
+    <td  width="50%">
+      <pre><code>
+{
+  "widget": {
+    "wtype": "checkbox",
+    "variable": "season",
+    "choices": [
+      "spring",
+      "summer",
+      "winter"
+    ],
+    "default": [
+      "spring",
+      "winter"
+    ],
+    "props": {
+      "title": "Season",
+      "mode": "group",
+      "description": "(select season for shadow analysis)",
+      "orientation": "horizontal"
+    }
+  }
+}
+</code></pre>
+    </td>
+    <td  width="50%"><img src="images/checkbox.png"/>
+    <p align="center"><em>Checkbox input control created through the grammar spec on left</em></p></td>
+  </tr>
+</table>
 
-```txt
-widget(
-  wtype: checkbox,
-  variable: nature_based_solutions,
-  choices: [wetlands, green_roofs, retention_ponds],
-  default: [wetlands]
-)
-```
-
-```txt
-widget(
-  wtype: location_input,
-  variable: region_of_interest,
-  default: chicago_loop
-)
-```
+<table>
+  <tr>
+    <td  width="50%">
+      <pre><code>
+{
+  "view": [
+    {
+      "ref_base": "B",
+      "ref_comp": "A",
+      "style": {
+        "opacity": 1,
+        "colormap": "blues"
+      }
+    }
+  ]
+}
+</code></pre>
+    </td>
+    <td  width="50%"><img src="images/flood_compare.png"/>
+    <p align="center"><em>Difference map comparing flooding scenario A vs B</em></p></td>
+    
+  </tr>
+</table>
 
 ### Usage
 
