@@ -128,7 +128,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 
 <table>
   <tr>
-    <td>
+    <td  width="50%">
       <pre><code>{
   "view": [
     {
@@ -146,7 +146,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
   ]
 }</code></pre>
     </td>
-    <td><img src="images/buildings.png" width="400"/>
+    <td  width="50%"><img src="images/buildings.png"/>
     <p align="center"><em>Visualizing a single layer (i.e., buildings) in a view node</em></p></td>
   </tr>
 </table>
@@ -155,7 +155,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 
 <table>
   <tr>
-    <td>
+    <td  width="50%">
       <pre><code>
 {
   "view": [
@@ -185,7 +185,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 }
 </code></pre>
     </td>
-    <td><img src="images/buildings_roads.png" width="400"/>
+    <td  width="50%"><img src="images/buildings_roads.png"/>
     <p align="center"><em>Visualizing multiple layers (i.e., buildings and roads) in a view node</em></p></td>
   </tr>
 </table>
@@ -194,7 +194,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 
 <table>
   <tr>
-    <td>
+    <td  width="50%">
       <pre><code>
 {
   "view": [
@@ -210,7 +210,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 }
 </code></pre>
     </td>
-    <td><img src="images/flood_compare.png" width="450"/>
+    <td  width="50%"><img src="images/flood_compare.png"/>
     <p align="center"><em>Difference map comparing flooding scenario A vs B</em></p></td>
     
   </tr>
@@ -267,7 +267,7 @@ interaction := (ref, itype, action, attribute?, condition?)
 <table>
   <tr>
     <td  width="50%">
-      An <code>interaction</code> connects to a <code>view</code> node allowing to make changes to referenced <code>data_layer</code> in that <code>view</code>.
+      An <code>interaction</code> typically connects to a <code>view</code> node allowing to make changes to referenced <code>data_layer</code> in that <code>view</code>.
     </td>
     <td width="50%">
       <img src="images/interaction_to_view.png" width="100%" alt="alt text" />
