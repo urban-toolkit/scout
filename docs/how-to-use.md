@@ -326,7 +326,7 @@ widget := (wtype, variable, choices?, default?, props?)
 </code></pre>
     </td>
     <td  width="50%"><img src="images/checkbox.png"/>
-    <p align="center"><em>Checkbox input control created through the grammar spec on left</em></p></td>
+    <p align="center"><em>Checkbox input control created through the grammar spec</em></p></td>
   </tr>
 </table>
 
