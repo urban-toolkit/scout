@@ -126,9 +126,9 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 - `ref_comp`: Reference to the intervention scenario layer.
 - `style`: Visual encoding properties such as fill, stroke, opacity, color scale, line width.
 
-#### Example
+#### Examples
 
-**1. Single layer:**
+**Example 1. Single layer:**
 
 <table>
   <tr>
@@ -155,7 +155,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
   </tr>
 </table>
 
-**2. Multi layer:**
+**Example 2. Multi layer:**
 
 <table>
   <tr>
@@ -193,7 +193,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
   </tr>
 </table>
 
-**3. Compare two scenarios:**
+**Example 3. Compare two scenarios:**
 
 <table>
   <tr>
@@ -441,7 +441,7 @@ The `computation` node allows to run any Python code user writes, through a sand
 <table>
   <tr>
     <td  width="50%">
-      The <code>computation</code> node allows to integrate any custom Python models into SCOUT. Users can place their scripts within the backend directory (preferably under models/), import the desired functions, and execute them through the Python <code>computation</code> node.
+      The <code>computation</code> node allows to integrate any custom Python models into SCOUT. Users can place their scripts within the backend directory (preferably under models/), then import the desired functions, and execute them through the Python <code>computation</code> node.
     </td>
     <td width="50%">
       <img src="images/guide-to-inc-model.png" width="100%" alt="alt text" />
