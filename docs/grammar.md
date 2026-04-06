@@ -199,7 +199,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 }
 </code></pre>
     </td>
-    <td><img src="images/flood_compare.png" width="400"/></td>
+    <td><img src="images/flood_compare.png" width="450"/></td>
   </tr>
 </table>
 
