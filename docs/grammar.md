@@ -53,11 +53,11 @@ data_layer := (id, source, feature, roi, attributes?)
 
 <table>
   <tr>
-    <td>
+    <td  width="50%">
       A <code>data_layer</code> usually feeds into a <code>view</code> node for visualization, or a <code>join</code> node for transformation. SCOUT supports common geospatial formats such as GeoTIFF, GeoJSON, and Feather; the underlying format is inferred from filename extension, so authors do not need to annotate it in the grammar.
     </td>
-    <td>
-      <img src="image.png" width="400" alt="alt text" />
+    <td width="50%">
+      <img src="image.png" width="100%" alt="alt text" />
       <p align="center"><em>Defined data layer connecting to view</em></p>
     </td>
   </tr>
