@@ -151,7 +151,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
   ]
 }</code></pre>
     </td>
-    <td><img src="images/buildings.png" width="200"/></td>
+    <td><img src="images/buildings.png" width="450"/></td>
   </tr>
 </table>
 
