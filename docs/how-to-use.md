@@ -354,7 +354,17 @@ widget := (wtype, variable, choices?, default?, props?)
 
 ### Usage
 
-Widget values feed into computation nodes, model nodes, or filters. When a user changes a widget, SCOUT can rerun the relevant part of the pipeline and update views and comparisons.
+<table>
+  <tr>
+    <td  width="50%">
+      <code>Widget</code> values feed into <code>computation</code>/model nodes. When a user selects a different value through the <code>widget</code>, SCOUT can rerun the relevant part of the pipeline and update <code>view</code> and <code>comparison</code> nodes accordingly.
+    </td>
+    <td width="50%">
+      <img src="images/widgets_to_model.png" width="100%" alt="alt text" />
+      <p align="center"><em>Multiple widgets feeding parameter values to a computation node</em></p>
+    </td>
+  </tr>
+</table>
 
 ## Comparison
 
