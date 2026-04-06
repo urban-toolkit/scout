@@ -157,16 +157,41 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 
 ### Multi-Layer Example
 
-```txt
-view(
-  ref: [flood_depth, buildings, streets],
-  style: [
-    { fill: max_depth, opacity: 0.55 },
-    { fill: height, opacity: 0.75 },
-    { stroke: "#444444", stroke_width: 2 }
+<table>
+  <tr>
+    <td>
+      <pre><code>
+{
+  "view": [
+    {
+      "ref": "A_buildings",
+      "style": {
+        "fill": {
+          "feature": "height",
+          "range": [0, 550],
+          "colormap": "blues"
+        },
+        "stroke-color": "#333333",
+        "opacity": 1
+      }
+    },
+    {
+      "ref": "A_roads",
+      "style": {
+        "stroke": {
+          "color": "green",
+          "width": 1.5
+        },
+        "opacity": 1
+      }
+    }
   ]
-)
-```
+}
+</code></pre>
+    </td>
+    <td><img src="images/buildings_roads.png" width="400"/></td>
+  </tr>
+</table>
 
 ### Comparison View Example
 
