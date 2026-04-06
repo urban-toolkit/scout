@@ -1,9 +1,9 @@
-# Routing Analysis
+# Weather-aware route planning
 
-The routing analysis use case demonstrates how SCOUT can support transportation decisions when route choice depends on weather and user priorities. The workflow begins by fetching a road network for a Chicago region from OpenStreetMap. Users then provide an origin and destination through location widgets, choose a routing mode, set the number of alternate routes, and select a start time.
+This use case demonstrates how SCOUT supports transportation scenario planning under dynamic weather conditions by comparing alternative routes. It begins by integrating a weather-aware routing model through a `computation` node, with key parameters—such as origin, destination, travel time, number of routes, and tolerance to weather factors—exposed via `widget` nodes. These inputs define different routing scenarios by allowing users to prioritize or trade off factors such as rain, wind, and travel time. The model generates multiple candidate routes for each scenario, which are visualized in a map-based `view` node. Additional `comparison` nodes summarize route characteristics, including travel time, distance, and accumulated exposure to weather conditions. Users can iteratively adjust `widget` parameters and rerun the model, with updated routes and metrics reflected across the `view` and `comparison` nodes, enabling direct comparison of alternative transportation scenarios under evolving weather conditions.
 
-Weather-related preferences are exposed through rain and wind weight sliders. These widget values are passed into a weather-routing model, which generates alternate route outputs for the selected trip. This setup lets users explore how changes in environmental conditions or routing priorities can produce different mobility scenarios without directly editing the model code.
+![image](../images/routing_scout.png)
 
-The generated routes are rendered together in a map view with distinct styling for each route, along with origin and destination markers. SCOUT also creates comparison charts for travel time, distance, rain exposure, and wind exposure, allowing users to evaluate the trade-offs between alternatives.
+### Open in live application
 
-This use case highlights SCOUT's ability to combine physical network data, parameterized model execution, spatial visualization, and multi-metric comparison for transportation planning and scenario exploration.
+[Live use case]()
