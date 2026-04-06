@@ -219,7 +219,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 <table>
   <tr>
     <td  width="50%">
-      A <code>view</code> can consume and visualize outputs from <code>Intelligence</code> nodes (i.e., defined or derived data layers). Or, it can also visualize derived scenario outputs from the <code>computation</code> node (e.g., model/<code>computation</code> node generates projection of a flooding scenario, and a view node is used to visualize the this scenario).
+      A <code>view</code> can consume and visualize outputs from <code>Intelligence</code> nodes (i.e., defined or derived data layers). Or, it can also visualize derived scenario outputs from the <code>computation</code> node (e.g., <code>computation</code> node generates projection of a flooding scenario, and a view node is used to visualize the this scenario).
     </td>
     <td width="50%">
       <img src="images/computation_to_view.png" width="100%" alt="alt text" />
@@ -278,7 +278,7 @@ interaction := (ref, itype, action, attribute?, condition?)
 
 ## Widget
 
-A `widget` exposes a model or scenario parameter as a user-facing control. Widgets help technical authors turn complex dataflow pipelines into dashboards that non-technical users can operate.
+A `widget` exposes a model parameter as a user-facing control. Widgets help technical authors turn complex dataflow pipelines into dashboards that non-technical users can operate.
 
 #### Structure
 
@@ -352,12 +352,12 @@ widget := (wtype, variable, choices?, default?, props?)
   </tr>
 </table>
 
-### Usage
+#### Usage
 
 <table>
   <tr>
     <td  width="50%">
-      <code>Widget</code> values feed into <code>computation</code>/model nodes. When a user selects a different value through the <code>widget</code>, SCOUT can rerun the relevant part of the pipeline and update <code>view</code> and <code>comparison</code> nodes accordingly.
+      <code>Widget</code> values feed into <code>computation</code> nodes. When a user selects a different value through the <code>widget</code> and rerun, SCOUT will then update <code>view</code> and <code>comparison</code> nodes accordingly.
     </td>
     <td width="50%">
       <img src="images/widgets_to_model.png" width="100%" alt="alt text" />
@@ -368,55 +368,56 @@ widget := (wtype, variable, choices?, default?, props?)
 
 ## Comparison
 
-A `comparison` defines how SCOUT summarizes differences across scenarios.
+A `comparison` node defines how SCOUT illustrates differences across scenarios. Comparisons make trade-offs visible by turning scenario outputs into charts, tables, or metrics that can support decisions.
 
-Comparisons make trade-offs visible by turning scenario outputs into charts, tables, or metrics that can support decisions.
-
-### Structure
+#### Structure
 
 ```txt
 comparison := (x*, y*, key+, chart, props?)
 ```
 
-### Fields
+#### Fields
 
-- `x`: The independent dimension, such as timeline, scenario, neighborhood, or intervention type.
-- `y`: The measured outcome, such as average flood depth, shadow duration, travel time, or exposed population.
-- `key`: Grouping fields used for comparison.
+- `x`/`y`: quantitative outcome variables representing scenario results.
+- `key`: id of a scenario.
 - `chart`: The representation, such as `bar`, `line`, `table`, `pie`, or `scatter`.
-- `props`: Display options such as title, units, sorting, labels, or aggregation.
+- `props`: Display options such as title, units, sorting, labels, chart width, etc.
 
-### Example
+#### Example
 
-```txt
-comparison(
-  x: projection_timeline,
-  y: avg_flood_depth,
-  key: [scenario],
-  chart: line,
-  props: { title: "Projected flood depth by scenario", unit: "m" }
-)
-```
+<table>
+  <tr>
+    <td  width="50%">
+      <pre><code>{
+  "comparison": {
+    "key": [
+      "A",
+      "B"
+    ],
+    "x": "median flood depth",
+    "chart": "table",
+    "props": {
+      "unit": "meter"
+    }
+  }
+}
+</code></pre>
+    </td>
+    <td  width="50%"><img src="images/comparison_table.png"/>
+    <p align="center"><em>Comparing median flood depth for scenario A vs B</em></p></td>
+  </tr>
+</table>
 
-```txt
-comparison(
-  x: scenario,
-  y: mean_shadow_duration,
-  key: [park_area],
-  chart: bar,
-  props: { title: "Sunlight access comparison", unit: "hours" }
-)
-```
+#### Usage
 
-```txt
-comparison(
-  x: intervention,
-  y: exposed_buildings,
-  key: [neighborhood],
-  chart: table
-)
-```
-
-### Usage
-
-A `comparison` usually sits downstream of model outputs, joined layers, or scenario views. It helps users decide which scenario performs better under the criteria they care about.
+<table>
+  <tr>
+    <td  width="50%">
+      A <code>comparison</code> usually sits downstream of model outputs. It helps users decide which scenario performs better under the criteria defined.
+    </td>
+    <td width="50%">
+      <img src="images/model_to_comparison.png" width="100%" alt="alt text" />
+      <p align="center"><em>Two computation nodes generate distinct shadow scenarios, which are visualized separately through two view nodes, while the mean shadow accumulation (minutes) is compared using a comparison node</em></p>
+    </td>
+  </tr>
+</table>
