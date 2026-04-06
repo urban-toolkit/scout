@@ -8,94 +8,42 @@ SCOUT is a decision-support toolkit shaped by requirements from experts across m
     <b>Creating a dataflow with SCOUT to explore flood projections.</b>
 </div>
 
-## Installation Guide
+## Running the Project with Docker
 
-To setup SCOUT:
+Follow the steps below to set up and run the project locally.
 
-- Follow this [guide](https://docs.anaconda.com/free/anaconda/install/index.html) to install Anaconda.
-- Follow this [link](https://nodejs.org/en/download/) to install Node. Prebuilt binaries/installer is the easiest way to perform installation.
+### 1. Install Docker
 
-## Data and Models
-
-We added data and models for the three case studies showcased in the paper **"backend/data"** and **"backend/models"** folder to illustrate the usage of the system.
-
-<!-- This short [video]() illustrates how to run the application and generate visualizations. -->
-
-<TODO- Heading- Data Formats. For GRF JNT STEP. Add SS of csvs.>
-
-## Project Setup
-
-Clone the repository or download a zipped version of SCOUT from this page.
-
-Run the following command in the terminal to install the necessary dependencies for the client side setup.
+- Download and install Docker Desktop:
+  - https://www.docker.com/products/docker-desktop
+- Verify installation:
 
 ```bash
-# Navigate to the frontend directory
-cd frontend
-
-# Install the necessary client side dependencies.
-npm install
+docker --version
+docker-compose --version
 ```
 
-Now, run the following commands in the terminal to install the necessary dependencies for the **server** side, specifically for running the three case studies showcased in SCOUT.
+### 2. Clone the Repository
 
 ```bash
-# Navigate to the backend directory
-cd backend
-
-# Create a new conda in-folder environment
-conda create --prefix ./envs python=3.9.23
-conda config --set env_prompt '({name})'
-
-# Activate the conda environment
-conda activate ./envs
-
-# Installing required dependencies
-conda install -c conda-forge dask-core=2023.4.0 datashader=0.14.4 flask=2.2.3 geopandas=0.12.2 ipykernel=6.19.2 matplotlib=3.7.1 numpy=1.23.5 pandas=2.0.0 python=3.9.16 pygeos=0.14 flask-cors=6.0.1 geopy=2.4.1 osmnx=1.9.4 pyrosm=0.6.2 osmium-tool=1.16.0
-
-# pip dependencies
-pip install spatialpandas==0.4.7 opencv-python==4.7.0.72 pyarrow==11.0.0 osmium==3.6.0
+git clone <your-repo-url>
+cd <your-project-folder>
 ```
 
-## Run the application
-
-Open a terminal inside the SCOUT folder. Run the following commands in the terminal:
+### 3. Build the Containers
 
 ```bash
-# Navigate to the backend directory
-cd backend
-
-# Activate the conda environment
-conda activate ./envs
-
-# Start the server
-python server.py
-```
-
-Open another terminal inside the SCOUT folder. Run the following commands in the terminal:
-
-```bash
-# Navigate to the frontend directory
-cd frontend
-
-# Start the web application
-npm start
-```
-
-```
 docker-compose --file docker-compose.dev.yml build --no-cache
-docker-compose --file docker-compose.dev.yml up --remove-orphans
-
-ssh komar3@arcade.evl.uic.edu
-
-cd /data/komar3
-
-https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent?platform=linux
-
-https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account
-
-BUILD
-RUN
-STOP
-
 ```
+
+- Builds all services defined in docker-compose.dev.yml
+- --no-cache ensures a fresh build without using cached layers
+
+### 4. Start the Containers
+
+```bash
+docker-compose --file docker-compose.dev.yml up --remove-orphans
+```
+
+- Starts all services
+- --remove-orphans removes containers not defined in the compose file
