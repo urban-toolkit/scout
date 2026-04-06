@@ -8,7 +8,8 @@ import { appUrl } from "./runtimePaths";
 
 type ComparisonAPIResponse = {
   status: string;
-  metric: string;
+  axis: "x" | "y";
+  axisLabel: string;
   chart: string;
   props: Record<string, any>;
   values: Record<string, number>;
@@ -39,7 +40,8 @@ export async function renderComparisonFromDef(
     return (
       <ComparisonBarChart
         values={data.values}
-        metric={data.metric}
+        axis={data.axis}
+        axisLabel={data.axisLabel}
         props={data.props}
       />
     );
@@ -49,7 +51,7 @@ export async function renderComparisonFromDef(
     return (
       <ComparisonPieChart
         values={data.values}
-        metric={data.metric}
+        axisLabel={data.axisLabel}
         props={data.props}
       />
     );
@@ -59,7 +61,7 @@ export async function renderComparisonFromDef(
     return (
       <ComparisonTable
         values={data.values}
-        metric={data.metric}
+        axisLabel={data.axisLabel}
         props={data.props}
       />
     );

@@ -3,16 +3,16 @@
 
 export function ComparisonTable({
   values,
-  metric,
+  axisLabel,
   props,
 }: {
   values: Record<string, number>;
-  metric: string;
+  axisLabel: string;
   props?: Record<string, any>;
 }) {
   const entries = Object.entries(values);
 
-  const label = props?.unit ? `${metric} (${props.unit})` : metric; // final header label
+  const label = props?.unit ? `${axisLabel} (${props.unit})` : axisLabel; // final header label
 
   return (
     <div

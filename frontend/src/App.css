@@ -40,6 +40,14 @@
   pointer-events: auto;
 }
 
+.toolbar__center {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
 /* Dropdown wrapper */
 .toolbar__dropdown {
   position: relative;
@@ -124,6 +132,35 @@
 
 .toolbar__btn--workflows:hover {
   background: #eef2f7;
+}
+
+.toolbar__btn--home {
+  background: #f8fafc;
+  border-color: #64748b;
+  color: #0f172a;
+  min-width: 44px;
+  width: 44px;
+  height: 40px;
+  padding: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar__btn--home::after {
+  content: none;
+  margin-left: 0;
+}
+
+.toolbar__btn--home:hover {
+  background: #eef2f7;
+}
+
+.toolbar__clearIcon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  pointer-events: none;
 }
 
 /* Dropdown menu */

@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from "react";
 
 export function ComparisonPieChart({
   values,
-  metric,
+  axisLabel,
   props,
 }: {
   values: Record<string, number>;
-  metric: string;
+  axisLabel: string;
   props?: {
     unit?: string;
     color?: string | string[] | Record<string, string>;
@@ -190,7 +190,7 @@ export function ComparisonPieChart({
           fontWeight: 500,
         }}
       >
-        {metric} ({props?.unit ?? ""})
+        {axisLabel} ({props?.unit ?? ""})
       </div>
     </div>
   );

@@ -181,15 +181,18 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
           {!overallValid && (
             <span className="gnode__badge is-invalid">INVALID</span>
           )}
-          {key !== "widget" && key !== "comparison" && key !== "view" && (
-            <button
-              type="button"
-              className="gnode__iconBtn"
-              onClick={() => data?.onToggleMinimize?.(id)}
-            >
-              &#8211;
-            </button>
-          )}
+          {data?.onToggleMinimize &&
+            key !== "widget" &&
+            key !== "comparison" &&
+            key !== "view" && (
+              <button
+                type="button"
+                className="gnode__iconBtn"
+                onClick={() => data?.onToggleMinimize?.(id)}
+              >
+                &#8211;
+              </button>
+            )}
           <button
             type="button"
             className="gnode__iconBtn gnode__iconBtn--close"

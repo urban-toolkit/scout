@@ -6,4 +6,4 @@ This use case demonstrates how SCOUT supports flood-risk analysis by comparing a
 
 ### Open in live application
 
-[Live use case]()
+[Live use case](https://arcade.evl.uic.edu/scout/flooding)

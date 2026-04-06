@@ -318,7 +318,7 @@ run_shadow_model(input, season, output)`,
         value: {
           comparison: {
             key: ["A_shadow", "B_shadow"],
-            metric: "Mean Acc shadow",
+            y: "Mean Acc shadow",
             chart: "pie",
             props: {
               unit: "minutes",

@@ -3,11 +3,13 @@ import { useEffect, useRef, useState } from "react";
 
 export function ComparisonBarChart({
   values,
-  metric,
+  axis,
+  axisLabel,
   props,
 }: {
   values: Record<string, number>;
-  metric: string;
+  axis: "x" | "y";
+  axisLabel: string;
   props?: {
     unit?: string;
     labelY?: string;
@@ -22,6 +24,7 @@ export function ComparisonBarChart({
   const [width, setWidth] = useState(400);
   const height = 220;
   const entries = Object.entries(values);
+  const isHorizontal = axis === "x";
   const colorProp = props?.color ?? props?.colors;
   const barColors = entries.map(([label], index) => {
     if (typeof colorProp === "string") {
@@ -59,7 +62,9 @@ export function ComparisonBarChart({
 
     d3.select(svgEl).selectAll("*").remove();
 
-    const margin = { top: 20, right: 0, bottom: 50, left: 80 };
+    const margin = isHorizontal
+      ? { top: 20, right: 10, bottom: 50, left: 90 }
+      : { top: 20, right: 0, bottom: 50, left: 80 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -68,6 +73,65 @@ export function ComparisonBarChart({
     const g = svg
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    if (isHorizontal) {
+      const x = d3
+        .scaleLinear()
+        .domain([0, d3.max(entries, ([, v]) => v) ?? 0])
+        .nice()
+        .range([0, innerWidth]);
+
+      const y = d3
+        .scaleBand<string>()
+        .domain(entries.map(([k]) => k))
+        .range([0, innerHeight])
+        .padding(0.35);
+
+      g.selectAll("rect")
+        .data(entries)
+        .enter()
+        .append("rect")
+        .attr("x", 0)
+        .attr("y", ([k]) => y(k) ?? 0)
+        .attr("width", ([, v]) => x(v))
+        .attr("height", y.bandwidth())
+        .attr("fill", (_d, i) => barColors[i])
+        .attr("rx", 4)
+        .attr("ry", 4);
+
+      g.append("g")
+        .attr("transform", `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(3))
+        .selectAll("text")
+        .style("font-size", "15px")
+        .style("font-family", "Inter, sans-serif");
+
+      g.append("g")
+        .call(d3.axisLeft(y))
+        .selectAll("text")
+        .style("font-size", "15px")
+        .style("font-family", "Inter, sans-serif");
+
+      svg
+        .append("text")
+        .attr("x", width / 2 + 30)
+        .attr("y", height - 10)
+        .attr("text-anchor", "middle")
+        .style("font-size", "16px")
+        .style("font-family", "Inter, sans-serif")
+        .text(props?.labelX ?? `${axisLabel} ${props?.unit ?? ""}`.trim());
+
+      g.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -70)
+        .attr("x", -height / 2.5)
+        .attr("text-anchor", "middle")
+        .style("font-size", "15px")
+        .style("font-family", "Inter, sans-serif")
+        .text("Scenario");
+
+      return;
+    }
 
     const x = d3
       .scaleBand<string>()
@@ -127,8 +191,8 @@ export function ComparisonBarChart({
       .attr("text-anchor", "middle")
       .style("font-size", "15px")
       .style("font-family", "Inter, sans-serif")
-      .text(props?.labelY ?? `${metric} ${props?.unit ?? ""}`);
-  }, [entries, metric, width, props, barColors]);
+      .text(props?.labelY ?? `${axisLabel} ${props?.unit ?? ""}`.trim());
+  }, [entries, axisLabel, width, props, barColors, isHorizontal]);
 
   return (
     <div ref={containerRef} style={{ width: "100%", overflow: "hidden" }}>

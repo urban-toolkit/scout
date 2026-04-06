@@ -3,8 +3,8 @@ export type TemplateKey =
   | "view"
   | "interaction"
   | "widget"
-  | "comparison";
-// | "join"
+  | "comparison"
+  | "join";
 
 // for manhattan area
 // "value": [
@@ -79,7 +79,15 @@ export const viewTemplate = {
 //   ]
 // }
 
-export const joinTemplate = { join: {} };
+export const joinTemplate = {
+  join: {
+    id: "A_buildings_mean_flood_depth",
+    ref_left: "A_buildings",
+    ref_right: "flood_depth",
+    op: "contains",
+    aggr: "mean",
+  },
+};
 
 export const interactionTemplate = {
   interaction: {
@@ -107,7 +115,7 @@ export const widgetTemplate = {
 export const comparisonTemplate = {
   comparison: {
     key: ["A_shadow", "B_shadow"],
-    metric: "Mean Acc shadow",
+    y: "Mean Acc shadow",
     chart: "table",
     props: {
       unit: "minutes",
@@ -118,7 +126,7 @@ export const comparisonTemplate = {
 export const TEMPLATES: Record<TemplateKey, any> = {
   data_layer: dataLayerTemplate,
   view: viewTemplate,
-  // join: joinTemplate,
+  join: joinTemplate,
   interaction: interactionTemplate,
   widget: widgetTemplate,
   comparison: comparisonTemplate,
@@ -127,7 +135,7 @@ export const TEMPLATES: Record<TemplateKey, any> = {
 export const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   data_layer: "Data layer",
   view: "View",
-  // join: "join",
+  join: "Join",
   interaction: "Interaction",
   widget: "Widget",
   comparison: "Comparison",

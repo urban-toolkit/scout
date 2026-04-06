@@ -307,7 +307,7 @@ simulate_flood_projection(
         value: {
           comparison: {
             key: ["A", "B"],
-            metric: "median flood depth",
+            y: "median flood depth",
             chart: "table",
             props: {
               unit: "meter",

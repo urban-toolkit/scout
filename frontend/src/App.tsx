@@ -21,6 +21,7 @@ import { TEMPLATES, TEMPLATE_LABELS, TemplateKey } from "./templates";
 import "./App.css";
 import type { WidgetNodeData } from "./nodes/widget/WidgetNode";
 import type { PyCodeEditorNodeData } from "./nodes/computation/PyCodeEditorNode";
+import clearPng from "./assets/clear.png";
 
 import {
   loadShadowComparisonExample,
@@ -390,6 +391,16 @@ function Canvas() {
     [loadWorkflowRoute],
   );
 
+  const clearCanvasAndNavigateHome = useCallback(() => {
+    const homePath = getAppBasePath();
+    if (window.location.pathname !== homePath) {
+      window.history.pushState(null, "", homePath);
+    }
+    setNodes([]);
+    setEdges([]);
+    idCounter.current = 1;
+  }, [setEdges, setNodes]);
+
   useEffect(() => {
     const route = getWorkflowRouteFromPath();
     if (route) {
@@ -430,6 +441,7 @@ function Canvas() {
         <Toolbar
           onAdd={addNode}
           onAddPyCodeEditor={addPyCodeEditorNode}
+          onClear={clearCanvasAndNavigateHome}
           onLoadShadowWorkflow={() => navigateToWorkflowRoute("shadow")}
           onLoadFloodingWorkflow={() => navigateToWorkflowRoute("flooding")}
           onLoadWeatherRoutingWorkflow={() =>
@@ -447,12 +459,14 @@ function Canvas() {
 function Toolbar({
   onAdd,
   onAddPyCodeEditor,
+  onClear,
   onLoadShadowWorkflow,
   onLoadFloodingWorkflow,
   onLoadWeatherRoutingWorkflow,
 }: {
   onAdd: (tpl: TemplateKey) => void;
   onAddPyCodeEditor: () => void;
+  onClear: () => void;
   onLoadShadowWorkflow: () => void;
   onLoadFloodingWorkflow: () => void;
   onLoadWeatherRoutingWorkflow: () => void;
@@ -532,11 +546,10 @@ function Toolbar({
               {/* New: Join (disabled for now) */}
               <button
                 role="menuitem"
-                className="menu__item menu__item--disabled"
-                // disabled
-                title="Coming soon"
+                onClick={() => handleChoose("join")}
+                className="menu__item"
               >
-                Join
+                {TEMPLATE_LABELS["join"]}
               </button>
 
               <button
@@ -613,6 +626,18 @@ function Toolbar({
         </div>
       </div>
 
+      <div className="toolbar__center">
+        <button
+          type="button"
+          onClick={onClear}
+          className="toolbar__btn toolbar__btn--home"
+          aria-label="Clear canvas"
+          title="Clear canvas"
+        >
+          <img src={clearPng} alt="" className="toolbar__clearIcon" />
+        </button>
+      </div>
+
       <div className="toolbar__right">
         <div className="toolbar__dropdown">
           <button
@@ -660,6 +685,7 @@ function Toolbar({
 // Map template key -> node type key from ./nodes
 const kindToType: Record<TemplateKey, keyof typeof nodeTypes> = {
   data_layer: "dataLayerNode",
+  join: "joinNode",
   view: "viewNode",
   interaction: "interactionNode",
   widget: "widgetNode",

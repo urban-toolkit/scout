@@ -347,7 +347,7 @@ calculate_weather_route(
         value: {
           comparison: {
             key: ["C", "D"],
-            metric: "duration",
+            y: "duration",
             chart: "bar",
             props: {
               labelY: "Travel time (minutes)",
@@ -375,7 +375,7 @@ calculate_weather_route(
         value: {
           comparison: {
             key: ["C", "D"],
-            metric: "rain_exposure",
+            y: "rain_exposure",
             chart: "bar",
             props: {
               labelY: "Rain exposure",
@@ -403,7 +403,7 @@ calculate_weather_route(
         value: {
           comparison: {
             key: ["C", "D"],
-            metric: "distance",
+            y: "distance",
             chart: "bar",
             props: {
               labelY: "Distance (km)",
@@ -431,7 +431,7 @@ calculate_weather_route(
         value: {
           comparison: {
             key: ["C", "D"],
-            metric: "wind_exposure",
+            y: "wind_exposure",
             chart: "bar",
             props: {
               labelY: "Wind exposure",
