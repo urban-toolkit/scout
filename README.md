@@ -47,3 +47,7 @@ docker-compose --file docker-compose.dev.yml up --remove-orphans
 
 - Starts all services
 - --remove-orphans removes containers not defined in the compose file
+
+---
+
+To learn how to use **SCOUT**, refer to the [documentation](docs/how-to-use.md).
