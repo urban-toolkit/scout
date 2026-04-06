@@ -432,7 +432,7 @@ comparison := (x*, y*, key+, chart, props?)
 
 The `computation` node allows to run any Python code user writes, through a sandboxed Python environment. An example shown below:
 
-<img src="images/python.png" alt="alt text" width="50%" />
+<img src="images/python.png" alt="alt text" width="40%" />
 
 #### Usage
 
