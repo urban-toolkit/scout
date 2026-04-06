@@ -4,10 +4,6 @@ SCOUT is a decision-support toolkit shaped by requirements from experts across m
 
 ![image](icon-w-text.png)
 
-<div align="center">
-    <b>Creating a dataflow with SCOUT to explore flood projections.</b>
-</div>
-
 ## Access the Toolkit Online
 
 Go to: [https://arcade.evl.uic.edu/scout/](https://arcade.evl.uic.edu/scout/)
