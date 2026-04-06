@@ -8,25 +8,17 @@ This page describes the core grammar components used in **SCOUT**. The grammar i
 
 ---
 
-<table>
-  <tr>
-    <td bgcolor="#F5D1D2" align="center" style="padding: 20px;">
-      <strong>INTELLIGENCE</strong>
-    </td>
-  </tr>
-</table>
-
-## Data Layer
+## `data_layer`
 
 A `data_layer` represents an urban dataset or model output that other nodes can render, transform, interact with, or compare.
 
-### Structure
+#### Structure
 
 ```txt
 data_layer := (id, source, feature, roi, attributes?, filters?)
 ```
 
-### Fields
+#### Fields
 
 - `id`: Unique id of the data layer that downstream nodes can reference.
 - `source`: Where the data comes from, such as OpenStreetMap or a local file.
@@ -35,7 +27,7 @@ data_layer := (id, source, feature, roi, attributes?, filters?)
 - `attributes`: Fields to use for each `feature`, such as building height, or road speed.
 - `filters`: Conditions used to filter the data based on `attributes` of `feature`. e.g., _height >= 50m_.
 
-### Example
+#### Example
 
 ```json
 {
@@ -58,21 +50,23 @@ data_layer := (id, source, feature, roi, attributes?, filters?)
 }
 ```
 
-### Usage
+#### Usage
 
 A `data_layer` usually feeds into a `view` node for visualization, or a `join` node for transformation. SCOUT supports common geospatial formats such as GeoTIFF, GeoJSON, and Feather; the underlying format is inferred from filename extension, so authors do not need to annotate it in the grammar.
 
-## Join
+---
+
+## `join`
 
 A `join` combines two data layers and derive a new layer from their relationship.
 
-### Structure
+#### Structure
 
 ```txt
 join := (id, ref_left, ref_right, op, aggr)
 ```
 
-### Fields
+#### Fields
 
 - `id`: Name of the derived output from join operation.
 - `ref_left`: Reference to the first input layer.
@@ -80,7 +74,7 @@ join := (id, ref_left, ref_right, op, aggr)
 - `op`: The relationship between the two layers, such as `intersects`, `contains`, `within`, `nearest`, or `overlaps`.
 - `aggr`: How matched values are summarized, such as `count`, `sum`, `mean`, `min`, or `max`.
 
-### Example
+#### Example
 
 ```json
 {
@@ -94,21 +88,13 @@ join := (id, ref_left, ref_right, op, aggr)
 }
 ```
 
-### Usage
+#### Usage
 
 The output of a `join` can be rendered in a `view`, or sent into a `computation node`. For example, average flood depth that intersects per building's footprint can be visualized in a `view` or sent to a `computation node` for modeling purposes.
 
 ---
 
-<table>
-  <tr>
-    <td bgcolor="#D3E8DA" align="center" style="padding: 20px;">
-      <strong>DESIGN</strong>
-    </td>
-  </tr>
-</table>
-
-## View
+## `view`
 
 A `view` defines how SCOUT renders data layers (either defined or derived).
 
@@ -116,20 +102,20 @@ A `view` defines how SCOUT renders data layers (either defined or derived).
 - _Derived layers_ are produced through operations such as `join`, or as scenario outputs from _computation node_.
 - A `view` can show a single layer, overlay multiple layers, or compare two scenarios such as baseline versus intervention.
 
-### Structure
+#### Structure
 
 ```txt
 view := (ref, style?)+ | (ref_base, ref_comp, style?)
 ```
 
-### Fields
+#### Fields
 
 - `ref`: Reference to a `data_layer` or a derived output to render.
 - `ref_base`: Reference to the baseline scenario layer.
 - `ref_comp`: Reference to the intervention scenario layer.
 - `style`: Visual encoding properties such as fill, stroke, opacity, color scale, line width.
 
-### Single-Layer Example
+#### Single-Layer Example
 
 <table>
   <tr>
@@ -155,7 +141,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
   </tr>
 </table>
 
-### Multi-Layer Example
+#### Multi-Layer Example
 
 <table>
   <tr>
@@ -193,18 +179,29 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
   </tr>
 </table>
 
-### Comparison View Example
+### Compare two scenarios Example
 
-```txt
-view(
-  ref_base: flood_baseline,
-  ref_comp: flood_intervention,
-  style: {
-    mode: difference,
-    fill: depth_change
-  }
-)
-```
+<table>
+  <tr>
+    <td>
+      <pre><code>
+{
+  "view": [
+    {
+      "ref_base": "B",
+      "ref_comp": "A",
+      "style": {
+        "opacity": 1,
+        "colormap": "blues"
+      }
+    }
+  ]
+}
+</code></pre>
+    </td>
+    <td><img src="images/flood_compare.png" width="400"/></td>
+  </tr>
+</table>
 
 ### Usage
 
