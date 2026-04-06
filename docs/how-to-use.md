@@ -441,7 +441,7 @@ The `computation` node allows to run any Python code user writes, through a sand
 <table>
   <tr>
     <td  width="50%">
-      Integrating custom Python models into SCOUT. Users can place their scripts within the backend directory (preferably under models/), import the desired functions, and execute them through the Python <code>computation</code> node.
+      The <code>computation</code> node allows to integrate any custom Python models into SCOUT. Users can place their scripts within the backend directory (preferably under models/), import the desired functions, and execute them through the Python <code>computation</code> node.
     </td>
     <td width="50%">
       <img src="images/guide-to-inc-model.png" width="100%" alt="alt text" />
