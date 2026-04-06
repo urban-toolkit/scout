@@ -126,7 +126,9 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 - `ref_comp`: Reference to the intervention scenario layer.
 - `style`: Visual encoding properties such as fill, stroke, opacity, color scale, line width.
 
-#### Single-layer example
+#### Example
+
+**1. Single layer:**
 
 <table>
   <tr>
@@ -153,7 +155,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
   </tr>
 </table>
 
-#### Multi-layer example
+**2. Multi layer:**
 
 <table>
   <tr>
@@ -191,7 +193,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
   </tr>
 </table>
 
-#### Compare two scenarios example
+**3. Compare two scenarios:**
 
 <table>
   <tr>
