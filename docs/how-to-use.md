@@ -143,7 +143,9 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
           "range": [0, 550],
           "colormap": "blues"
         },
-        "stroke-color": "#333333",
+        "stroke": {
+          "color": "#333333"
+        }
         "opacity": 1
       }
     }
@@ -170,7 +172,9 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
           "range": [0, 550],
           "colormap": "blues"
         },
-        "stroke-color": "#333333",
+        "stroke":{
+          "color": "#333333"
+        } 
         "opacity": 1
       }
     },
@@ -449,3 +453,9 @@ The `computation` node allows to run any Python code user writes, through a sand
     </td>
   </tr>
 </table>
+
+---
+
+## <span style="color:#54278f">Use Cases</span>
+
+To explore real-world scenario-oriented decision support workflows implemented through SCOUT, see the [use cases](use-cases.md).

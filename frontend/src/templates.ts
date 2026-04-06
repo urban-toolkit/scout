@@ -48,14 +48,18 @@ export const viewTemplate = {
           range: [0, 550],
           colormap: "blues",
         },
-        "stroke-color": "#333333",
+        stroke: {
+          color: "#333333",
+        },
         opacity: 1,
       },
     },
     {
       ref: "A_roads",
       style: {
-        "stroke-color": "#333333",
+        stroke: {
+          color: "#333333",
+        },
         opacity: 1,
       },
     },
