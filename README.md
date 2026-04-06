@@ -2,7 +2,7 @@
 
 SCOUT is a decision-support toolkit shaped by requirements from experts across multiple urban domains that operationalizes a decision-making framework through a dataflow model for combining urban data and models and a scenario-oriented visualization grammar that treats decision alternatives and outcomes as first-class objects
 
-![image](teaser_scout.png)
+![image](icon-w-text.png)
 
 <div align="center">
     <b>Creating a dataflow with SCOUT to explore flood projections.</b>
