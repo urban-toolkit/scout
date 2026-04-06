@@ -6,6 +6,8 @@ This page describes the core grammar components used in **SCOUT** and how they c
 - **Design**: `view`
 - **Choice**: `interaction`, `widget`, `comparison`
 
+Besides these, **SCOUT** also provides a Python `computation` node type to accomodate complex, domain-specific urban models.
+
 ---
 
 ## `data_layer`
@@ -230,7 +232,7 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 
 ---
 
-## `Interaction`
+## `interaction`
 
 An `interaction` defines how users directly manipulate a `data_layer` through `view`. Interactions are useful when scenario alternatives depend on geometry edits, feature selection, or attribute changes.
 
@@ -276,7 +278,7 @@ interaction := (ref, itype, action, attribute?, condition?)
 
 ---
 
-## Widget
+## `widget`
 
 A `widget` exposes a model parameter as a user-facing control. Widgets help technical authors turn complex dataflow pipelines into dashboards that non-technical users can operate.
 
@@ -366,7 +368,9 @@ widget := (wtype, variable, choices?, default?, props?)
   </tr>
 </table>
 
-## Comparison
+---
+
+## `comparison`
 
 A `comparison` node defines how SCOUT illustrates differences across scenarios. Comparisons make trade-offs visible by turning scenario outputs into charts, tables, or metrics that can support decisions.
 
@@ -418,6 +422,28 @@ comparison := (x*, y*, key+, chart, props?)
     <td width="50%">
       <img src="images/model_to_comparison.png" width="100%" alt="alt text" />
       <p align="center"><em>Two computation nodes generate distinct shadow scenarios, which are visualized through two view nodes, while the mean shadow accumulation (minutes) is compared using a comparison node</em></p>
+    </td>
+  </tr>
+</table>
+
+---
+
+## `computation`
+
+The `computation` node allows to run any Python code user writes, through a sandboxed Python environment. An example shown below:
+
+<img src="images/python.png" alt="alt text" width="50%" />
+
+#### Usage
+
+<table>
+  <tr>
+    <td  width="50%">
+      Integrating custom Python models into SCOUT. Users can place their scripts within the backend directory (preferably under models/), import the desired functions, and execute them through the Python <code>computation</code> node.
+    </td>
+    <td width="50%">
+      <img src="images/guide-to-inc-model.png" width="100%" alt="alt text" />
+      <p align="center"><em>How to incorporate your python model into SCOUT</em></p>
     </td>
   </tr>
 </table>
