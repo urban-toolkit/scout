@@ -133,8 +133,8 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 
 <table>
   <tr>
-    <td><pre>
-{
+    <td>
+      <pre><code>{
   "view": [
     {
       "ref": "A_buildings",
@@ -149,9 +149,9 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
       }
     }
   ]
-}
-</pre></td>
-    <td><img src="images/buildings.png" /></td>
+}</code></pre>
+    </td>
+    <td><img src="images/buildings.png" width="200"/></td>
   </tr>
 </table>
 
