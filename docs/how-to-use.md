@@ -301,8 +301,7 @@ widget := (wtype, variable, choices?, default?, props?)
 <table>
   <tr>
     <td  width="50%">
-      <pre><code>
-{
+      <pre><code>{
   "widget": {
     "wtype": "checkbox",
     "variable": "season",
