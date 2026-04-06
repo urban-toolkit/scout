@@ -58,7 +58,7 @@ data_layer := (id, source, feature, roi, attributes?)
     </td>
     <td width="50%">
       <img src="images/data_layer_to_view.png" width="100%" alt="alt text" />
-      <p align="center"><em>Defined data layer feeding to view</em></p>
+      <p align="center"><em>Defined data layer feeding to a view node</em></p>
     </td>
   </tr>
 </table>
@@ -146,7 +146,8 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
   ]
 }</code></pre>
     </td>
-    <td><img src="images/buildings.png" width="400"/></td>
+    <td><img src="images/buildings.png" width="400"/>
+    <p align="center"><em>Visualizing a single layer (i.e., buildings) in a view node</em></p></td>
   </tr>
 </table>
 
@@ -184,7 +185,8 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 }
 </code></pre>
     </td>
-    <td><img src="images/buildings_roads.png" width="400"/></td>
+    <td><img src="images/buildings_roads.png" width="400"/>
+    <p align="center"><em>Visualizing multiple layers (i.e., buildings and roads) in a view node</em></p></td>
   </tr>
 </table>
 
@@ -208,13 +210,13 @@ view := (ref, style?)+ | (ref_base, ref_comp, style?)
 }
 </code></pre>
     </td>
-    <td><img src="images/flood_compare.png" width="450"/></td>
+    <td><img src="images/flood_compare.png" width="450"/>
+    <p align="center"><em>Difference map comparing flooding scenario A vs B</em></p></td>
+    
   </tr>
 </table>
 
 #### Usage
-
-A `view` can consume and visualize outputs from `Intelligence` nodes (i.e., defined or derived data layers). Or, it can also visualize derived scenario outputs from the `computation node` (e.g., model/`computation node` generates projection of a flooding scenario, and a `view` node is used to visualize the this scenario).
 
 <table>
   <tr>
@@ -223,7 +225,7 @@ A `view` can consume and visualize outputs from `Intelligence` nodes (i.e., defi
     </td>
     <td width="50%">
       <img src="images/computation_to_view.png" width="100%" alt="alt text" />
-      <p align="center"><em>Computation node feeding a scenario to view</em></p>
+      <p align="center"><em>Computation node feeding a flooding scenario to a view node</em></p>
     </td>
   </tr>
 </table>
@@ -262,7 +264,17 @@ interaction := (ref, itype, action, attribute?, condition?)
 
 ### Usage
 
-An `interaction` connects to a `view` node allowing to make changes to referenced `data_layer` in that `view`.
+<table>
+  <tr>
+    <td  width="50%">
+      An <code>interaction</code> connects to a <code>view</code> node allowing to make changes to referenced <code>data_layer</code> in that <code>view</code>.
+    </td>
+    <td width="50%">
+      <img src="images/interaction_to_view.png" width="100%" alt="alt text" />
+      <p align="center"><em>Interaction node allowing to remove any buildings upon clicking them</em></p>
+    </td>
+  </tr>
+</table>
 
 ---
 
