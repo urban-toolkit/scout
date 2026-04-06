@@ -417,7 +417,7 @@ comparison := (x*, y*, key+, chart, props?)
     </td>
     <td width="50%">
       <img src="images/model_to_comparison.png" width="100%" alt="alt text" />
-      <p align="center"><em>Two computation nodes generate distinct shadow scenarios, which are visualized separately through two view nodes, while the mean shadow accumulation (minutes) is compared using a comparison node</em></p>
+      <p align="center"><em>Two computation nodes generate distinct shadow scenarios, which are visualized through two view nodes, while the mean shadow accumulation (minutes) is compared using a comparison node</em></p>
     </td>
   </tr>
 </table>
