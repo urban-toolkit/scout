@@ -456,6 +456,6 @@ The `computation` node allows to run any Python code user writes, through a sand
 
 ---
 
-## <span style="color:#54278f">Use Cases</span>
+## <span>Use Cases</span>
 
-To explore real-world scenario-oriented decision support workflows implemented through SCOUT, see the [use cases](use-cases.md).
+To explore real-world scenario-oriented decision support workflows implemented through SCOUT, see documentation on the [use cases](use-cases.md).

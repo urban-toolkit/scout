@@ -11,7 +11,7 @@ import {
   type DefaultEdgeOptions,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { nodeTypes } from "./nodes"; // <-- { dataLayerNode, viewNode, ... }
 import type { Node, Connection, Edge } from "@xyflow/react";
@@ -40,6 +40,35 @@ const defaultEdgeOptions: DefaultEdgeOptions = {
     color: "#888", // optional
   },
 };
+
+type WorkflowRoute = "shadow" | "flooding" | "routing";
+
+function getAppBasePath() {
+  const base = import.meta.env.BASE_URL ?? "/";
+  return base === "/" ? "/" : base.endsWith("/") ? base : `${base}/`;
+}
+
+function getWorkflowRouteFromPath(
+  pathname = window.location.pathname,
+): WorkflowRoute | null {
+  const base = getAppBasePath();
+  const relativePath = pathname.startsWith(base)
+    ? pathname.slice(base.length)
+    : pathname.startsWith("/")
+      ? pathname.slice(1)
+      : pathname;
+  const route = relativePath.replace(/\/+$/, "");
+
+  if (route === "shadow" || route === "flooding" || route === "routing") {
+    return route;
+  }
+
+  return null;
+}
+
+function getWorkflowPath(route: WorkflowRoute) {
+  return `${getAppBasePath()}${route}`;
+}
 
 export default function App() {
   return (
@@ -337,6 +366,49 @@ function Canvas() {
     fitView,
   ]);
 
+  const loadWorkflowRoute = useCallback(
+    (route: WorkflowRoute) => {
+      if (route === "shadow") {
+        loadShadowWorkflow();
+      } else if (route === "flooding") {
+        loadFloodingWorkflow();
+      } else {
+        loadWeatherRoutingWorkflow();
+      }
+    },
+    [loadShadowWorkflow, loadFloodingWorkflow, loadWeatherRoutingWorkflow],
+  );
+
+  const navigateToWorkflowRoute = useCallback(
+    (route: WorkflowRoute) => {
+      const nextPath = getWorkflowPath(route);
+      if (window.location.pathname !== nextPath) {
+        window.history.pushState(null, "", nextPath);
+      }
+      loadWorkflowRoute(route);
+    },
+    [loadWorkflowRoute],
+  );
+
+  useEffect(() => {
+    const route = getWorkflowRouteFromPath();
+    if (route) {
+      loadWorkflowRoute(route);
+    }
+
+    const handlePopState = () => {
+      const nextRoute = getWorkflowRouteFromPath();
+      if (nextRoute) {
+        loadWorkflowRoute(nextRoute);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [loadWorkflowRoute]);
+
   return (
     <div className="app">
       <ReactFlow
@@ -358,9 +430,11 @@ function Canvas() {
         <Toolbar
           onAdd={addNode}
           onAddPyCodeEditor={addPyCodeEditorNode}
-          onLoadShadowWorkflow={loadShadowWorkflow}
-          onLoadFloodingWorkflow={loadFloodingWorkflow}
-          onLoadWeatherRoutingWorkflow={loadWeatherRoutingWorkflow}
+          onLoadShadowWorkflow={() => navigateToWorkflowRoute("shadow")}
+          onLoadFloodingWorkflow={() => navigateToWorkflowRoute("flooding")}
+          onLoadWeatherRoutingWorkflow={() =>
+            navigateToWorkflowRoute("routing")
+          }
         />
       </ReactFlow>
       {/* <button onClick={dumpWorkflow} className="toolbar__btn__dump">
