@@ -8,7 +8,11 @@ SCOUT is a decision-support toolkit shaped by requirements from experts across m
     <b>Creating a dataflow with SCOUT to explore flood projections.</b>
 </div>
 
-## Running the Project with Docker
+## Access the Toolkit Online
+
+Go to: [https://arcade.evl.uic.edu/scout/](https://arcade.evl.uic.edu/scout/)
+
+## Running Locally with Docker
 
 Follow the steps below to set up and run the project locally.
 
