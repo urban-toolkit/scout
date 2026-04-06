@@ -1,9 +1,9 @@
 # Flooding Analysis
 
-The flooding analysis use case demonstrates how SCOUT can support climate resilience planning through side-by-side scenario comparison. Users define a study area with top-left and bottom-right coordinate inputs, choose a projection timeline, and configure two scenarios using checkbox widgets for nature-based solutions.
+This use case demonstrates how SCOUT supports flood-risk analysis by comparing a baseline scenario with an intervention scenario incorporating nature-based solutions (NbS). The workflow begins by configuring scenarios through `widget` nodes, where the baseline is defined with no NbS and the intervention activates multiple solutions. Additional `widget` nodes specify shared parameters such as the projection timeline and region of interest, ensuring consistent inputs across scenarios. These parameters are passed to `computation` nodes, which access precomputed flood simulations and generate scenario-specific flood-depth outputs. The resulting flood-depth rasters are visualized in separate `view` nodes, enabling spatial comparison of projected flood patterns. A derived difference layer highlights areas of change between two scenarios and is visualized through an additional `view`. Finally, a `comparison` node displays the difference between two scenarios for median flood depth, allowing users to evaluate the effectiveness of nature-based solutions across scenarios.
 
-Each scenario is passed to a flood simulation model that generates a projected flood output for the selected region and timeline. In the example workflow, one scenario can represent a baseline or limited-intervention case, while the other can include a collection of nature-based solutions such as bioswales, infiltration trenches, permeable pavements, retention ponds, and constructed wetlands.
+![image](images/teaser_scout.png)
 
-SCOUT renders each flood projection as a map layer using a blue colormap, then creates a comparison view between the two scenario outputs. A comparison node summarizes the median flood depth in meters, giving users both a spatial view of where flood depth changes and a quantitative measure of how the intervention scenario differs from the baseline.
+### Open in live application
 
-This use case highlights SCOUT's role as a decision-support environment for evaluating flood mitigation strategies, connecting stakeholder-controlled scenario parameters to model results, visual outputs, and summary metrics.
+[Live use case]()
