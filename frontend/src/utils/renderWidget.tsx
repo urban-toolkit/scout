@@ -31,7 +31,7 @@ const checkedIcon = <CheckBoxIcon fontSize="small" />;
 export function renderWidgetFromWidgetDef(
   widgetDef: WidgetDef | undefined,
   value: any,
-  onValueChange?: (variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void,
 ): ReactNode {
   if (!widgetDef) return null;
 
@@ -75,7 +75,7 @@ export function renderWidgetFromWidgetDef(
 export function renderTextInputWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void,
 ): React.ReactNode {
   const variable = widget.variable;
 
@@ -83,8 +83,8 @@ export function renderTextInputWidget(
     typeof value === "string"
       ? value
       : typeof widget["default"] === "string"
-      ? widget["default"]
-      : "";
+        ? widget["default"]
+        : "";
 
   const inputKind =
     (widget["props"]["input-kind"] as
@@ -140,7 +140,7 @@ export function renderTextInputWidget(
 
 export function renderTextWidget(
   widget: WidgetDef,
-  value: any
+  value: any,
 ): React.ReactNode {
   const text = value ?? widget["default"] ?? "";
 
@@ -187,7 +187,7 @@ export function renderTextWidget(
 export function renderCheckboxWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void,
 ): React.ReactNode {
   const variable = widget.variable;
   const mode = widget["props"].mode === "group" ? "group" : "single";
@@ -200,8 +200,8 @@ export function renderCheckboxWidget(
       typeof value === "boolean"
         ? value
         : typeof widget["default"] === "boolean"
-        ? widget["default"]
-        : false;
+          ? widget["default"]
+          : false;
 
     return (
       <div className="nodrag" style={{ width: "100%" }}>
@@ -241,8 +241,8 @@ export function renderCheckboxWidget(
   const selected: string[] = Array.isArray(value)
     ? value
     : Array.isArray(widget["default"])
-    ? widget["default"]
-    : [];
+      ? widget["default"]
+      : [];
 
   const isHorizontal = orientation === "horizontal";
 
@@ -296,7 +296,7 @@ export function renderCheckboxWidget(
 export function renderDropdownWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void,
 ) {
   const variable = widget.variable;
 
@@ -312,15 +312,15 @@ export function renderDropdownWidget(
     currentVal = Array.isArray(value)
       ? value
       : Array.isArray(widget["default"])
-      ? widget["default"]
-      : [];
+        ? widget["default"]
+        : [];
   } else {
     currentVal =
       typeof value === "string"
         ? value
         : typeof widget["default"] === "string"
-        ? widget["default"]
-        : null;
+          ? widget["default"]
+          : null;
   }
 
   // dynamic placeholder: "N selected" for multi, normal placeholder otherwise
@@ -402,8 +402,8 @@ export function renderDropdownWidget(
 
 export function renderLocationFieldWidget(
   widget: WidgetDef,
-  value: any,
-  onValueChange?: (variable: string, value: any) => void
+  _value: any,
+  onValueChange?: (variable: string, value: any) => void,
 ): React.ReactNode {
   const variable = widget.variable;
 
@@ -465,7 +465,7 @@ export function renderLocationFieldWidget(
 export function renderNumberInputWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void,
 ) {
   const variable = widget.variable;
 
@@ -478,8 +478,8 @@ export function renderNumberInputWidget(
     typeof value === "number"
       ? value
       : typeof widget["default"] === "number"
-      ? widget["default"]
-      : null;
+        ? widget["default"]
+        : null;
 
   const handleChange = (v: number | null) => {
     onValueChange?.(variable, v);
@@ -505,7 +505,7 @@ export function renderNumberInputWidget(
 export function renderSliderWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void,
 ): React.ReactNode {
   const variable = widget.variable;
 
@@ -513,8 +513,8 @@ export function renderSliderWidget(
     typeof value === "number"
       ? value
       : typeof widget["default"] === "number"
-      ? widget["default"]
-      : widget["props"].min;
+        ? widget["default"]
+        : widget["props"].min;
 
   const min = widget["props"].min;
   const max = widget["props"].max;
@@ -641,7 +641,7 @@ export function renderSliderWidget(
 function renderDateTimePickerWidget(
   widget: WidgetDef,
   value: any,
-  onValueChange?: (variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void,
 ): React.ReactNode {
   const variable = widget.variable;
 
@@ -697,7 +697,7 @@ function renderDateTimePickerWidget(
 function renderRadioGroup(
   def: WidgetDef,
   value: any,
-  onValueChange?: (variable: string, value: any) => void
+  onValueChange?: (variable: string, value: any) => void,
 ): ReactNode {
   const anyDef = def;
   const labelId = `${def.variable}-label`;

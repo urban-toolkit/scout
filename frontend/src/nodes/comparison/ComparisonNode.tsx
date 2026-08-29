@@ -40,6 +40,11 @@ const ComparisonNode = memo(function ComparisonNode(
   const [bodyContent, setBodyContent] = useState<ReactNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = useState(data.title ?? "Comparison");
+
+  useEffect(() => {
+    setDraftTitle(data.title ?? "Comparison");
+  }, [data.title]);
 
   // close removes node + edges (same as your view node close)
   const handleClose = useCallback(() => {
@@ -55,9 +60,20 @@ const ComparisonNode = memo(function ComparisonNode(
 
   // read comparison def from grammar value
   const comparison: ComparisonDef | undefined = useMemo(() => {
-    const v: any = (data as BaseNodeData)?.value;
+    const v: any = data.value;
     return v?.comparison;
-  }, [data]);
+  }, [data.value]);
+
+  const commitTitle = useCallback(() => {
+    const nextTitle = draftTitle.trim() || "Comparison";
+    if (nextTitle === (data.title ?? "Comparison")) return;
+
+    setNodes((nodes) =>
+      nodes.map((n) =>
+        n.id === id ? { ...n, data: { ...n.data, title: nextTitle } } : n,
+      ),
+    );
+  }, [data.title, draftTitle, id, setNodes]);
 
   const goToView = useCallback(() => {
     const token = crypto.randomUUID();
@@ -187,7 +203,18 @@ const ComparisonNode = memo(function ComparisonNode(
       <NodeResizer />
 
       <div className="cvnode__header">
-        <div className="cvnode__title">{data.title ?? "Comparison"}</div>
+        <input
+          type="text"
+          className="cvnode__titleInput"
+          value={draftTitle}
+          onChange={(e) => setDraftTitle(e.target.value)}
+          onBlur={commitTitle}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.currentTarget.blur();
+            }
+          }}
+        />
 
         <div className="cvnode__headerBtns">
           {/* <button type="button" className="cvnode__iconBtn" onClick={goToDef}>

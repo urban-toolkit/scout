@@ -1,0 +1,32 @@
+services:
+  frontend:
+    image: node:20-bookworm
+    working_dir: /app
+    command: sh -lc "npm install && npm run dev"
+    environment:
+      VITE_BACKEND_ORIGIN: http://backend:9797
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+    working_dir: /app
+    command: /bin/sh -lc "ln -sfn /opt/scout-env /app/envs && /opt/scout-env/bin/python server.py"
+    ports:
+      - "9797:9797"
+    volumes:
+      - ./backend:/app
+      - ./backend/data:/app/data
+      - ./backend/models:/app/models
+      - ./backend/osm_downloader:/app/osm_downloader
+      - ./backend/transformations:/app/transformations
+
+volumes:
+  frontend_node_modules:

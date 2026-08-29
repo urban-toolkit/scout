@@ -10,6 +10,7 @@ import schema from "../../schemas/data_layer.json";
 import fetchPng2 from "../../assets/fetch_2.png";
 import checkPng from "../../assets/check-mark.png";
 import expandPng from "../../assets/expand.png";
+import { appUrl } from "../../utils/runtimePaths";
 // import restartPng from "../../assets/restart.png";
 
 import "./DataLayerNode.css";
@@ -46,17 +47,13 @@ const DataLayerNode = memo(function DataLayerNode(
       console.log("Sending data to Flask:", val);
       setLoading(true);
       setLoadingSuccess(false);
-      const response = await fetch(
-        "https://giavanna-stripiest-mustafa.ngrok-free.dev/api/extract-data-layer",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "ngrok-skip-browser-warning": "true",
-          },
-          body: JSON.stringify(val),
+      const response = await fetch(appUrl("/api/extract-data-layer"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify(val),
+      });
 
       const data = await response.json();
 

@@ -3,8 +3,9 @@
   "title": "Comparison Schema",
 
   "type": "object",
-  "required": ["key", "metric", "chart"],
+  "required": ["key", "chart"],
   "additionalProperties": true,
+  "oneOf": [{ "required": ["x"] }, { "required": ["y"] }],
 
   "properties": {
     "key": {
@@ -12,7 +13,11 @@
       "items": { "type": "string", "minLength": 1 },
       "minItems": 1
     },
-    "metric": {
+    "x": {
+      "type": "string",
+      "minLength": 1
+    },
+    "y": {
       "type": "string",
       "minLength": 1
     },

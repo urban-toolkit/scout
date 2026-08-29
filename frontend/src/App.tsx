@@ -11,7 +11,7 @@ import {
   type DefaultEdgeOptions,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { nodeTypes } from "./nodes"; // <-- { dataLayerNode, viewNode, ... }
 import type { Node, Connection, Edge } from "@xyflow/react";
@@ -21,6 +21,7 @@ import { TEMPLATES, TEMPLATE_LABELS, TemplateKey } from "./templates";
 import "./App.css";
 import type { WidgetNodeData } from "./nodes/widget/WidgetNode";
 import type { PyCodeEditorNodeData } from "./nodes/computation/PyCodeEditorNode";
+import clearPng from "./assets/clear.png";
 
 import {
   loadShadowComparisonExample,
@@ -41,6 +42,35 @@ const defaultEdgeOptions: DefaultEdgeOptions = {
   },
 };
 
+type WorkflowRoute = "shadow" | "flooding" | "routing";
+
+function getAppBasePath() {
+  const base = import.meta.env.BASE_URL ?? "/";
+  return base === "/" ? "/" : base.endsWith("/") ? base : `${base}/`;
+}
+
+function getWorkflowRouteFromPath(
+  pathname = window.location.pathname,
+): WorkflowRoute | null {
+  const base = getAppBasePath();
+  const relativePath = pathname.startsWith(base)
+    ? pathname.slice(base.length)
+    : pathname.startsWith("/")
+      ? pathname.slice(1)
+      : pathname;
+  const route = relativePath.replace(/\/+$/, "");
+
+  if (route === "shadow" || route === "flooding" || route === "routing") {
+    return route;
+  }
+
+  return null;
+}
+
+function getWorkflowPath(route: WorkflowRoute) {
+  return `${getAppBasePath()}${route}`;
+}
+
 export default function App() {
   return (
     <ReactFlowProvider>
@@ -55,18 +85,18 @@ function Canvas() {
     Node<BaseNodeData | PyCodeEditorNodeData>
   >([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const { getNode, getNodes, getEdges, fitView } = useReactFlow();
+  const { getNode, getEdges, fitView } = useReactFlow();
 
-  const dumpWorkflow = useCallback(() => {
-    const nodes = getNodes();
-    const edges = getEdges();
+  // const dumpWorkflow = useCallback(() => {
+  //   const nodes = getNodes();
+  //   const edges = getEdges();
 
-    console.log("NODES");
-    console.log(JSON.stringify(nodes, null, 2));
+  //   console.log("NODES");
+  //   console.log(JSON.stringify(nodes, null, 2));
 
-    console.log("EDGES");
-    console.log(JSON.stringify(edges, null, 2));
-  }, [getNodes, getEdges]);
+  //   console.log("EDGES");
+  //   console.log(JSON.stringify(edges, null, 2));
+  // }, [getNodes, getEdges]);
 
   const pushInteractionToView = useCallback(
     (srcId: string, trgId?: string) => {
@@ -187,7 +217,7 @@ function Canvas() {
   }, [setNodes]);
 
   const allow = useCallback(
-    (conn: Connection) => {
+    (conn: Connection | Edge) => {
       if (!conn.source || !conn.target) return false;
       const src = getNode(conn.source);
       const trg = getNode(conn.target);
@@ -337,6 +367,59 @@ function Canvas() {
     fitView,
   ]);
 
+  const loadWorkflowRoute = useCallback(
+    (route: WorkflowRoute) => {
+      if (route === "shadow") {
+        loadShadowWorkflow();
+      } else if (route === "flooding") {
+        loadFloodingWorkflow();
+      } else {
+        loadWeatherRoutingWorkflow();
+      }
+    },
+    [loadShadowWorkflow, loadFloodingWorkflow, loadWeatherRoutingWorkflow],
+  );
+
+  const navigateToWorkflowRoute = useCallback(
+    (route: WorkflowRoute) => {
+      const nextPath = getWorkflowPath(route);
+      if (window.location.pathname !== nextPath) {
+        window.history.pushState(null, "", nextPath);
+      }
+      loadWorkflowRoute(route);
+    },
+    [loadWorkflowRoute],
+  );
+
+  const clearCanvasAndNavigateHome = useCallback(() => {
+    const homePath = getAppBasePath();
+    if (window.location.pathname !== homePath) {
+      window.history.pushState(null, "", homePath);
+    }
+    setNodes([]);
+    setEdges([]);
+    idCounter.current = 1;
+  }, [setEdges, setNodes]);
+
+  useEffect(() => {
+    const route = getWorkflowRouteFromPath();
+    if (route) {
+      loadWorkflowRoute(route);
+    }
+
+    const handlePopState = () => {
+      const nextRoute = getWorkflowRouteFromPath();
+      if (nextRoute) {
+        loadWorkflowRoute(nextRoute);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [loadWorkflowRoute]);
+
   return (
     <div className="app">
       <ReactFlow
@@ -358,9 +441,12 @@ function Canvas() {
         <Toolbar
           onAdd={addNode}
           onAddPyCodeEditor={addPyCodeEditorNode}
-          onLoadShadowWorkflow={loadShadowWorkflow}
-          onLoadFloodingWorkflow={loadFloodingWorkflow}
-          onLoadWeatherRoutingWorkflow={loadWeatherRoutingWorkflow}
+          onClear={clearCanvasAndNavigateHome}
+          onLoadShadowWorkflow={() => navigateToWorkflowRoute("shadow")}
+          onLoadFloodingWorkflow={() => navigateToWorkflowRoute("flooding")}
+          onLoadWeatherRoutingWorkflow={() =>
+            navigateToWorkflowRoute("routing")
+          }
         />
       </ReactFlow>
       {/* <button onClick={dumpWorkflow} className="toolbar__btn__dump">
@@ -373,12 +459,14 @@ function Canvas() {
 function Toolbar({
   onAdd,
   onAddPyCodeEditor,
+  onClear,
   onLoadShadowWorkflow,
   onLoadFloodingWorkflow,
   onLoadWeatherRoutingWorkflow,
 }: {
   onAdd: (tpl: TemplateKey) => void;
   onAddPyCodeEditor: () => void;
+  onClear: () => void;
   onLoadShadowWorkflow: () => void;
   onLoadFloodingWorkflow: () => void;
   onLoadWeatherRoutingWorkflow: () => void;
@@ -458,11 +546,10 @@ function Toolbar({
               {/* New: Join (disabled for now) */}
               <button
                 role="menuitem"
-                className="menu__item menu__item--disabled"
-                // disabled
-                title="Coming soon"
+                onClick={() => handleChoose("join")}
+                className="menu__item"
               >
-                Join
+                {TEMPLATE_LABELS["join"]}
               </button>
 
               <button
@@ -539,6 +626,18 @@ function Toolbar({
         </div>
       </div>
 
+      <div className="toolbar__center">
+        <button
+          type="button"
+          onClick={onClear}
+          className="toolbar__btn toolbar__btn--home"
+          aria-label="Clear canvas"
+          title="Clear canvas"
+        >
+          <img src={clearPng} alt="" className="toolbar__clearIcon" />
+        </button>
+      </div>
+
       <div className="toolbar__right">
         <div className="toolbar__dropdown">
           <button
@@ -547,7 +646,7 @@ function Toolbar({
             aria-haspopup="menu"
             aria-expanded={openGroup === "workflows"}
           >
-            Workflows
+            Examples
           </button>
 
           {openGroup === "workflows" && (
@@ -586,6 +685,7 @@ function Toolbar({
 // Map template key -> node type key from ./nodes
 const kindToType: Record<TemplateKey, keyof typeof nodeTypes> = {
   data_layer: "dataLayerNode",
+  join: "joinNode",
   view: "viewNode",
   interaction: "interactionNode",
   widget: "widgetNode",

@@ -76,6 +76,21 @@
   color: #000;
 }
 
+.wvnode__titleWrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.wvnode__titleInput {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #000;
+  font: inherit;
+  padding: 0;
+}
+
 .wvnode__body {
   position: relative;
   display: flex;

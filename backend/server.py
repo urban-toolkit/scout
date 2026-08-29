@@ -23,7 +23,7 @@ worker_lock = threading.Lock()
 worker_python_exe = None
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 
 DATA_DIR = Path("data")        
 OUT_DIR  = Path("data/served")
@@ -43,7 +43,10 @@ def start_worker():
         return
 
     project_dir = Path(__file__).parent
-    python_exe = project_dir / "envs" / ("python.exe" if os.name == "nt" else "bin/python")
+    python_exe = Path(sys.executable)
+
+    if not python_exe.exists():
+        python_exe = project_dir / "envs" / ("python.exe" if os.name == "nt" else "bin/python")
 
     if not python_exe.exists():
         raise RuntimeError(f"Python interpreter not found at: {python_exe}")
@@ -471,23 +474,31 @@ def comparison_view():
 
     print("Received comparison view request:", data)
     key = data.get("key", [])
-    metric = data.get("metric", "")
+    x_axis = data.get("x")
+    y_axis = data.get("y")
     chart = data.get("chart", "")
     props = data.get("props", {})
 
-    results = {}   # store metric per layer
+    if bool(x_axis) == bool(y_axis):
+        return jsonify({"error": "Exactly one of x or y is currently supported"}), 400
+
+    axis = "x" if x_axis else "y"
+    axis_label = x_axis or y_axis
+
+    results = {}   # store selected axis value per layer
     for k in key:
         csv_path = metric_subdir / f"{k}.csv"
         df = pd.read_csv(csv_path)
 
-        value = df[metric].iloc[0]
+        value = df[axis_label].iloc[0]
         results[k] = float(value)
 
-        print(f"{k}: {metric} = {value}")
+        print(f"{k}: {axis_label} = {value}")
 
     return jsonify({
         "status": "ok",
-        "metric": metric,
+        "axis": axis,
+        "axisLabel": axis_label,
         "props": props,
         "values": results,
         "chart": chart,
@@ -581,4 +592,4 @@ if __name__ == '__main__':
     except Exception as e:
         print("[WORKER] Failed to start:", e)
 
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=9797, debug=True)

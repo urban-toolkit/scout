@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+} from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import {
   Handle,
@@ -30,8 +37,8 @@ export type WidgetNodeData = BaseNodeData & {
 
 export type WidgetNode = Node<WidgetNodeData, "widgetNode">;
 
-const NODE_MIN_WIDTH = 300;
-const NODE_MIN_HEIGHT = 180;
+const NODE_MIN_WIDTH = 200;
+const NODE_MIN_HEIGHT = 80;
 const NODE_MINIMIZED_WIDTH = 400;
 const NODE_MINIMIZED_HEIGHT = 200;
 
@@ -44,6 +51,19 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
   const mode = data.mode ?? "def";
   const [minimized, setMinimized] = useState(false);
   const [widgetValue, setWidgetValue] = useState<WidgetOutput | null>(null);
+
+  // ---------- TITLE CHANGE ----------
+  const handleTitleChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const nextTitle = e.target.value;
+      rf.setNodes((nodes) =>
+        nodes.map((n) =>
+          n.id === id ? { ...n, data: { ...n.data, title: nextTitle } } : n,
+        ),
+      );
+    },
+    [id, rf],
+  );
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -308,11 +328,18 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
 
   return (
     <div className="wvnode">
-      <NodeResizer />
+      <NodeResizer minWidth={NODE_MIN_WIDTH} minHeight={NODE_MIN_HEIGHT} />
 
       {!minimized && (
         <div className="wvnode__header">
-          <div className="wvnode__title">{data.title ?? "Widget"}</div>
+          <div className="wvnode__titleWrapper">
+            <input
+              type="text"
+              value={data.title ?? "Widget"}
+              onChange={handleTitleChange}
+              className="wvnode__titleInput"
+            />
+          </div>
 
           <div className="wvnode__headerBtns">
             <button

@@ -22,11 +22,13 @@
   justify-content: space-between;
   padding: 10px 12px;
   /* font-weight: 500; */
-  font-size: 16px;
   background: #d2e4f0;
   border: 1.5px solid #1f78b4;
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
+  font-size: 16px;
+  /* font-weight: 600; */
+  line-height: 1.2;
 }
 
 .cvnode__headerBtns {
@@ -74,6 +76,20 @@
 
 .cvnode__title {
   color: #000;
+}
+
+.cvnode__titleInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #000;
+  font: inherit;
+}
+
+.cvnode__titleInput::placeholder {
+  color: rgba(0, 0, 0, 0.55);
 }
 
 .cvnode__body {

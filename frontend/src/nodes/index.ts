@@ -4,6 +4,11 @@ import DataLayerNode, {
   DataLayerNode as DataLayerNodeType,
 } from "./data-layer/DataLayerNode";
 
+import JoinNode, {
+  JoinNode as JoinNodeType,
+  JoinNodeData,
+} from "./join/JoinNode";
+
 import ViewNode, {
   ViewNode as ViewNodeType,
   ViewNodeData,
@@ -32,10 +37,10 @@ import ComparisonNode, {
 // register all implemented node types
 export const nodeTypes = {
   dataLayerNode: DataLayerNode,
+  joinNode: JoinNode,
   viewNode: ViewNode,
   pyCodeEditorNode: PyCodeEditorNode,
   interactionNode: InteractionNode,
-  // joinNode: JoinNode,
   comparisonNode: ComparisonNode,
   widgetNode: WidgetNode,
 } as const;
@@ -43,6 +48,7 @@ export const nodeTypes = {
 // union helpers (extend as you add more)
 export type AnyNode =
   | DataLayerNodeType
+  | JoinNodeType
   | ViewNodeType
   | InteractionNodeType
   | PyCodeEditorNodeType
@@ -51,6 +57,7 @@ export type AnyNode =
 
 export type AnyNodeData =
   | BaseNodeData
+  | JoinNodeData
   | ViewNodeData
   | InteractionNodeData
   | PyCodeEditorNodeData
