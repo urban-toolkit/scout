@@ -1,0 +1,4 @@
+# Applied via PIP_CONSTRAINT to every pip build (including isolated build envs).
+# Caps setuptools below the version that dropped pkg_resources, which several
+# older sdists (pygeos, rasterio's build backend, etc.) still import at build time.
+setuptools<70

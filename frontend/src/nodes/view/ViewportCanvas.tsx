@@ -143,10 +143,10 @@ const ViewportCanvas = memo(function ViewportCanvas({
     map.setView(center, 14);
 
     const baseLayer = L.tileLayer(
-      "https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png",
+      "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png?key=cb1_2jve_1_f446ee0e4fe9a75dbfd8c92e",
       {
         maxZoom: 19,
-        attribution: "&copy; OpenStreetMap contributors",
+        attribution: "&copy; CARTO &copy; OpenStreetMap contributors",
         opacity: 0,
       },
     ).addTo(map);
