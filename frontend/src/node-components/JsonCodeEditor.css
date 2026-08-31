@@ -4,6 +4,13 @@
   font-size: 13px !important; /* a bit larger font overall */
 }
 
+/* Compact variant (JsonCodeEditor's `compact` prop) - smaller font for small
+   embedded boxes (e.g. Chart Studio's sample data/params). Needs its own
+   !important + higher specificity to win over the global rule above. */
+.json-editor--compact .cm-editor {
+  font-size: 11px !important;
+}
+
 /* --- Find bar styling only --- */
 .cm-search {
   /* background: #f7f5ff !important; same color as editor */

@@ -27,6 +27,10 @@ services:
       - ./backend/models:/app/models
       - ./backend/osm_downloader:/app/osm_downloader
       - ./backend/transformations:/app/transformations
+      # Dev only: lets Chart Studio "Publish" write generated chart components
+      # directly into frontend source, where Vite's polling watcher (see the
+      # frontend service's CHOKIDAR_USEPOLLING) picks them up automatically.
+      - ./frontend/src:/app/frontend_src
 
 volumes:
   frontend_node_modules:

@@ -15,18 +15,25 @@ import BaseGrammarNode, {
 import schema from "../../schemas/comparison.json";
 
 import type { ComparisonDef } from "../../utils/types";
-import { renderComparisonFromDef } from "../../utils/renderComparison";
+import { renderComparisonFromDef } from "../../charts/renderers/renderComparison";
+import ChartStudio from "./ChartStudio";
 
 import "./ComparisonNode.css"; // reuse if you want, or make a new css
 
 import flipPng from "../../assets/restart-2.png";
 
 export type ComparisonNodeData = BaseNodeData & {
-  mode?: "def" | "view";
+  mode?: "def" | "view" | "studio";
   previewToken?: string;
 };
 
 export type ComparisonNode = Node<ComparisonNodeData, "comparisonNode">;
+
+// Minimum size for Studio mode's two-column layout - also used as the
+// NodeResizer floor so dragging smaller can't reintroduce the overflow
+// this was set up to avoid.
+const STUDIO_MIN_WIDTH = 1020;
+const STUDIO_MIN_HEIGHT = 500;
 
 const ComparisonNode = memo(function ComparisonNode(
   props: NodeProps<ComparisonNode>,
@@ -101,6 +108,49 @@ const ComparisonNode = memo(function ComparisonNode(
     );
   }, [id, setNodes]);
 
+  const goToStudio = useCallback(() => {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? {
+              ...n,
+              // Studio's two-column layout needs real room - guarantee at
+              // least STUDIO_MIN_WIDTH/HEIGHT on entry (regardless of
+              // whatever size the node had in def/view mode) rather than
+              // only falling back when width/height were never set at all,
+              // but keep a larger size if the node was already bigger.
+              width: Math.max(n.width ?? 0, STUDIO_MIN_WIDTH),
+              height: Math.max(n.height ?? 0, STUDIO_MIN_HEIGHT),
+              data: { ...n.data, mode: "studio" } as ComparisonNodeData,
+            }
+          : n,
+      ),
+    );
+  }, [id, setNodes]);
+
+  const handleChartPublished = useCallback(
+    (name: string) => {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id !== id) return n;
+          const value: any = n.data.value ?? {};
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              mode: "def",
+              value: {
+                ...value,
+                comparison: { ...(value.comparison ?? {}), chart: name },
+              },
+            } as ComparisonNodeData,
+          };
+        }),
+      );
+    },
+    [id, setNodes],
+  );
+
   // render when in view mode AND comparison changes OR previewToken changes
   useEffect(() => {
     if (mode !== "view") return;
@@ -149,19 +199,31 @@ const ComparisonNode = memo(function ComparisonNode(
             // If you want Run to switch to view mode, do it here by overriding onRun:
             // onRun: () => goToView(),
             footerActions: (
-              <button
-                type="button"
-                onClick={goToView}
-                title="Generate comparison view"
-                aria-label="Generate comparison view"
-                className="gnode__actionBtn"
-              >
-                <img
-                  src={flipPng}
-                  alt="Generate comparison view"
-                  className="gnode__actionIcon"
-                />
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={goToStudio}
+                  title="Design custom chart"
+                  aria-label="Design custom chart"
+                  className="gnode__actionBtn"
+                  style={{ width: "auto", padding: "0 10px", fontSize: 12 }}
+                >
+                  Design chart
+                </button>
+                <button
+                  type="button"
+                  onClick={goToView}
+                  title="Generate comparison view"
+                  aria-label="Generate comparison view"
+                  className="gnode__actionBtn"
+                >
+                  <img
+                    src={flipPng}
+                    alt="Generate comparison view"
+                    className="gnode__actionIcon"
+                  />
+                </button>
+              </>
             ),
           }}
         />
@@ -194,6 +256,70 @@ const ComparisonNode = memo(function ComparisonNode(
           className="cvnode__handle__target"
         />
       </>
+    );
+  }
+
+  if (mode === "studio") {
+    return (
+      <div className="cvnode">
+        <NodeResizer minWidth={STUDIO_MIN_WIDTH} minHeight={STUDIO_MIN_HEIGHT} />
+
+        <div className="cvnode__header">
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <span className="cvnode__title">{data.title ?? "Comparison"}</span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#1f78b4",
+                background: "rgba(255,255,255,0.6)",
+                border: "1px solid #1f78b4",
+                borderRadius: 999,
+                padding: "1px 8px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Design mode
+            </span>
+          </div>
+          <div className="cvnode__headerBtns">
+            <button
+              type="button"
+              className="cvnode__iconBtn cvnode__iconBtn--close"
+              onClick={handleClose}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <ChartStudio onPublished={handleChartPublished} onCancel={goToDef} />
+
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="comparison-in-1"
+          className="cvnode__handle__target"
+        />
+        <Handle
+          type="target"
+          position={Position.Bottom}
+          id="comparison-in-2"
+          className="cvnode__handle__target"
+        />
+        <Handle
+          type="target"
+          position={Position.Right}
+          id="comparison-in-3"
+          className="cvnode__handle__target"
+        />
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="comparison-in-4"
+          className="cvnode__handle__target"
+        />
+      </div>
     );
   }
 

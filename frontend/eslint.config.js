@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // *.generated.ts: written by Chart Studio's "Publish" flow (backend/server.py),
+  // embeds arbitrary author D3/JS - not held to this project's lint rules.
+  globalIgnores(['dist', '**/*.generated.ts']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

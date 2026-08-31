@@ -18,6 +18,10 @@ type Props = {
   height?: number | string; // e.g., "420px" or 420
   readOnly?: boolean;
   onDiagnostics?: (diags: Diagnostic[]) => void; // <-- add this
+  lineNumbers?: boolean; // off for small embedded boxes (e.g. Chart Studio's sample data/params)
+  // Smaller font + line-wrapping (so long values wrap instead of needing
+  // horizontal scroll) for small embedded boxes.
+  compact?: boolean;
 };
 
 export default function JsonCodeEditor({
@@ -26,6 +30,8 @@ export default function JsonCodeEditor({
   height = "420px",
   readOnly = false,
   onDiagnostics,
+  lineNumbers = true,
+  compact = false,
 }: Props) {
   const [text, setText] = useState(() => JSON.stringify(value, null, 2));
   const lastApplied = useRef<string>(JSON.stringify(value));
@@ -92,19 +98,26 @@ export default function JsonCodeEditor({
 
   return (
     <div
-      className="nodrag nowheel"
+      className={`nodrag nowheel${compact ? " json-editor--compact" : ""}`}
       style={{
         height: typeof height === "number" ? `${height}px` : height,
+        // CodeMirror can recompute its own height as content grows even
+        // when the CSS chain above is fully constrained (height alone
+        // doesn't stop that) - maxHeight is a hard ceiling the layout
+        // engine enforces regardless of what CodeMirror sets internally.
+        maxHeight: typeof height === "number" ? `${height}px` : height,
+        minHeight: 0,
         border: "1px solid #e5e7eb",
         borderRadius: 8,
         overflow: "hidden",
         background: "transparent",
         display: "grid",
         gridTemplateRows: "1fr auto",
+        textAlign: "left",
       }}
     >
       {/* Editor */}
-      <div style={{ overflow: "auto" }}>
+      <div style={{ overflow: "auto", minHeight: 0, maxHeight: "100%" }}>
         <CodeMirror
           value={text}
           onChange={handleChange}
@@ -116,6 +129,7 @@ export default function JsonCodeEditor({
             jsonSyntaxLinter,
             lintGutter(),
             EditorView.editable.of(!readOnly),
+            ...(compact ? [EditorView.lineWrapping] : []),
             search({ top: false }),
             highlightSelectionMatches(),
             keymap.of([
@@ -130,7 +144,7 @@ export default function JsonCodeEditor({
             ]),
           ]}
           basicSetup={{
-            lineNumbers: true,
+            lineNumbers,
             foldGutter: true,
             bracketMatching: true,
             autocompletion: false,

@@ -59,8 +59,8 @@ export type WidgetDef = {
 
 export type ComparisonDef = {
   key: string[];
-  x?: string;
-  y?: string;
+  x?: string | string[];
+  y?: string | string[];
   chart: string;
   props?: Record<string, any>;
 };

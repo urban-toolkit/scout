@@ -14,17 +14,29 @@
       "minItems": 1
     },
     "x": {
-      "type": "string",
-      "minLength": 1
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        }
+      ]
     },
     "y": {
-      "type": "string",
-      "minLength": 1
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        }
+      ]
     },
 
     "chart": {
       "type": "string",
-      "enum": ["bar", "pie", "table"]
+      "minLength": 1
     }
   }
 }
