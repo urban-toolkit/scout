@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
 } from "react";
@@ -24,10 +25,12 @@ import "./WidgetNode.css";
 import flipPng from "../../assets/restart-2.png";
 import restartPng from "../../assets/restart.png";
 import expandPng from "../../assets/expand.png";
+import checkPng from "../../assets/check-mark.png";
 
 // import type { ReactNode } from "react";
 import type { WidgetDef, WidgetOutput } from "../../utils/types";
 import { renderWidgetFromWidgetDef } from "../../utils/renderWidget";
+import { registerNodeAction } from "../../utils/nodeActionRegistry";
 
 export type WidgetNodeData = BaseNodeData & {
   mode?: "def" | "view";
@@ -51,6 +54,12 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
   const mode = data.mode ?? "def";
   const [minimized, setMinimized] = useState(false);
   const [widgetValue, setWidgetValue] = useState<WidgetOutput | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<
+    "idle" | "success" | "failed"
+  >("idle");
+  const updateStatusTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // ---------- TITLE CHANGE ----------
   const handleTitleChange = useCallback(
@@ -165,41 +174,59 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
     });
   }, [id, rf]);
 
-  const handleRun = useCallback(() => {
-    // if (mode === "def") {
-    //   goToView();
-    //   return;
-    // }
+  // False means the push found nothing to update (e.g. not connected to any
+  // Code node) - anything else (true/undefined, for onRun implementations
+  // that don't report a result) counts as success.
+  const runPush = useCallback((): boolean => {
+    if (!data?.onRun) return false;
+    return data.onRun(id) !== false;
+  }, [id, data]);
 
-    // const token = crypto.randomUUID();
-    // setNodes((nds) =>
-    //   nds.map((n) =>
-    //     n.id === id
-    //       ? {
-    //           ...n,
-    //           data: {
-    //             ...n.data,
-    //             pushToken: token,
-    //           },
-    //         }
-    //       : n,
-    //   ),
-    // );
+  // Flashes this widget's own button, same as Code/Data Layer nodes do -
+  // used for both a manual click and the "Run Dataflow" orchestrator (see
+  // the registration below) so a run visibly confirms this node actually
+  // did something, not just the overall play button.
+  const handleRun = useCallback((): boolean => {
+    const ok = runPush();
 
-    if (data?.onRun) {
-      data.onRun(id);
-    }
-  }, [
-    // mode,
-    // goToView,
-    id,
-    // setNodes,
-    data,
-  ]);
+    if (updateStatusTimeout.current) clearTimeout(updateStatusTimeout.current);
+    setUpdateStatus(ok ? "success" : "failed");
+    updateStatusTimeout.current = setTimeout(
+      () => setUpdateStatus("idle"),
+      2000,
+    );
+    return ok;
+  }, [runPush]);
+
+  // Lets the "Run Dataflow" orchestrator push this widget's value directly
+  // and await the result - see utils/nodeActionRegistry.ts.
+  useEffect(
+    () => registerNodeAction(id, async () => handleRun()),
+    [id, handleRun],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (updateStatusTimeout.current) clearTimeout(updateStatusTimeout.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (mode !== "view") return;
     if (!widget) return;
+
+    // location-input's "default" is just the address text field's initial
+    // display string, not a valid output - only the {lat, lon} an
+    // AddressAutofill selection produces is. Resetting output to that string
+    // here would silently overwrite a real geocoded value (from a prior
+    // selection, or seeded example data) with something downstream code
+    // can't use, causing failures far from this widget. Keep whatever
+    // output already exists instead, and otherwise leave it unset so a push
+    // correctly reports "nothing to send" rather than corrupting data.
+    if (widget.wtype === "location-input") {
+      if (data.output) setWidgetValue(data.output);
+      return;
+    }
 
     const out: WidgetOutput = {
       variable: widget.variable,
@@ -221,7 +248,25 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
           : n,
       ),
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, widget, data.pushToken, id, setNodes]);
+
+  // Keep the rendered control in sync with data.output when it's set from
+  // outside this component's own onChange - e.g. the Widget Agent writing a
+  // new value directly via setNodes. Without this, the shared graph data
+  // (and anything reading it, like the connected Code node) updates
+  // correctly, but the widget's own visible selection doesn't move.
+  useEffect(() => {
+    if (data.output) setWidgetValue(data.output);
+  }, [data.output]);
+
+  const updateIcon = updateStatus === "success" ? checkPng : restartPng;
+  const updateTitle =
+    updateStatus === "success"
+      ? "Updated"
+      : updateStatus === "failed"
+        ? "Not connected to a Code node"
+        : "Update";
 
   if (mode === "def") {
     return (
@@ -278,10 +323,15 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
 
               <button
                 type="button"
-                className="gnode__minimizedRestoreCircle_2 gnode__minimizedRestoreCircle--bottomRight"
+                className={`gnode__minimizedRestoreCircle_2 gnode__minimizedRestoreCircle--bottomRight${
+                  updateStatus === "failed"
+                    ? " gnode__minimizedRestoreCircle--failed"
+                    : ""
+                }`}
                 onClick={handleRun}
+                title={updateTitle}
               >
-                <img src={restartPng} alt="Fetch / update" />
+                <img src={updateIcon} alt={updateTitle} />
               </button>
             </div>
           </div>
@@ -395,11 +445,17 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
           <button
             type="button"
             onClick={handleRun}
-            title="update"
-            aria-label="update"
-            className="wvnode__actionBtn"
+            title={updateTitle}
+            aria-label={updateTitle}
+            className={`wvnode__actionBtn${
+              updateStatus === "failed" ? " wvnode__actionBtn--failed" : ""
+            }`}
           >
-            <img src={restartPng} alt="update" className="wvnode__actionIcon" />
+            <img
+              src={updateIcon}
+              alt={updateTitle}
+              className="wvnode__actionIcon"
+            />
           </button>
 
           <button
@@ -472,13 +528,15 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
           {widget?.wtype !== "text" && (
             <button
               type="button"
-              className="wvnode__floatingBtn wvnode__floatingBtn--bottomRight"
+              className={`wvnode__floatingBtn wvnode__floatingBtn--bottomRight${
+                updateStatus === "failed" ? " wvnode__floatingBtn--failed" : ""
+              }`}
               onClick={handleRun}
-              title="update"
+              title={updateTitle}
             >
               <img
-                src={restartPng}
-                alt="update"
+                src={updateIcon}
+                alt={updateTitle}
                 className="wvnode__floatingIcon"
               />
             </button>

@@ -139,6 +139,15 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
+/* Shown briefly after an interaction's Update finds nothing connected to
+   push to. Compound selector: DataLayerNode.css redeclares .gnode__actionBtn
+   with the same specificity, and whichever file's plain rule loads later
+   would otherwise win over this modifier and reset the background/border. */
+.gnode__actionBtn.gnode__actionBtn--failed {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
 .gnode__actionIcon {
   width: 18px;
   height: 18px;
@@ -270,6 +279,12 @@
   width: 14px;
   height: 14px;
   pointer-events: none;
+}
+
+/* Shown briefly after a widget's Update finds nothing connected to push to. */
+.gnode__minimizedRestoreCircle--failed {
+  border-color: #dc2626;
+  background: #fef2f2;
 }
 
 .gnode__minimizedRestoreCircle_2 img {

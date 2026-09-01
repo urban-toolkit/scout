@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { useReactFlow } from "@xyflow/react";
 import Fab from "@mui/material/Fab";
 import Paper from "@mui/material/Paper";
 import Slide from "@mui/material/Slide";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
@@ -21,11 +24,32 @@ import {
   getAiSettings,
   sendChatMessage,
 } from "../../utils/aiApi";
+import {
+  applyAgentAction,
+  buildSystemPrompt,
+  collectWidgetSummaries,
+  parseAgentReply,
+  validateAction,
+} from "../../agents/widgetAgent";
 
 const PANEL_WIDTH = 400;
 
+type AgentMode = "general" | "widget";
+
+const AGENT_LABELS: Record<AgentMode, string> = {
+  general: "General Chat",
+  widget: "Widget Agent",
+};
+
+const AGENT_EMPTY_HINTS: Record<AgentMode, string> = {
+  general: "Ask me anything.",
+  widget: "Tell me which widget to change, e.g. “set season to winter”.",
+};
+
 export default function ChatWidget() {
+  const rf = useReactFlow();
   const [open, setOpen] = useState(false);
+  const [agentMode, setAgentMode] = useState<AgentMode>("general");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
   const [checkingSettings, setCheckingSettings] = useState(false);
@@ -53,6 +77,55 @@ export default function ChatWidget() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, sending]);
 
+  const handleAgentChange = (next: AgentMode) => {
+    if (next === agentMode) return;
+    setAgentMode(next);
+    // A widget's system prompt (and a general reply) from one agent would be
+    // a confusing carry-over into the other, so each switch starts fresh.
+    setMessages([]);
+    setError(null);
+  };
+
+  const sendGeneralMessage = async (nextMessages: ChatMessage[]) => {
+    const reply = await sendChatMessage(nextMessages);
+    setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+  };
+
+  const sendWidgetAgentMessage = async (nextMessages: ChatMessage[]) => {
+    const widgets = collectWidgetSummaries(rf.getNodes());
+    if (!widgets.length) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "There are no widgets on the canvas right now, so there's nothing I can change.",
+        },
+      ]);
+      return;
+    }
+
+    const raw = await sendChatMessage([
+      { role: "system", content: buildSystemPrompt(widgets) },
+      ...nextMessages.filter((m) => m.role !== "system"),
+    ]);
+    const reply = parseAgentReply(raw);
+    const validated = validateAction(reply.action, widgets);
+
+    let content = reply.message;
+    if (reply.action && !validated) {
+      content +=
+        "\n\n(That didn't match a widget/value actually on the canvas, so nothing changed.)";
+    } else if (validated) {
+      const { ranNodeIds } = applyAgentAction(validated, rf);
+      content += ranNodeIds.length
+        ? `\n\n(Updated the widget and re-ran ${ranNodeIds.length} connected node${ranNodeIds.length === 1 ? "" : "s"}.)`
+        : "\n\n(Updated the widget - it isn't connected to any Code node to re-run.)";
+    }
+
+    setMessages((prev) => [...prev, { role: "assistant", content }]);
+  };
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text || sending) return;
@@ -66,8 +139,11 @@ export default function ChatWidget() {
     setError(null);
     setSending(true);
     try {
-      const reply = await sendChatMessage(nextMessages);
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      if (agentMode === "widget") {
+        await sendWidgetAgentMessage(nextMessages);
+      } else {
+        await sendGeneralMessage(nextMessages);
+      }
     } catch (e: any) {
       setError(e.message || "Failed to get a reply.");
     } finally {
@@ -132,9 +208,21 @@ export default function ChatWidget() {
               flexShrink: 0,
             }}
           >
-            <Typography variant="subtitle1" fontWeight={600}>
-              AI Chat
-            </Typography>
+            <Select
+              value={agentMode}
+              onChange={(e) => handleAgentChange(e.target.value as AgentMode)}
+              size="small"
+              variant="standard"
+              disableUnderline
+              disabled={sending}
+              sx={{ fontWeight: 600, fontSize: 15 }}
+            >
+              {(Object.keys(AGENT_LABELS) as AgentMode[]).map((mode) => (
+                <MenuItem key={mode} value={mode}>
+                  {AGENT_LABELS[mode]}
+                </MenuItem>
+              ))}
+            </Select>
             <Box>
               <IconButton size="small" onClick={() => setSettingsOpen(true)} aria-label="AI settings">
                 <SettingsIcon fontSize="small" />
@@ -168,7 +256,7 @@ export default function ChatWidget() {
               </Stack>
             ) : messages.length === 0 ? (
               <Typography variant="body2" color="text.secondary" sx={{ pt: 2, textAlign: "center" }}>
-                Ask me anything.
+                {AGENT_EMPTY_HINTS[agentMode]}
               </Typography>
             ) : (
               <Stack spacing={1}>
@@ -216,7 +304,13 @@ export default function ChatWidget() {
             <TextField
               size="small"
               fullWidth
-              placeholder={configured ? "Message the AI…" : "Set up AI to chat"}
+              placeholder={
+                configured
+                  ? agentMode === "widget"
+                    ? "Tell the agent what to change…"
+                    : "Message the AI…"
+                  : "Set up AI to chat"
+              }
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}

@@ -144,6 +144,12 @@
   height: 60px;
   overflow-y: auto;
   text-align: left !important;
+  /* react-flow sets user-select: none on the whole node (.react-flow__node)
+     to keep dragging from selecting text elsewhere - nodrag on this element
+     (see PyCodeEditorNode.tsx) stops the drag itself, but selection also
+     needs this explicit override since it's a separate, inherited CSS
+     property nodrag doesn't touch. */
+  user-select: text;
 } /* stdout styling */
 .pcenode__stdout {
   margin: 0;

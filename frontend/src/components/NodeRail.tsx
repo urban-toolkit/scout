@@ -1,4 +1,4 @@
-import { Fragment, useCallback } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode, CSSProperties } from "react";
 import { useReactFlow } from "@xyflow/react";
 import Tooltip from "@mui/material/Tooltip";
@@ -9,21 +9,19 @@ import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
-import WbSunnyOutlinedIcon from "@mui/icons-material/WbSunnyOutlined";
-import WaterDropOutlinedIcon from "@mui/icons-material/WaterDropOutlined";
-import AltRouteOutlinedIcon from "@mui/icons-material/AltRouteOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
+import SkipNextIcon from "@mui/icons-material/SkipNext";
+import CheckIcon from "@mui/icons-material/Check";
+import CircularProgress from "@mui/material/CircularProgress";
 
 import { TEMPLATE_LABELS, type TemplateKey } from "../templates";
+import { runDataflow } from "../utils/dataflowRunner";
 import "./NodeRail.css";
 
 interface Props {
   onAdd: (tpl: TemplateKey) => void;
   onAddPyCodeEditor: () => void;
   onClear: () => void;
-  onLoadShadowWorkflow: () => void;
-  onLoadFloodingWorkflow: () => void;
-  onLoadWeatherRoutingWorkflow: () => void;
 }
 
 interface RailItem {
@@ -46,11 +44,36 @@ export default function NodeRail({
   onAdd,
   onAddPyCodeEditor,
   onClear,
-  onLoadShadowWorkflow,
-  onLoadFloodingWorkflow,
-  onLoadWeatherRoutingWorkflow,
 }: Props) {
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
+
+  const [runStatus, setRunStatus] = useState<
+    "idle" | "running" | "success" | "failed"
+  >("idle");
+  const runStatusTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleRunDataflow = useCallback(async () => {
+    if (runStatus === "running") return;
+    if (runStatusTimeout.current) clearTimeout(runStatusTimeout.current);
+
+    setRunStatus("running");
+    let ok = false;
+    try {
+      const result = await runDataflow(getNodes(), getEdges());
+      ok = result.ok;
+    } catch {
+      ok = false;
+    }
+
+    setRunStatus(ok ? "success" : "failed");
+    runStatusTimeout.current = setTimeout(() => setRunStatus("idle"), 2000);
+  }, [runStatus, getNodes, getEdges]);
+
+  useEffect(() => {
+    return () => {
+      if (runStatusTimeout.current) clearTimeout(runStatusTimeout.current);
+    };
+  }, []);
 
   // New nodes always land at the viewport center, same as the old dropdown
   // menu - _desiredGrammarPos is the handoff createGrammarNode() reads.
@@ -138,88 +161,93 @@ export default function NodeRail({
         },
       ],
     },
-    {
-      title: "Examples",
-      accent: "#64748b",
-      hoverBg: "rgba(100, 116, 139, 0.1)",
-      items: [
-        {
-          key: "shadow",
-          label: "Shadow",
-          icon: <WbSunnyOutlinedIcon sx={ICON_SX} />,
-          onClick: onLoadShadowWorkflow,
-        },
-        {
-          key: "flooding",
-          label: "Flooding",
-          icon: <WaterDropOutlinedIcon sx={ICON_SX} />,
-          onClick: onLoadFloodingWorkflow,
-        },
-        {
-          key: "routing",
-          label: "Routing",
-          icon: <AltRouteOutlinedIcon sx={ICON_SX} />,
-          onClick: onLoadWeatherRoutingWorkflow,
-        },
-      ],
-    },
   ];
 
   return (
-    <div className="node-rail">
-      {sections.map((section) => (
-        <Fragment key={section.title}>
-          <div
-            className="node-rail__section"
-            style={
-              {
-                "--rail-accent": section.accent,
-                "--rail-hover": section.hoverBg,
-              } as CSSProperties
-            }
-          >
-            <div className="node-rail__title">{section.title}</div>
-            <div className="node-rail__grid">
-              {section.items.map((item) => (
-                <Tooltip key={item.key} title={item.label} placement="right" arrow>
-                  <button
-                    type="button"
-                    className="node-rail__icon"
-                    aria-label={item.label}
-                    onClick={item.onClick}
-                  >
-                    {item.icon}
-                  </button>
-                </Tooltip>
-              ))}
-            </div>
-          </div>
-          <div className="node-rail__divider" />
-        </Fragment>
-      ))}
-
-      <div
-        className="node-rail__section"
-        style={
-          {
-            "--rail-accent": "#64748b",
-            "--rail-hover": "rgba(100, 116, 139, 0.1)",
-          } as CSSProperties
-        }
-      >
-        <div className="node-rail__grid">
-          <Tooltip title="Clear canvas" placement="right" arrow>
-            <button
-              type="button"
-              className="node-rail__icon"
-              aria-label="Clear canvas"
-              onClick={onClear}
+    <div className="node-rail-stack">
+      <div className="node-rail">
+        {sections.map((section) => (
+          <Fragment key={section.title}>
+            <div
+              className="node-rail__section"
+              style={
+                {
+                  "--rail-accent": section.accent,
+                  "--rail-hover": section.hoverBg,
+                } as CSSProperties
+              }
             >
-              <DeleteOutlineOutlinedIcon sx={ICON_SX} />
-            </button>
-          </Tooltip>
+              <div className="node-rail__title">{section.title}</div>
+              <div className="node-rail__grid">
+                {section.items.map((item) => (
+                  <Tooltip key={item.key} title={item.label} placement="right" arrow>
+                    <button
+                      type="button"
+                      className="node-rail__icon"
+                      aria-label={item.label}
+                      onClick={item.onClick}
+                    >
+                      {item.icon}
+                    </button>
+                  </Tooltip>
+                ))}
+              </div>
+            </div>
+            <div className="node-rail__divider" />
+          </Fragment>
+        ))}
+
+        <div
+          className="node-rail__section"
+          style={
+            {
+              "--rail-accent": "#64748b",
+              "--rail-hover": "rgba(100, 116, 139, 0.1)",
+            } as CSSProperties
+          }
+        >
+          <div className="node-rail__grid">
+            <Tooltip title="Clear canvas" placement="right" arrow>
+              <button
+                type="button"
+                className="node-rail__icon"
+                aria-label="Clear canvas"
+                onClick={onClear}
+              >
+                <DeleteOutlineOutlinedIcon sx={ICON_SX} />
+              </button>
+            </Tooltip>
+          </div>
         </div>
       </div>
+
+      <Tooltip
+        title={
+          runStatus === "failed"
+            ? "Run failed - see the failed node(s) for details"
+            : "Run dataflow"
+        }
+        placement="right"
+        arrow
+      >
+        <button
+          type="button"
+          className={`node-rail-play${
+            runStatus === "failed" ? " node-rail-play--failed" : ""
+          }`}
+          aria-label="Run dataflow"
+          onClick={() => void handleRunDataflow()}
+          disabled={runStatus === "running"}
+        >
+          {runStatus === "running" ? (
+            <CircularProgress size={20} color="inherit" />
+          ) : runStatus === "success" ? (
+            <CheckIcon sx={{ fontSize: 28 }} />
+          ) : (
+            <SkipNextIcon sx={{ fontSize: 36 }} />
+          )}
+        </button>
+      </Tooltip>
     </div>
   );
 }

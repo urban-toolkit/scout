@@ -13,10 +13,17 @@ body {
 }
 
 .react-flow__edges {
-  z-index: 1;
+  z-index: 0;
   pointer-events: none; /* so edges don’t block node clicks */
 }
 
 .react-flow__nodes {
-  z-index: 0;
+  z-index: 1;
+}
+
+/* ArrowAboveEdge draws each edge's arrowhead here (via EdgeLabelRenderer)
+   instead of as the path's SVG marker, so it stays visible on top of nodes
+   even though .react-flow__edges (the line itself) renders behind them. */
+.react-flow__edgelabel-renderer {
+  z-index: 2;
 }

@@ -21,6 +21,7 @@ import ChartStudio from "./ChartStudio";
 import "./ComparisonNode.css"; // reuse if you want, or make a new css
 
 import flipPng from "../../assets/restart-2.png";
+import { registerNodeAction } from "../../utils/nodeActionRegistry";
 
 export type ComparisonNodeData = BaseNodeData & {
   mode?: "def" | "view" | "studio";
@@ -107,6 +108,42 @@ const ComparisonNode = memo(function ComparisonNode(
       ),
     );
   }, [id, setNodes]);
+
+  // "Run Dataflow" registers this so a Comparison node picks up freshly
+  // written metric data after its upstream Code nodes finish. Unlike View,
+  // the fetch effect below already watches previewToken directly, so
+  // bumping it is enough - no unmount/remount round-trip needed. A node
+  // still showing its grammar gets flipped into view mode (same as clicking
+  // "Generate comparison view") rather than skipped, so the run actually
+  // shows results - Studio mode (active chart design) is left alone though,
+  // since forcing the user out of that mid-edit would be wrong. Comparison
+  // is always a terminal node in this app's connection rules (nothing reads
+  // its output), so this is fire-and-forget rather than awaiting the fetch
+  // below to resolve.
+  const runRefresh = useCallback(async (): Promise<boolean> => {
+    if (mode === "studio") return true;
+
+    if (mode !== "view") {
+      goToView();
+      return true;
+    }
+
+    const token = crypto.randomUUID();
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? {
+              ...n,
+              data: { ...n.data, mode: "view", previewToken: token },
+            }
+          : n,
+      ),
+    );
+
+    return true;
+  }, [id, mode, setNodes, goToView]);
+
+  useEffect(() => registerNodeAction(id, runRefresh), [id, runRefresh]);
 
   const goToStudio = useCallback(() => {
     setNodes((nds) =>

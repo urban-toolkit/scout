@@ -22,6 +22,7 @@ import persistPng from "../../assets/update-data.png";
 import mapPng from "../../assets/map.png";
 import checkPng from "../../assets/check-mark.png";
 import { appUrl } from "../../utils/runtimePaths";
+import { registerNodeAction } from "../../utils/nodeActionRegistry";
 
 export type ViewNodeData = BaseNodeData & {
   mode?: "def" | "view";
@@ -157,6 +158,52 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
       goToDef();
     }
   }, [mode, goToView, goToDef]);
+
+  // "Run Dataflow" registers this so a View node picks up newly-written
+  // files after its upstream Code nodes finish. ViewportCanvas's fetch
+  // effect depends on the view spec (refs/styles), not file content, so it
+  // never refetches on its own when a file's bytes change underneath the
+  // same ref - the only way to force a reload is to unmount and remount it,
+  // which is exactly what flipping to "def" and back to "view" does (see
+  // the mode === "def" / mode === "view" branches below). A node still
+  // showing its grammar gets flipped into view mode (same as clicking
+  // "Flip to view") rather than skipped, so the run actually shows results.
+  const runRefresh = useCallback(async (): Promise<boolean> => {
+    if (mode !== "view") {
+      goToView();
+      return true;
+    }
+
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? ({ ...n, data: { ...n.data, mode: "def" } } as Node)
+          : n,
+      ),
+    );
+
+    // Yield to the browser so React actually commits the "def" state (and
+    // runs ViewportCanvas's unmount cleanup) before flipping back - two
+    // setNodes calls in the same tick would otherwise batch into one
+    // render and never unmount anything in between.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const token = crypto.randomUUID();
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? ({
+              ...n,
+              data: { ...n.data, mode: "view", pushToken: token },
+            } as Node)
+          : n,
+      ),
+    );
+
+    return true;
+  }, [id, mode, setNodes, goToView]);
+
+  useEffect(() => registerNodeAction(id, runRefresh), [id, runRefresh]);
 
   const handleDirty = useCallback(
     ({ ref, featureCollection }: { ref: string; featureCollection: any }) => {

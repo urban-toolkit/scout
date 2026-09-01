@@ -1,4 +1,4 @@
-.node-rail {
+.node-rail-stack {
   position: absolute;
   top: 50%;
   left: 8px;
@@ -6,17 +6,56 @@
   z-index: 20;
   /* Sized to the widest child (a section title, in practice) rather than a
      hardcoded guess - a fixed width based on the icon grid alone left the
-     wider title labels asymmetric against the card's padding. */
+     wider title labels asymmetric against the card's padding. Both the rail
+     and the play button below it stretch to this same width. */
   box-sizing: border-box;
   width: fit-content;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.node-rail {
+  box-sizing: border-box;
+  width: 100%;
   background: #ffffff;
   border: 1.5px solid #e5e7eb;
-  border-radius: 14px;
+  border-radius: 6px;
   padding: 12px 10px;
   display: flex;
   flex-direction: column;
   gap: 14px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.node-rail-play {
+  box-sizing: border-box;
+  width: 100%;
+  height: 48px;
+  background: #ffffff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+}
+
+.node-rail-play:hover {
+  background: #f1f5f9;
+}
+
+.node-rail-play:disabled {
+  cursor: default;
+}
+
+.node-rail-play.node-rail-play--failed {
+  border-color: #dc2626;
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .node-rail__section {

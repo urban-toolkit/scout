@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { useReactFlow, Handle, Position, NodeResizer } from "@xyflow/react";
 
@@ -11,6 +11,7 @@ import fetchPng2 from "../../assets/fetch_2.png";
 import checkPng from "../../assets/check-mark.png";
 import expandPng from "../../assets/expand.png";
 import { appUrl } from "../../utils/runtimePaths";
+import { registerNodeAction } from "../../utils/nodeActionRegistry";
 // import restartPng from "../../assets/restart.png";
 
 import "./DataLayerNode.css";
@@ -35,12 +36,12 @@ const DataLayerNode = memo(function DataLayerNode(
 
   const [minimized, setMinimized] = useState(false);
 
-  const onFetch = useCallback(async () => {
+  const onFetch = useCallback(async (): Promise<boolean> => {
     const val: any = (data.value as any)?.data_layer;
 
     if (!val) {
       console.warn("No data_layer data found for node", id);
-      return;
+      return false;
     }
 
     try {
@@ -67,12 +68,18 @@ const DataLayerNode = memo(function DataLayerNode(
       // console.log("Flask response:", result);
       setLoadingSuccess(true);
       setTimeout(() => setLoadingSuccess(false), 2000);
+      return true;
     } catch (err) {
       console.error("Error sending data to Flask:", err);
+      return false;
     } finally {
       setLoading(false);
     }
   }, [data, id]);
+
+  // Lets the "Run Dataflow" orchestrator fetch this node directly and await
+  // the result - see utils/nodeActionRegistry.ts.
+  useEffect(() => registerNodeAction(id, onFetch), [id, onFetch]);
 
   const onCloseDataNode = useCallback(
     (nodeId: string) => {

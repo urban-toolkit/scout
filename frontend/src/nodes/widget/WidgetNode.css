@@ -72,6 +72,12 @@
   pointer-events: none;
 }
 
+/* Shown briefly after Update finds nothing connected to push to. */
+.wvnode__actionBtn--failed {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
 .wvnode__title {
   color: #000;
 }
@@ -161,6 +167,12 @@
 .wvnode__floatingBtn--bottomRight {
   bottom: -20px;
   right: -20px;
+}
+
+/* Shown briefly after Update finds nothing connected to push to. */
+.wvnode__floatingBtn--failed {
+  border-color: #dc2626;
+  background: #fef2f2;
 }
 
 .wvnode__floatingIcon {

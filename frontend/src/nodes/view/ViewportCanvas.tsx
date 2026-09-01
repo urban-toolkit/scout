@@ -69,7 +69,13 @@ const ViewportCanvas = memo(function ViewportCanvas({
     const m = gByTagRef.current;
     if (m.has(tag)) return m.get(tag)!;
 
-    const gRoot = gRootRef.current!;
+    const gRoot = gRootRef.current;
+    // Can be null if this call is the tail end of a render that started
+    // before the component unmounted (e.g. "Run Dataflow" flipping this
+    // node from view back to def to force a reload) - there's nothing left
+    // to draw into, so skip rather than crash on a stale closure.
+    if (!gRoot) return null;
+
     const g = gRoot.append("g").attr("class", `tag-${tag}`);
     m.set(tag, g);
     return g;

@@ -10,8 +10,8 @@ export type LoadWorkflowArgs = {
   setNodes: Dispatch<SetStateAction<Node<AppNodeData>[]>>;
   setEdges: Dispatch<SetStateAction<Edge[]>>;
   getNode: (id: string) => Node | undefined;
-  onRunInteraction: (srcId: string) => void;
-  onRunWidget: (srcId: string) => void;
+  onRunInteraction: (srcId: string) => boolean;
+  onRunWidget: (srcId: string) => boolean;
   setIdCounter?: (next: number) => void;
 };
 
@@ -19,8 +19,8 @@ export function attachNodeBehaviors(
   node: Node<any>,
   setNodes: Dispatch<SetStateAction<Node<AppNodeData>[]>>,
   getNode: (id: string) => Node | undefined,
-  onRunInteraction: (srcId: string) => void,
-  onRunWidget: (srcId: string) => void,
+  onRunInteraction: (srcId: string) => boolean,
+  onRunWidget: (srcId: string) => boolean,
 ): Node<AppNodeData> {
   const grammarTypes = new Set([
     "dataLayerNode",
@@ -58,9 +58,9 @@ export function attachNodeBehaviors(
         if (!current) return;
 
         if (current.type === "interactionNode") {
-          onRunInteraction(nodeId);
+          return onRunInteraction(nodeId);
         } else if (current.type === "widgetNode") {
-          onRunWidget(nodeId);
+          return onRunWidget(nodeId);
         }
       },
     },

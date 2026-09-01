@@ -13,6 +13,7 @@ import addFormats from "ajv-formats";
 import JsonCodeEditor from "./JsonCodeEditor";
 import "./BaseGrammar.css";
 import restartPng from "../assets/restart.png";
+import checkPng from "../assets/check-mark.png";
 // import flipPng from "../assets/restart-2.png";
 
 type BaseGrammarNodeProps = {
@@ -46,7 +47,15 @@ export type BaseNodeData = {
   title?: string;
   onChange?: (val: GrammarValue, id: string) => void;
   onClose?: (id: string) => void;
-  onRun?: (id: string) => void;
+  // Returning false signals the run didn't actually do anything (e.g. a
+  // widget with nothing connected to push to) so callers can show that.
+  onRun?: (id: string) => boolean | void;
+  // Result of the most recent onRun call, stored on the node itself (rather
+  // than as component-local state) so whichever UI is currently mounted for
+  // this node - the minimized view or the full grammar view, each with its
+  // own run button - shows the same feedback, and a run triggered
+  // externally (the "Run Dataflow" orchestrator) is visible too.
+  runFeedback?: "idle" | "success" | "failed";
 
   schema?: object;
   pickInner?: (v: GrammarValue) => unknown;
@@ -146,11 +155,43 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
     rf.setNodes((nds) => nds.filter((n) => n.id !== id));
   }, [data, id, rf]);
 
+  const runFeedbackTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
   const onRun = useCallback(() => {
     // console.log("[run]", id);
     if (data?.onRun) return data.onRun(id);
     // console.log("[run]", id);
   }, [data, id]);
+
+  // Currently used by the interaction grammar's footer run button - shows
+  // whether the run actually did anything (false means it didn't, e.g.
+  // nothing downstream to push to), same convention as WidgetNode. Written
+  // onto the node's own data (see BaseNodeData.runFeedback) rather than
+  // local state, so this reflects a run triggered from elsewhere too - the
+  // minimized view's own run button, or the "Run Dataflow" orchestrator.
+  const handleRunWithFeedback = useCallback(() => {
+    const ok = onRun() !== false;
+
+    if (runFeedbackTimeout.current) clearTimeout(runFeedbackTimeout.current);
+    rf.setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? { ...n, data: { ...n.data, runFeedback: ok ? "success" : "failed" } }
+          : n,
+      ),
+    );
+    runFeedbackTimeout.current = setTimeout(() => {
+      rf.setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id ? { ...n, data: { ...n.data, runFeedback: "idle" } } : n,
+        ),
+      );
+    }, 2000);
+  }, [onRun, rf, id]);
+
+  const runFeedback = data.runFeedback ?? "idle";
 
   const obj = data.value as Record<string, any>;
   const key = Object.keys(obj)[0];
@@ -226,7 +267,30 @@ const BaseGrammarNode = memo(function BaseGrammarNode({
       {/* Footer action bar */}
       <div className="gnode__footer">
         {key === "widget" ? null : key === "comparison" ? null : key ===
-          "data_layer" ? null : key === "view" ? null : (
+          "data_layer" ? null : key === "view" ? null : key ===
+          "interaction" ? (
+          <button
+            type="button"
+            onClick={handleRunWithFeedback}
+            title={
+              runFeedback === "success"
+                ? "Updated"
+                : runFeedback === "failed"
+                  ? "Not connected to a View node"
+                  : "Update"
+            }
+            aria-label="update"
+            className={`gnode__actionBtn${
+              runFeedback === "failed" ? " gnode__actionBtn--failed" : ""
+            }`}
+          >
+            <img
+              src={runFeedback === "success" ? checkPng : restartPng}
+              alt="update"
+              className="gnode__actionIcon"
+            />
+          </button>
+        ) : (
           <button
             type="button"
             onClick={onRun}

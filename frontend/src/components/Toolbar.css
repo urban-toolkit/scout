@@ -1,0 +1,52 @@
+.toolbar {
+  box-sizing: border-box;
+  width: 100%;
+  flex: 0 0 56px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 16px;
+  background: #ffffff;
+  border-bottom: 1.5px solid #e5e7eb;
+  position: relative;
+  z-index: 30;
+}
+
+.toolbar__brand {
+  display: flex;
+  align-items: center;
+}
+
+.toolbar__logo {
+  height: 28px;
+  width: auto;
+  display: block;
+}
+
+.toolbar__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar__nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.toolbar__nav-item:hover,
+.toolbar__nav-item:focus-visible {
+  background: #f1f5f9;
+}

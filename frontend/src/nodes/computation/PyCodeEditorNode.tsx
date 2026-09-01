@@ -1,4 +1,4 @@
-import { memo, useCallback, useState, type ChangeEvent } from "react";
+import { memo, useCallback, useEffect, useState, type ChangeEvent } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { Position, NodeResizer, useReactFlow, Handle } from "@xyflow/react";
 import "./PyCodeEditorNode.css";
@@ -9,13 +9,17 @@ import expandPng from "../../assets/expand.png";
 import { WidgetOutput } from "../../utils/types";
 import { appUrl } from "../../utils/runtimePaths";
 import PythonCodeEditor from "../../node-components/PythonCodeEditor";
+import { registerNodeAction } from "../../utils/nodeActionRegistry";
 
 export type PyCodeEditorNodeData = {
   title?: string;
   code?: string; // <-- added here
   onClose?: (id: string) => void;
-  onRun?: (srcId: string, code: string) => void;
+  onRun?: (srcId: string, code: string) => boolean | void;
   widgetOutputs?: WidgetOutput[];
+  // Bump this (see utils/widgetPropagation.ts) to trigger Run from outside
+  // the node - e.g. the Widget Agent - without duplicating handleRun's logic.
+  runToken?: string;
 };
 
 export type PyCodeEditorNode = Node<PyCodeEditorNodeData, "pyCodeEditorNode">;
@@ -108,7 +112,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
   }, [id, rf]);
 
   // ---------- RUN ACTION ----------
-  const handleRun = useCallback(async () => {
+  const handleRun = useCallback(async (): Promise<boolean> => {
     const code = data?.code ?? "";
 
     const widgetLines =
@@ -125,7 +129,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
     const finalCode = widgetLines + code;
 
     if (data?.onRun) {
-      return data.onRun(id, finalCode);
+      return data.onRun(id, finalCode) !== false;
     }
 
     try {
@@ -152,12 +156,33 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
       });
       setRunningSuccess(true);
       setTimeout(() => setRunningSuccess(false), 2000);
+
+      // A non-2xx response or a Python traceback in stderr both mean the
+      // run didn't actually succeed, even though this HTTP request did -
+      // this stricter signal (rather than the checkmark above, which stays
+      // as-is for a manual click) is what "Run Dataflow" uses to decide
+      // whether to run whatever depends on this node.
+      return res.ok && !result.stderr;
     } catch (err) {
       console.error("Error running code:", err);
+      return false;
     } finally {
       setRunning(false);
     }
   }, [data, id]);
+
+  // ---------- EXTERNALLY-TRIGGERED RUN ----------
+  // undefined on mount, so this only fires once something (the Widget Agent)
+  // actually sets a token - same pattern WidgetNode uses for pushToken.
+  useEffect(() => {
+    if (!data?.runToken) return;
+    void handleRun();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.runToken]);
+
+  // Lets the "Run Dataflow" orchestrator run this node directly and await
+  // the result - see utils/nodeActionRegistry.ts.
+  useEffect(() => registerNodeAction(id, handleRun), [id, handleRun]);
 
   // ---------- CODE CHANGE ----------
   const handleCodeChange = useCallback(
@@ -279,7 +304,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
             </div>
 
             {(output.stdout || output.stderr) && (
-              <div className="pcenode__output">
+              <div className="pcenode__output nodrag nowheel">
                 {output.stdout && (
                   <pre className="pcenode__stdout">{output.stdout}</pre>
                 )}

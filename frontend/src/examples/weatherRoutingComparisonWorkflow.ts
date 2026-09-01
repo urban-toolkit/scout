@@ -105,7 +105,10 @@ export function loadWeatherRoutingComparisonExample({
         pushToken: "783ddc63-1533-43c0-a060-5c811d8914fa",
         output: {
           variable: "origin",
-          value: "1256 West Chicago Avenue",
+          value: {
+            lat: 41.896438,
+            lon: -87.659758,
+          },
         },
       },
     },
@@ -137,7 +140,10 @@ export function loadWeatherRoutingComparisonExample({
         pushToken: "f5ed9f74-18e7-4ac0-b4e0-06d71f3d979d",
         output: {
           variable: "destination",
-          value: "1410 South Special Olympics Drive",
+          value: {
+            lat: 41.861649,
+            lon: -87.614034,
+          },
         },
       },
     },

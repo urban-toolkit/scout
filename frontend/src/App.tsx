@@ -6,8 +6,8 @@ import {
   useEdgesState,
   useReactFlow,
   addEdge,
-  MarkerType,
   type DefaultEdgeOptions,
+  type EdgeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useRef } from "react";
@@ -18,7 +18,6 @@ import type { BaseNodeData } from "./node-components/BaseGrammar";
 
 import { TEMPLATES, TemplateKey } from "./templates";
 import "./App.css";
-import type { WidgetNodeData } from "./nodes/widget/WidgetNode";
 import type { PyCodeEditorNodeData } from "./nodes/computation/PyCodeEditorNode";
 
 import {
@@ -28,17 +27,18 @@ import {
 } from "./examples/exampleWorkflows";
 import ChatWidget from "./components/ai/ChatWidget";
 import NodeRail from "./components/NodeRail";
+import Toolbar from "./components/Toolbar";
+import { pushWidgetOutputToConnectedCode } from "./utils/widgetPropagation";
+import ArrowAboveEdge from "./edges/ArrowAboveEdge";
+
+// Custom edge: draws the line behind nodes but the arrowhead above them -
+// see ArrowAboveEdge.tsx for why the default marker-based arrow can't do both.
+const edgeTypes: EdgeTypes = { default: ArrowAboveEdge };
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
   style: {
     stroke: "#888",
     strokeWidth: 2, // optional but improves visibility
-  },
-  markerEnd: {
-    type: MarkerType.ArrowClosed, // or MarkerType.ArrowClosed
-    width: 20, // default is 20
-    height: 20, // default is 20
-    color: "#888", // optional
   },
 };
 
@@ -85,7 +85,7 @@ function Canvas() {
     Node<BaseNodeData | PyCodeEditorNodeData>
   >([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const { getNode, getEdges, fitView } = useReactFlow();
+  const { getNode, getNodes, getEdges, fitView } = useReactFlow();
 
   // const dumpWorkflow = useCallback(() => {
   //   const nodes = getNodes();
@@ -99,13 +99,13 @@ function Canvas() {
   // }, [getNodes, getEdges]);
 
   const pushInteractionToView = useCallback(
-    (srcId: string, trgId?: string) => {
+    (srcId: string, trgId?: string): boolean => {
       const src = getNode(srcId);
-      if (!src || src.type !== "interactionNode") return;
+      if (!src || src.type !== "interactionNode") return false;
 
       const val: any = (src.data as BaseNodeData).value;
       const i = val?.interaction;
-      if (!i) return;
+      if (!i) return false;
 
       const targetIds = trgId
         ? [trgId]
@@ -114,9 +114,14 @@ function Canvas() {
             .map((e) => e.target!)
             .filter(Boolean);
 
+      const viewTargetIds = targetIds.filter(
+        (tid) => getNode(tid)?.type === "viewNode",
+      );
+      if (!viewTargetIds.length) return false;
+
       setNodes((nds) =>
         nds.map((n) => {
-          if (!targetIds.includes(n.id) || n.type !== "viewNode") return n;
+          if (!viewTargetIds.includes(n.id)) return n;
 
           const existing = ((n.data as any).interactions ?? []) as any[];
 
@@ -135,60 +140,24 @@ function Canvas() {
           };
         }),
       );
+
+      return true;
     },
     [getNode, getEdges, setNodes],
   );
 
   const pushWidgetToPyCodeEditorNode = useCallback(
-    (srcId: string, trgId?: string) => {
-      const src = getNode(srcId);
-      if (!src || src.type !== "widgetNode") return;
-      const val: WidgetNodeData = src.data as WidgetNodeData;
-
-      console.log(val);
-
-      const targetIds = trgId
-        ? [trgId]
-        : getEdges()
-            .filter((e) => e.source === srcId)
-            .map((e) => e.target!)
-            .filter(Boolean);
-
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (!targetIds.includes(n.id) || n.type !== "pyCodeEditorNode")
-            return n;
-          const existing = (n.data as PyCodeEditorNodeData).widgetOutputs ?? [];
-          const already = existing.some(
-            (e) => e.variable === val.output?.variable,
-          );
-          const nextWidgetOutputs = already
-            ? existing.map((e) =>
-                e.variable === val.output?.variable
-                  ? {
-                      variable: val.output.variable,
-                      value: val.output.value,
-                    }
-                  : e,
-              )
-            : [
-                ...existing,
-                {
-                  variable: val.output?.variable,
-                  value: val.output?.value,
-                },
-              ];
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              widgetOutputs: nextWidgetOutputs,
-            } as PyCodeEditorNodeData,
-          };
-        }),
+    (srcId: string, trgId?: string): boolean => {
+      const updated = pushWidgetOutputToConnectedCode(
+        srcId,
+        getNodes(),
+        getEdges(),
+        setNodes,
+        trgId,
       );
+      return updated.length > 0;
     },
-    [getNode, getEdges, setNodes],
+    [getNodes, getEdges, setNodes],
   );
 
   // Then remove the oncloseNode from createGrammarNode calls and declarations
@@ -422,37 +391,42 @@ function Canvas() {
 
   return (
     <div className="app">
-      <ReactFlow
-        className="canvas"
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        isValidConnection={allow}
-        fitView
-        minZoom={0.005}
-        maxZoom={2}
-        defaultEdgeOptions={defaultEdgeOptions}
-        proOptions={{ hideAttribution: true }}
-      >
-        {/* <Background /> */}
-        <NodeRail
-          onAdd={addNode}
-          onAddPyCodeEditor={addPyCodeEditorNode}
-          onClear={clearCanvasAndNavigateHome}
-          onLoadShadowWorkflow={() => navigateToWorkflowRoute("shadow")}
-          onLoadFloodingWorkflow={() => navigateToWorkflowRoute("flooding")}
-          onLoadWeatherRoutingWorkflow={() =>
-            navigateToWorkflowRoute("routing")
-          }
-        />
-      </ReactFlow>
-      {/* <button onClick={dumpWorkflow} className="toolbar__btn__dump">
-        Dump
-      </button> */}
-      <ChatWidget />
+      <Toolbar
+        onLoadShadowWorkflow={() => navigateToWorkflowRoute("shadow")}
+        onLoadFloodingWorkflow={() => navigateToWorkflowRoute("flooding")}
+        onLoadWeatherRoutingWorkflow={() =>
+          navigateToWorkflowRoute("routing")
+        }
+      />
+      <div className="canvas-wrap">
+        <ReactFlow
+          className="canvas"
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          isValidConnection={allow}
+          fitView
+          minZoom={0.005}
+          maxZoom={2}
+          defaultEdgeOptions={defaultEdgeOptions}
+          proOptions={{ hideAttribution: true }}
+        >
+          {/* <Background /> */}
+          <NodeRail
+            onAdd={addNode}
+            onAddPyCodeEditor={addPyCodeEditorNode}
+            onClear={clearCanvasAndNavigateHome}
+          />
+        </ReactFlow>
+        {/* <button onClick={dumpWorkflow} className="toolbar__btn__dump">
+          Dump
+        </button> */}
+        <ChatWidget />
+      </div>
     </div>
   );
 }
@@ -482,8 +456,8 @@ function createGrammarNode({
   >;
   template: TemplateKey;
   getNode: (id: string) => Node | undefined;
-  onRunInteraction: (srcId: string) => void;
-  onRunWidget: (srcId: string) => void;
+  onRunInteraction: (srcId: string) => boolean;
+  onRunWidget: (srcId: string) => boolean;
 }) {
   const pos = (window as any)._desiredGrammarPos ?? { x: 100, y: 100 };
   const type = kindToType[template];
@@ -506,9 +480,9 @@ function createGrammarNode({
         const node = getNode(nodeId);
         if (!node) return;
         else if (node.type === "interactionNode") {
-          onRunInteraction(nodeId);
+          return onRunInteraction(nodeId);
         } else if (node.type === "widgetNode") {
-          onRunWidget(nodeId);
+          return onRunWidget(nodeId);
         }
       },
     },

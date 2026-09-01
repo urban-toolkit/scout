@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { Handle, Position, useReactFlow, NodeResizer } from "@xyflow/react";
 import BaseGrammarNode, {
@@ -11,6 +11,8 @@ import "../../node-components/BaseGrammar.css";
 
 import expandPng from "../../assets/expand.png";
 import restartPng from "../../assets/restart.png";
+import checkPng from "../../assets/check-mark.png";
+import { registerNodeAction } from "../../utils/nodeActionRegistry";
 
 export type InteractionNodeData = BaseNodeData;
 
@@ -128,11 +130,54 @@ const InteractionNode = memo(function InteractionNode(
     });
   }, [id, rf, setEdges]);
 
-  const handleRun = useCallback(() => {
-    if (data?.onRun) {
-      return data.onRun(id);
-    }
-  }, [data, id]);
+  const runFeedbackTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  const runPush = useCallback((): boolean => {
+    if (!data?.onRun) return false;
+    return data.onRun(id) !== false;
+  }, [id, data]);
+
+  // Written onto the node's own data (BaseNodeData.runFeedback) rather than
+  // local state, so this reflects a run triggered from elsewhere too - the
+  // full grammar view's own run button (BaseGrammarNode), or the "Run
+  // Dataflow" orchestrator - not just a click on this minimized button.
+  const handleRun = useCallback((): boolean => {
+    const ok = runPush();
+
+    if (runFeedbackTimeout.current) clearTimeout(runFeedbackTimeout.current);
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? { ...n, data: { ...n.data, runFeedback: ok ? "success" : "failed" } }
+          : n,
+      ),
+    );
+    runFeedbackTimeout.current = setTimeout(() => {
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id ? { ...n, data: { ...n.data, runFeedback: "idle" } } : n,
+        ),
+      );
+    }, 2000);
+    return ok;
+  }, [runPush, setNodes, id]);
+
+  const runFeedback = data.runFeedback ?? "idle";
+
+  // Lets the "Run Dataflow" orchestrator push this interaction directly and
+  // await the result - see utils/nodeActionRegistry.ts.
+  useEffect(
+    () => registerNodeAction(id, async () => handleRun()),
+    [id, handleRun],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (runFeedbackTimeout.current) clearTimeout(runFeedbackTimeout.current);
+    };
+  }, []);
 
   return (
     <>
@@ -175,10 +220,24 @@ const InteractionNode = memo(function InteractionNode(
             {/* Floating fetch/update (bottom-right) */}
             <button
               type="button"
-              className="gnode__minimizedRestoreCircle_2 gnode__minimizedRestoreCircle--bottomRight"
+              className={`gnode__minimizedRestoreCircle_2 gnode__minimizedRestoreCircle--bottomRight${
+                runFeedback === "failed"
+                  ? " gnode__minimizedRestoreCircle--failed"
+                  : ""
+              }`}
               onClick={handleRun}
+              title={
+                runFeedback === "success"
+                  ? "Updated"
+                  : runFeedback === "failed"
+                    ? "Not connected to a View node"
+                    : "Fetch / update"
+              }
             >
-              <img src={restartPng} alt="Fetch / update" />
+              <img
+                src={runFeedback === "success" ? checkPng : restartPng}
+                alt="Fetch / update"
+              />
             </button>
           </div>
         </div>

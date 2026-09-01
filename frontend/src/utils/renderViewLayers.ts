@@ -324,7 +324,7 @@ export async function renderLayers(opts: {
   interactions: InteractionDef[];
   clearAllSvgLayers: () => void;
   makeLeafletPath: (map: L.Map) => d3.GeoPath<any, d3.GeoPermissibleObjects>;
-  getOrCreateTagGroup: (tag: string) => TagGroup;
+  getOrCreateTagGroup: (tag: string) => TagGroup | null;
   onDirty?: (args: { ref: string; featureCollection: any }) => void;
   shouldHandleClick: () => boolean;
 }) {
@@ -465,6 +465,9 @@ export async function renderLayers(opts: {
         }
 
         const gTag = getOrCreateTagGroup(ref);
+        // Component unmounted mid-fetch (see getOrCreateTagGroup) - nothing
+        // left to draw into, so stop rather than throw on the next line.
+        if (!gTag) continue;
 
         const configuredRadius = (view.style as any).size ?? 4; // radius in px
 
