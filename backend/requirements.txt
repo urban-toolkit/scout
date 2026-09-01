@@ -32,6 +32,15 @@ pyarrow==11.0.0
 spatialpandas==0.4.7
 pygeos==0.14.0
 
+# Generic LLM chat (AI Settings)
+openai==2.36.0
+anthropic>=0.100.0
+google-generativeai>=0.8.6
+# google-generativeai otherwise pulls protobuf 5.x, which breaks the pinned
+# tensorflow==2.12.0 (needs protobuf<5,>=3.20.3) - verified this range works
+# with openai/anthropic/google-generativeai too.
+protobuf>=3.20.3,<5
+
 
 # pip install --upgrade pip && \
 # pip install "setuptools<70" "wheel" "cython<3" "jinja2<3.2" && \

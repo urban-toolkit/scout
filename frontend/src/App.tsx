@@ -4,30 +4,30 @@ import {
   ReactFlowProvider,
   useNodesState,
   useEdgesState,
-  Controls,
   useReactFlow,
   addEdge,
   MarkerType,
   type DefaultEdgeOptions,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { nodeTypes } from "./nodes"; // <-- { dataLayerNode, viewNode, ... }
 import type { Node, Connection, Edge } from "@xyflow/react";
 import type { BaseNodeData } from "./node-components/BaseGrammar";
 
-import { TEMPLATES, TEMPLATE_LABELS, TemplateKey } from "./templates";
+import { TEMPLATES, TemplateKey } from "./templates";
 import "./App.css";
 import type { WidgetNodeData } from "./nodes/widget/WidgetNode";
 import type { PyCodeEditorNodeData } from "./nodes/computation/PyCodeEditorNode";
-import clearPng from "./assets/clear.png";
 
 import {
   loadShadowComparisonExample,
   loadFloodingComparisonExample,
   loadWeatherRoutingComparisonExample,
 } from "./examples/exampleWorkflows";
+import ChatWidget from "./components/ai/ChatWidget";
+import NodeRail from "./components/NodeRail";
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
   style: {
@@ -435,10 +435,10 @@ function Canvas() {
         minZoom={0.005}
         maxZoom={2}
         defaultEdgeOptions={defaultEdgeOptions}
+        proOptions={{ hideAttribution: true }}
       >
         {/* <Background /> */}
-        <Controls position="bottom-right" />
-        <Toolbar
+        <NodeRail
           onAdd={addNode}
           onAddPyCodeEditor={addPyCodeEditorNode}
           onClear={clearCanvasAndNavigateHome}
@@ -452,232 +452,7 @@ function Canvas() {
       {/* <button onClick={dumpWorkflow} className="toolbar__btn__dump">
         Dump
       </button> */}
-    </div>
-  );
-}
-
-function Toolbar({
-  onAdd,
-  onAddPyCodeEditor,
-  onClear,
-  onLoadShadowWorkflow,
-  onLoadFloodingWorkflow,
-  onLoadWeatherRoutingWorkflow,
-}: {
-  onAdd: (tpl: TemplateKey) => void;
-  onAddPyCodeEditor: () => void;
-  onClear: () => void;
-  onLoadShadowWorkflow: () => void;
-  onLoadFloodingWorkflow: () => void;
-  onLoadWeatherRoutingWorkflow: () => void;
-}) {
-  const { screenToFlowPosition } = useReactFlow();
-  const [openGroup, setOpenGroup] = useState<
-    null | "intelligence" | "design" | "choice" | "workflows"
-  >(null);
-
-  const getDropPosition = useCallback(() => {
-    return screenToFlowPosition({
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    });
-  }, [screenToFlowPosition]);
-
-  const handleChoose = useCallback(
-    (tpl: TemplateKey) => {
-      (window as any)._desiredGrammarPos = getDropPosition();
-      onAdd(tpl);
-      setOpenGroup(null);
-    },
-    [getDropPosition, onAdd],
-  );
-
-  const handleAddPyCodeEditor = useCallback(() => {
-    (window as any)._desiredGrammarPos = getDropPosition();
-    onAddPyCodeEditor();
-    setOpenGroup(null);
-  }, [getDropPosition, onAddPyCodeEditor]);
-
-  const toggleGroup = useCallback(
-    (group: "intelligence" | "design" | "choice" | "workflows") => {
-      setOpenGroup((prev) => (prev === group ? null : group));
-    },
-    [],
-  );
-
-  const handleLoadShadowWorkflow = useCallback(() => {
-    onLoadShadowWorkflow();
-    setOpenGroup(null);
-  }, [onLoadShadowWorkflow]);
-
-  const handleLoadFloodingWorkflow = useCallback(() => {
-    onLoadFloodingWorkflow();
-    setOpenGroup(null);
-  }, [onLoadFloodingWorkflow]);
-
-  const handleLoadWeatherRoutingWorkflow = useCallback(() => {
-    onLoadWeatherRoutingWorkflow();
-    setOpenGroup(null);
-  }, [onLoadWeatherRoutingWorkflow]);
-
-  return (
-    <div className="toolbar">
-      <div className="toolbar__left">
-        <div className="toolbar__dropdown">
-          <button
-            onClick={() => toggleGroup("intelligence")}
-            className="toolbar__btn toolbar__btn--intelligence"
-            aria-haspopup="menu"
-            aria-expanded={openGroup === "intelligence"}
-          >
-            Intelligence
-          </button>
-
-          {openGroup === "intelligence" && (
-            <div role="menu" className="menu">
-              <button
-                role="menuitem"
-                onClick={() => handleChoose("data_layer")}
-                className="menu__item"
-              >
-                {TEMPLATE_LABELS["data_layer"]}
-              </button>
-
-              {/* New: Join (disabled for now) */}
-              <button
-                role="menuitem"
-                onClick={() => handleChoose("join")}
-                className="menu__item"
-              >
-                {TEMPLATE_LABELS["join"]}
-              </button>
-
-              <button
-                role="menuitem"
-                onClick={handleAddPyCodeEditor}
-                className="menu__item"
-              >
-                Code
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="toolbar__dropdown">
-          <button
-            onClick={() => toggleGroup("design")}
-            className="toolbar__btn toolbar__btn--design"
-            aria-haspopup="menu"
-            aria-expanded={openGroup === "design"}
-          >
-            Design
-          </button>
-
-          {openGroup === "design" && (
-            <div role="menu" className="menu">
-              <button
-                role="menuitem"
-                onClick={() => handleChoose("view")}
-                className="menu__item"
-              >
-                {TEMPLATE_LABELS["view"]}
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="toolbar__dropdown">
-          <button
-            onClick={() => toggleGroup("choice")}
-            className="toolbar__btn toolbar__btn--choice"
-            aria-haspopup="menu"
-            aria-expanded={openGroup === "choice"}
-          >
-            Choice
-          </button>
-
-          {openGroup === "choice" && (
-            <div role="menu" className="menu">
-              <button
-                role="menuitem"
-                onClick={() => handleChoose("interaction")}
-                className="menu__item"
-              >
-                {TEMPLATE_LABELS["interaction"]}
-              </button>
-
-              <button
-                role="menuitem"
-                onClick={() => handleChoose("widget")}
-                className="menu__item"
-              >
-                {TEMPLATE_LABELS["widget"]}
-              </button>
-
-              <button
-                role="menuitem"
-                onClick={() => handleChoose("comparison")}
-                className="menu__item"
-              >
-                {TEMPLATE_LABELS["comparison"]}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="toolbar__center">
-        <button
-          type="button"
-          onClick={onClear}
-          className="toolbar__btn toolbar__btn--home"
-          aria-label="Clear canvas"
-          title="Clear canvas"
-        >
-          <img src={clearPng} alt="" className="toolbar__clearIcon" />
-        </button>
-      </div>
-
-      <div className="toolbar__right">
-        <div className="toolbar__dropdown">
-          <button
-            onClick={() => toggleGroup("workflows")}
-            className="toolbar__btn toolbar__btn--workflows"
-            aria-haspopup="menu"
-            aria-expanded={openGroup === "workflows"}
-          >
-            Examples
-          </button>
-
-          {openGroup === "workflows" && (
-            <div role="menu" className="menu menu--right">
-              <button
-                role="menuitem"
-                onClick={handleLoadShadowWorkflow}
-                className="menu__item"
-              >
-                Shadow
-              </button>
-
-              <button
-                role="menuitem"
-                onClick={handleLoadFloodingWorkflow}
-                className="menu__item"
-              >
-                Flooding
-              </button>
-
-              <button
-                role="menuitem"
-                onClick={handleLoadWeatherRoutingWorkflow}
-                className="menu__item"
-              >
-                Routing
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      <ChatWidget />
     </div>
   );
 }

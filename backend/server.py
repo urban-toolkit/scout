@@ -21,6 +21,14 @@ import rasterio
 import threading
 import json as jsonlib
 
+from ai_settings import (
+    ChatError,
+    get_public_settings,
+    list_provider_models,
+    run_chat,
+    update_settings,
+)
+
 worker_proc = None
 worker_lock = threading.Lock()
 worker_python_exe = None
@@ -853,6 +861,45 @@ def infer_filetype():
         "is_dir": None,
         "file_type": None,
     }), 200
+
+
+@app.get("/api/ai/settings")
+def ai_settings_get():
+    return jsonify(get_public_settings()), 200
+
+
+@app.post("/api/ai/settings")
+def ai_settings_post():
+    payload = request.get_json(silent=True) or {}
+    settings = update_settings(payload)
+    return jsonify(settings), 200
+
+
+@app.post("/api/ai/provider-models")
+def ai_provider_models():
+    payload = request.get_json(silent=True) or {}
+    try:
+        result = list_provider_models(
+            payload.get("apiType"), payload.get("baseUrl"), payload.get("apiKey")
+        )
+    except ChatError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify(result), 200
+
+
+@app.post("/api/ai/chat")
+def ai_chat():
+    payload = request.get_json(silent=True) or {}
+    messages = payload.get("messages")
+    if not isinstance(messages, list) or not messages:
+        return jsonify({"error": "messages must be a non-empty list"}), 400
+
+    try:
+        reply = run_chat(messages)
+    except ChatError as e:
+        return jsonify({"error": str(e)}), 400
+
+    return jsonify({"reply": reply}), 200
 
 
 if __name__ == '__main__':

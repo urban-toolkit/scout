@@ -7,6 +7,7 @@ __pycache__/
 envs_
 env/
 data/served
+data/ai_settings.json
 north-america-latest.osm.pbf
 nyc.osm.pbf
 test_env

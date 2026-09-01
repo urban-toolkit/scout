@@ -1,0 +1,72 @@
+.node-rail {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  transform: translateY(-50%);
+  z-index: 20;
+  /* Sized to the widest child (a section title, in practice) rather than a
+     hardcoded guess - a fixed width based on the icon grid alone left the
+     wider title labels asymmetric against the card's padding. */
+  box-sizing: border-box;
+  width: fit-content;
+  background: #ffffff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.node-rail__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.node-rail__title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+  padding: 0 2px;
+}
+
+.node-rail__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 34px);
+  column-gap: 12px;
+  row-gap: 12px;
+}
+
+.node-rail__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1.5px solid #e5e7eb;
+  background: #f8fafc;
+  color: var(--rail-accent, #334155);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.node-rail__icon:hover,
+.node-rail__icon:focus-visible {
+  background: var(--rail-hover, #f1f5f9);
+  border-color: var(--rail-accent, #cbd5e1);
+}
+
+.node-rail__icon svg {
+  display: block;
+}
+
+.node-rail__divider {
+  border-top: 1px solid #e5e7eb;
+  margin: 0;
+}
