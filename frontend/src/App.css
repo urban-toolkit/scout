@@ -18,6 +18,14 @@
   min-height: 0;
 }
 
+.page-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #ffffff;
+}
+
 .canvas {
   width: 100%;
   height: 100%;

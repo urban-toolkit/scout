@@ -10,7 +10,7 @@ import {
   type EdgeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { nodeTypes } from "./nodes"; // <-- { dataLayerNode, viewNode, ... }
 import type { Node, Connection, Edge } from "@xyflow/react";
@@ -28,6 +28,7 @@ import {
 import ChatWidget from "./components/ai/ChatWidget";
 import NodeRail from "./components/NodeRail";
 import Toolbar from "./components/Toolbar";
+import ChartStudioPage from "./pages/ChartStudioPage";
 import { pushWidgetOutputToConnectedCode } from "./utils/widgetPropagation";
 import ArrowAboveEdge from "./edges/ArrowAboveEdge";
 
@@ -71,6 +72,32 @@ function getWorkflowPath(route: WorkflowRoute) {
   return `${getAppBasePath()}${route}`;
 }
 
+type AppRoute =
+  | { kind: "workflow"; route: WorkflowRoute }
+  | { kind: "chart-studio" }
+  | null;
+
+function getAppRouteFromPath(pathname = window.location.pathname): AppRoute {
+  const workflowRoute = getWorkflowRouteFromPath(pathname);
+  if (workflowRoute) return { kind: "workflow", route: workflowRoute };
+
+  const base = getAppBasePath();
+  const relativePath = pathname.startsWith(base)
+    ? pathname.slice(base.length)
+    : pathname.startsWith("/")
+      ? pathname.slice(1)
+      : pathname;
+  const route = relativePath.replace(/\/+$/, "");
+
+  if (route === "chart-studio") return { kind: "chart-studio" };
+
+  return null;
+}
+
+function getChartStudioPath() {
+  return `${getAppBasePath()}chart-studio`;
+}
+
 export default function App() {
   return (
     <ReactFlowProvider>
@@ -86,6 +113,7 @@ function Canvas() {
   >([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { getNode, getNodes, getEdges, fitView } = useReactFlow();
+  const [page, setPage] = useState<"canvas" | "chart-studio">("canvas");
 
   // const dumpWorkflow = useCallback(() => {
   //   const nodes = getNodes();
@@ -355,33 +383,50 @@ function Canvas() {
       if (window.location.pathname !== nextPath) {
         window.history.pushState(null, "", nextPath);
       }
+      setPage("canvas");
       loadWorkflowRoute(route);
     },
     [loadWorkflowRoute],
   );
+
+  const navigateToChartStudio = useCallback(() => {
+    const nextPath = getChartStudioPath();
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState(null, "", nextPath);
+    }
+    setPage("chart-studio");
+  }, []);
 
   const clearCanvasAndNavigateHome = useCallback(() => {
     const homePath = getAppBasePath();
     if (window.location.pathname !== homePath) {
       window.history.pushState(null, "", homePath);
     }
+    setPage("canvas");
     setNodes([]);
     setEdges([]);
     idCounter.current = 1;
   }, [setEdges, setNodes]);
 
   useEffect(() => {
-    const route = getWorkflowRouteFromPath();
-    if (route) {
-      loadWorkflowRoute(route);
-    }
-
-    const handlePopState = () => {
-      const nextRoute = getWorkflowRouteFromPath();
-      if (nextRoute) {
-        loadWorkflowRoute(nextRoute);
+    const applyRoute = (appRoute: AppRoute) => {
+      if (appRoute?.kind === "workflow") {
+        setPage("canvas");
+        loadWorkflowRoute(appRoute.route);
+      } else if (appRoute?.kind === "chart-studio") {
+        setPage("chart-studio");
+      } else {
+        // No recognized route (e.g. bare "/") - always show the canvas.
+        // Node/edge state is untouched here (only clearCanvasAndNavigateHome
+        // resets that), so this just makes sure Chart Studio doesn't stay
+        // on screen after navigating back past it.
+        setPage("canvas");
       }
     };
+
+    applyRoute(getAppRouteFromPath());
+
+    const handlePopState = () => applyRoute(getAppRouteFromPath());
 
     window.addEventListener("popstate", handlePopState);
     return () => {
@@ -389,16 +434,30 @@ function Canvas() {
     };
   }, [loadWorkflowRoute]);
 
+  // A display:none -> visible round-trip on a ResizeObserver-driven library
+  // like @xyflow/react can leave the viewport stale until something forces a
+  // recompute - re-fitView the same way example-loading already does.
+  useEffect(() => {
+    if (page === "canvas") {
+      requestAnimationFrame(() => fitView({ padding: 0.15 }));
+    }
+  }, [page, fitView]);
+
   return (
     <div className="app">
       <Toolbar
+        onNavigateHome={clearCanvasAndNavigateHome}
         onLoadShadowWorkflow={() => navigateToWorkflowRoute("shadow")}
         onLoadFloodingWorkflow={() => navigateToWorkflowRoute("flooding")}
         onLoadWeatherRoutingWorkflow={() =>
           navigateToWorkflowRoute("routing")
         }
+        onOpenChartStudio={navigateToChartStudio}
       />
-      <div className="canvas-wrap">
+      <div
+        className="canvas-wrap"
+        style={page === "chart-studio" ? { display: "none" } : undefined}
+      >
         <ReactFlow
           className="canvas"
           nodes={nodes}
@@ -425,8 +484,16 @@ function Canvas() {
         {/* <button onClick={dumpWorkflow} className="toolbar__btn__dump">
           Dump
         </button> */}
-        <ChatWidget />
       </div>
+      {page === "chart-studio" && (
+        <div className="page-wrap">
+          <ChartStudioPage />
+        </div>
+      )}
+      {/* Rendered outside canvas-wrap (which hides via display:none on the
+          Chart Studio page) so the chat widget stays available on every
+          page, not just the canvas. */}
+      <ChatWidget />
     </div>
   );
 }

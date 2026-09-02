@@ -11,9 +11,11 @@ import AltRouteOutlinedIcon from "@mui/icons-material/AltRouteOutlined";
 import "./Toolbar.css";
 
 interface Props {
+  onNavigateHome: () => void;
   onLoadShadowWorkflow: () => void;
   onLoadFloodingWorkflow: () => void;
   onLoadWeatherRoutingWorkflow: () => void;
+  onOpenChartStudio: () => void;
 }
 
 interface ProjectItem {
@@ -26,9 +28,11 @@ interface ProjectItem {
 const ICON_SX = { fontSize: 18 };
 
 export default function Toolbar({
+  onNavigateHome,
   onLoadShadowWorkflow,
   onLoadFloodingWorkflow,
   onLoadWeatherRoutingWorkflow,
+  onOpenChartStudio,
 }: Props) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const open = Boolean(anchorEl);
@@ -64,9 +68,14 @@ export default function Toolbar({
 
   return (
     <header className="toolbar">
-      <div className="toolbar__brand">
+      <button
+        type="button"
+        className="toolbar__brand"
+        onClick={onNavigateHome}
+        aria-label="Go to home"
+      >
         <img src="/scout.png" alt="Scout" className="toolbar__logo" />
-      </div>
+      </button>
 
       <nav className="toolbar__nav">
         <button
@@ -93,11 +102,15 @@ export default function Toolbar({
           ))}
         </Menu>
 
-        {/* Placeholder nav items - no pages/routes yet, wired up later */}
+        {/* Placeholder nav item - no page/route yet, wired up later */}
         <button type="button" className="toolbar__nav-item" onClick={() => {}}>
           Chart Gallery
         </button>
-        <button type="button" className="toolbar__nav-item" onClick={() => {}}>
+        <button
+          type="button"
+          className="toolbar__nav-item"
+          onClick={onOpenChartStudio}
+        >
           Chart Studio
         </button>
       </nav>

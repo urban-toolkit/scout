@@ -15,6 +15,18 @@
 .toolbar__brand {
   display: flex;
   align-items: center;
+  border: none;
+  background: transparent;
+  padding: 4px;
+  margin: -4px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.toolbar__brand:hover,
+.toolbar__brand:focus-visible {
+  background: #f1f5f9;
 }
 
 .toolbar__logo {

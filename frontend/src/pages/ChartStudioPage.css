@@ -1,0 +1,130 @@
+.chart-studio-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.chart-studio-page__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+}
+
+/* Matches the adjacent MUI small TextField select's rendered height (40px)
+   so "New chart" doesn't look short next to "Load existing chart". */
+.chart-studio-page__header .chart-studio-page__btn {
+  height: 40px;
+}
+
+.chart-studio-page__name-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 20px;
+  font-weight: 600;
+  font-family: inherit;
+  color: #111827;
+  padding: 4px 2px;
+}
+
+.chart-studio-page__name-input::placeholder {
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.chart-studio-page__body {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.chart-studio-page__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.chart-studio-page__btn:hover {
+  background: #f8fafc;
+}
+
+.chart-studio-page__btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Publish's disabled state (before a successful Preview, or while
+   publishing) keeps full-opacity black text - dimming it read as unreadable
+   gray rather than "not ready yet". The gray border still shows it's
+   inactive. */
+.chart-studio-page__btn--publish:disabled {
+  opacity: 1;
+  color: #111827;
+  border-color: #e5e7eb;
+  background: #f9fafb;
+}
+
+.chart-studio-page__input {
+  padding: 7px 10px;
+  font-size: 13px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  outline: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  font-family: inherit;
+}
+
+/* Plain text-link look for secondary actions (Generate, Save to backend) -
+   sits in its own row below a box rather than overlaid inside it. Bold
+   instead of boxed, underlines on hover to signal it's clickable. */
+.chart-studio-page__textlink-btn {
+  padding: 2px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: inherit;
+  color: #111827;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.chart-studio-page__textlink-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.chart-studio-page__textlink-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Description's Generate sits inside its box (bottom-right) - it's a plain
+   textarea, not a scrolling code editor, so there's no scrollbar to clear.
+   Kept a little in from the true corner rather than flush against it. */
+.chart-studio-page__textlink-btn--corner {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+}
