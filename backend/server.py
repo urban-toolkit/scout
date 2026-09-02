@@ -72,7 +72,16 @@ RESERVED_CHART_FILES = {
 
 
 def _pascal_case(name: str) -> str:
-    return "".join(p[:1].upper() + p[1:] for p in re.split(r"[-_]+", name) if p)
+    return "".join(p[:1].upper() + p[1:] for p in re.split(r"[-_\s]+", name) if p)
+
+
+# Every published chart's real identifier is minted from its human-readable
+# displayName plus this tag - unconditionally, for every chart, not just
+# ones that would otherwise collide - so two charts can intentionally share
+# a displayName (e.g. a D3 and a Vega-Lite "Grouped bar chart") without ever
+# colliding on the manifest key/generated filename that name mints into.
+def _engine_tag(engine: str) -> str:
+    return "Vega" if engine == "vega-lite" else "D3"
 
 
 def _atomic_write_text(path: Path, content: str) -> None:
@@ -707,6 +716,9 @@ def list_chart_types():
     types = [
         {
             "name": rec["name"],
+            # Charts published before displayName existed fall back to their
+            # raw technical name - still legible, just not as pretty.
+            "displayName": rec.get("displayName", rec["name"]),
             "description": rec.get("description", ""),
             "createdAt": rec.get("createdAt"),
             # Charts published before the Vega-Lite engine existed have no
@@ -729,21 +741,29 @@ def get_chart_type(name: str):
     if not record:
         return jsonify({"error": f"No chart type named '{name}'"}), 404
 
-    return jsonify({**record, "engine": record.get("engine", "d3")})
+    return jsonify({
+        **record,
+        "displayName": record.get("displayName", record["name"]),
+        "engine": record.get("engine", "d3"),
+    })
 
 
 @app.post("/api/chart-types")
 def publish_chart_type():
     data = request.get_json(force=True)
-    name = (data.get("name") or "").strip()
+    # Set only when re-publishing a chart Chart Studio already loaded (via
+    # "Load existing chart" or "Edit in Chart Studio") - overwrites that
+    # exact chart in place, under its existing real identifier, regardless
+    # of what displayName now says. Omitted for a brand-new chart, whose
+    # real identifier doesn't exist yet and is minted below.
+    existing_name = (data.get("name") or "").strip()
+    display_name = (data.get("displayName") or "").strip()
     description = data.get("description", "")
     code = data.get("code", "")
     engine = data.get("engine", "d3")
 
-    if not CHART_TYPE_NAME_RE.match(name):
-        return jsonify({
-            "error": "Chart type name must be non-empty and contain only letters, numbers, underscores, and hyphens",
-        }), 400
+    if not display_name:
+        return jsonify({"error": "Chart name must be non-empty"}), 400
 
     if engine not in ("d3", "vega-lite"):
         return jsonify({"error": "engine must be 'd3' or 'vega-lite'"}), 400
@@ -762,10 +782,19 @@ def publish_chart_type():
                      "source is not mounted in this environment.",
         }), 503
 
+    manifest = _load_chart_manifest()
+
+    if existing_name:
+        if not CHART_TYPE_NAME_RE.match(existing_name) or existing_name not in manifest:
+            return jsonify({"error": f"No existing chart type named '{existing_name}'"}), 404
+        name = existing_name
+    else:
+        # Minted from displayName + engine, invisible to the author (who
+        # only ever sees/edits displayName) - see _engine_tag().
+        name = _pascal_case(display_name) + _engine_tag(engine)
+
     render_fn_name = "render" + _pascal_case(name)
     component_file = "comparison" + _pascal_case(name) + ".generated.ts"
-
-    manifest = _load_chart_manifest()
 
     collision = _check_chart_name_collision(name, component_file, manifest)
     if collision:
@@ -778,6 +807,7 @@ def publish_chart_type():
 
     record = {
         "name": name,
+        "displayName": display_name,
         "description": description,
         "code": code,
         "engine": engine,

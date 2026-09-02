@@ -52,6 +52,13 @@ export async function renderVegaLiteSpec(
     ...spec,
     data: { values },
     width: spec.width ?? Math.max(containerWidth - 20, 100),
+    // Without this, Vega-Lite's default autosize ("pad") lets rotated/long
+    // axis labels grow the rendered SVG past the `width` above instead of
+    // shrinking the plot area to fit - the container then needs a
+    // horizontal scrollbar just to show the rest of the chart. "fit"
+    // forces the whole visualization (marks + axes + labels) into the
+    // declared width instead.
+    autosize: spec.autosize ?? { type: "fit", contains: "padding" },
   };
 
   const result = await embed(container, fullSpec as any, { actions: false });

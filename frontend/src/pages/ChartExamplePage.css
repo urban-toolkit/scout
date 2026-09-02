@@ -1,0 +1,161 @@
+.chart-example-page {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 24px 40px 48px;
+  max-width: 1160px;
+}
+
+.chart-example-page__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 6px 0;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  color: #334155;
+  cursor: pointer;
+}
+
+.chart-example-page__back:hover {
+  text-decoration: underline;
+}
+
+.chart-example-page__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
+.chart-example-page__title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chart-example-page__edit-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.chart-example-page__edit-btn:hover {
+  background: #f8fafc;
+}
+
+.chart-example-page__title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.chart-example-page__description {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.chart-example-page__section-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.chart-example-page__section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+}
+
+.chart-example-page__reset-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.chart-example-page__reset-btn:hover {
+  text-decoration: underline;
+}
+
+.chart-example-page__code {
+  margin-bottom: 6px;
+}
+
+.chart-example-page__hint {
+  margin: 0;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.chart-example-page__source-grid {
+  display: grid;
+  /* minmax(0, 1fr) rather than a bare 1fr - a bare 1fr track still floors
+     at its content's min-content width, and an unconstrained Vega-Lite
+     SVG's natural width blew that floor way past half the page, starving
+     the "Example usage"/"Sample data" column down to a sliver. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 760px) {
+  .chart-example-page__source-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-example-page__preview-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.chart-example-page__preview {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  background: #fff;
+}
+
+.chart-example-page__loading {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.chart-example-page__error {
+  color: #b91c1c;
+  font-size: 13px;
+  font-family: monospace;
+  white-space: pre-wrap;
+}

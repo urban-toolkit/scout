@@ -15,6 +15,7 @@ interface Props {
   onLoadShadowWorkflow: () => void;
   onLoadFloodingWorkflow: () => void;
   onLoadWeatherRoutingWorkflow: () => void;
+  onOpenChartGallery: () => void;
   onOpenChartStudio: () => void;
 }
 
@@ -32,6 +33,7 @@ export default function Toolbar({
   onLoadShadowWorkflow,
   onLoadFloodingWorkflow,
   onLoadWeatherRoutingWorkflow,
+  onOpenChartGallery,
   onOpenChartStudio,
 }: Props) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -102,8 +104,11 @@ export default function Toolbar({
           ))}
         </Menu>
 
-        {/* Placeholder nav item - no page/route yet, wired up later */}
-        <button type="button" className="toolbar__nav-item" onClick={() => {}}>
+        <button
+          type="button"
+          className="toolbar__nav-item"
+          onClick={onOpenChartGallery}
+        >
           Chart Gallery
         </button>
         <button

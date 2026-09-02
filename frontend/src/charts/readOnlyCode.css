@@ -1,0 +1,17 @@
+/* Shared "read-only JSON box" look for Chart Gallery's and Chart Studio's
+   "Sample data" editors - a gray background/gutter so a non-editable box
+   reads as visually distinct from an editable one at a glance, not just via
+   the ReadOnlyTag label next to it. */
+.readonly-json-box {
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.readonly-json-box .cm-editor {
+  background: #f9fafb;
+  cursor: default;
+}
+
+.readonly-json-box .cm-gutters {
+  background: #f3f4f6;
+}
