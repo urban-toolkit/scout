@@ -134,11 +134,30 @@
 }
 
 .chart-example-page__preview-wrap {
-  max-width: 640px;
-  margin: 0 auto;
+  /* Centers the (now resizable, so no longer fixed-width) preview box below
+     the gap between the usage/data columns, the same spot the old fixed
+     640px width sat in, rather than pinning a max-width the box itself now
+     needs to grow past. Column direction keeps the "Preview" label above
+     the box - a bare `display: flex` here defaults to row, which put the
+     label beside the box instead. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .chart-example-page__preview {
+  width: 640px;
+  min-width: 320px;
+  min-height: 200px;
+  max-width: 100%;
+  box-sizing: border-box;
+  /* Native resize handle - bottom-right only (the CSS spec has no
+     bottom-left variant), the same drag affordance a <textarea> already
+     has. overflow: auto is required for `resize` to take effect at all,
+     and doubles as a scrollbar if a chart's own rendered size exceeds
+     whatever box size is dragged to. */
+  resize: both;
+  overflow: auto;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 20px;

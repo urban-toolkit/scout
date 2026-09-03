@@ -55,6 +55,11 @@
   margin-bottom: 16px;
 }
 
+.chart-gallery-page__loading {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
 .chart-gallery-section {
   margin-bottom: 36px;
 }

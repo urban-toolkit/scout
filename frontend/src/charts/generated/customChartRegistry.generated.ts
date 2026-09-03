@@ -9,6 +9,7 @@ import { renderTable } from "./comparisonTable.generated";
 import { renderLollipop } from "./comparisonLollipop.generated";
 import { renderGroupedBarVega } from "./comparisonGroupedBarVega.generated";
 import { renderTraSculptorMatrixD3 } from "./comparisonTraSculptorMatrixD3.generated";
+import { renderBNVARouteMatrixD3 } from "./comparisonBNVARouteMatrixD3.generated";
 
 export const customChartRenderers: Record<string, ChartRenderFn> = {
   "groupedBar": renderGroupedBar,
@@ -18,4 +19,5 @@ export const customChartRenderers: Record<string, ChartRenderFn> = {
   "lollipop": renderLollipop,
   "GroupedBarVega": renderGroupedBarVega,
   "TraSculptorMatrixD3": renderTraSculptorMatrixD3,
+  "BNVARouteMatrixD3": renderBNVARouteMatrixD3,
 };

@@ -5,19 +5,33 @@ import type { ChartRenderFn } from "../renderers/genericChartRenderer";
 export const renderTraSculptorMatrixD3: ChartRenderFn = (container, data, params, d3, containerWidth) => {
   container.innerHTML = "";
   // TraSculptor-style history tree + road-state matrix.
-  // data: { [stateKey]: {
-  //   parent: string | null,
-  //   "optimization improvement (%)": number,
-  //   "cumulative cost ($M)": number,
-  //   modification: string,
-  //   "modification type": string,
-  //   [roadName]: { capacity, "traffic flow", FFTT, "travel time" },
-  //   ...
-  // } }
-  // Column order follows the order state keys appear in data (i.e. the order
-  // given in the grammar's "key" array), not tree depth - sibling branches
-  // (several alternatives off the same parent) still need distinct columns
-  // side by side with the matrix rows below them.
+  //
+  // Expected data shape:
+  // {
+  //   [stateKey]: {
+  //     parent: string | null,
+  //     "optimization improvement (%)": number,
+  //     "cumulative cost ($M)": number,
+  //     modification: string,
+  //     "modification type": string,
+  //     [roadName]: {
+  //       capacity: number,
+  //       "traffic flow": number,
+  //       FFTT: number,
+  //       "travel time": number
+  //     }
+  //   }
+  // }
+  //
+  // Fixes/features in this version:
+  // 1) tree circles align exactly with matrix columns,
+  // 2) matrix cells are taller than wide,
+  // 3) both inner rectangles stay inside each outer cell,
+  // 4) blue/orange backgrounds stay inside each outer cell,
+  // 5) flow > capacity may make the purple rectangle wider than
+  //    the white capacity rectangle, but never outside the cell,
+  // 6) tree nodes are kept away from cost/modification annotations,
+  //    preventing circle/label overlap.
 
   const META_FIELDS = new Set([
     "parent",
@@ -28,33 +42,123 @@ export const renderTraSculptorMatrixD3: ChartRenderFn = (container, data, params
   ]);
 
   const stateKeys = Object.keys(data);
+
   if (stateKeys.length === 0) return;
 
   const props = params ?? {};
-  const rowHeight = props.rowHeight ?? 40;
-  const headerHeight = 34;
-  const treeHeight = props.treeHeight ?? 90;
-  const labelColWidth = props.labelColWidth ?? 120;
-  const improveColor = props.color?.improve ?? props.colors?.improve ?? "#4C72B0";
-  const regressColor = props.color?.regress ?? props.colors?.regress ?? "#DD8452";
-  const neutralColor = "#9ca3af";
-  const capacityDomainMax = props.capacityDomainMax ?? 1.5;
-  const currencySymbol = props.currencySymbol ?? "$";
-  const costSuffix = props.costSuffix ?? "M";
-  const showCost = props.showCost ?? true;
-  const showModificationType = props.showModificationType ?? true;
 
-  // Rows shown: explicit props.roadOrder, else every field across the included
-  // states whose value looks like a road record (a plain object), first-seen.
-  let roadNames = props.roadOrder;
-  if (!Array.isArray(roadNames) || roadNames.length === 0) {
+  // ============================================================
+  // PROPS / LAYOUT
+  // ============================================================
+
+  const rowHeight = props.rowHeight ?? 56;
+
+  const headerHeight =
+    props.headerHeight ?? 38;
+
+  const treeHeight =
+    props.treeHeight ?? 130;
+
+  const labelColWidth =
+    props.labelColWidth ?? 120;
+
+  const requestedCellW =
+    props.cellWidth ?? 34;
+
+  const requestedCellH =
+    props.cellHeight ?? 46;
+
+  const treeTopPadding =
+    props.treeTopPadding ?? 10;
+
+  const treeBottomReserved =
+    props.treeBottomReserved ?? 40;
+
+  const costYOffset =
+    props.costYOffset ?? 28;
+
+  const modTypeYOffset =
+    props.modTypeYOffset ?? 10;
+
+
+  // ============================================================
+  // COLORS
+  // ============================================================
+
+  const improveColor =
+    props.color?.improve ??
+    props.colors?.improve ??
+    "#4C72B0";
+
+  const regressColor =
+    props.color?.regress ??
+    props.colors?.regress ??
+    "#DD8452";
+
+  const neutralColor =
+    "#9ca3af";
+
+  const glyphColor =
+    props.glyphColor ??
+    "#6d5bd0";
+
+
+  // ============================================================
+  // LABEL / DISPLAY OPTIONS
+  // ============================================================
+
+  const currencySymbol =
+    props.currencySymbol ??
+    "$";
+
+  const costSuffix =
+    props.costSuffix ??
+    "M";
+
+  const showCost =
+    props.showCost ??
+    true;
+
+  const showModificationType =
+    props.showModificationType ??
+    true;
+
+
+  // ============================================================
+  // DETERMINE ROAD ROWS
+  // ============================================================
+
+  let roadNames =
+    props.roadOrder;
+
+  if (
+    !Array.isArray(roadNames) ||
+    roadNames.length === 0
+  ) {
     roadNames = [];
-    const seen = new Set();
+
+    const seen =
+      new Set();
+
     stateKeys.forEach((k) => {
-      Object.keys(data[k] ?? {}).forEach((field) => {
-        if (META_FIELDS.has(field)) return;
-        const v = data[k][field];
-        if (v && typeof v === "object" && !seen.has(field)) {
+      Object.keys(
+        data[k] ?? {}
+      ).forEach((field) => {
+        if (
+          META_FIELDS.has(field)
+        ) {
+          return;
+        }
+
+        const value =
+          data[k][field];
+
+        if (
+          value &&
+          typeof value === "object" &&
+          !Array.isArray(value) &&
+          !seen.has(field)
+        ) {
           seen.add(field);
           roadNames.push(field);
         }
@@ -62,282 +166,1283 @@ export const renderTraSculptorMatrixD3: ChartRenderFn = (container, data, params
     });
   }
 
-  const baselineKey =
-    props.baselineKey ?? stateKeys.find((k) => data[k]?.parent == null) ?? stateKeys[0];
 
-  const width = containerWidth || 760;
-  const plotWidth = Math.max(width - labelColWidth - 24, 200);
-  const colWidth = props.colWidth ?? plotWidth / stateKeys.length;
-  const matrixTop = headerHeight + treeHeight;
-  const height = matrixTop + roadNames.length * rowHeight + 20;
+  // ============================================================
+  // BASELINE
+  // ============================================================
+
+  const baselineKey =
+    props.baselineKey ??
+    stateKeys.find(
+      (k) =>
+        data[k]?.parent == null
+    ) ??
+    stateKeys[0];
+
+
+  // ============================================================
+  // SVG SIZE
+  // ============================================================
+
+  const width =
+    containerWidth || 760;
+
+  const plotWidth =
+    Math.max(
+      width -
+        labelColWidth -
+        24,
+      200
+    );
+
+  const colWidth =
+    props.colWidth ??
+    plotWidth /
+      stateKeys.length;
+
+  const matrixTop =
+    headerHeight +
+    treeHeight;
+
+  const height =
+    matrixTop +
+    roadNames.length *
+      rowHeight +
+    24;
 
   const svg = d3
     .select(container)
     .append("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .style("font-family", "Inter, sans-serif");
+    .attr(
+      "width",
+      width
+    )
+    .attr(
+      "height",
+      height
+    )
+    .style(
+      "font-family",
+      "Inter, sans-serif"
+    );
 
-  const xOf = (k) => labelColWidth + stateKeys.indexOf(k) * colWidth;
 
-  // ---- tree layout: cross-axis position via subtree leaf proportions ----
-  const byKey = Object.fromEntries(stateKeys.map((k) => [k, { key: k, children: [] }]));
+  // ============================================================
+  // SHARED COLUMN POSITIONING
+  // ============================================================
+
+  // Left edge of state column.
+  const xOf = (k) =>
+    labelColWidth +
+    stateKeys.indexOf(k) *
+      colWidth;
+
+  // Exact center of state column.
+  //
+  // Tree node,
+  // state header,
+  // cost annotation,
+  // modification annotation,
+  // and matrix cell
+  // all share this x coordinate.
+  const xCenterOf = (k) =>
+    xOf(k) +
+    colWidth / 2;
+
+
+  // ============================================================
+  // B1 — HISTORY TREE
+  // ============================================================
+
+  const byKey =
+    Object.fromEntries(
+      stateKeys.map((k) => [
+        k,
+        {
+          key: k,
+          children: [],
+        },
+      ])
+    );
+
   const roots = [];
+
   stateKeys.forEach((k) => {
-    const parent = data[k]?.parent;
-    if (parent && byKey[parent]) {
-      byKey[parent].children.push(byKey[k]);
+    const parent =
+      data[k]?.parent;
+
+    if (
+      parent &&
+      byKey[parent]
+    ) {
+      byKey[parent]
+        .children
+        .push(byKey[k]);
     } else {
-      roots.push(byKey[k]);
+      roots.push(
+        byKey[k]
+      );
     }
   });
+
+
+  // ============================================================
+  // TREE LAYOUT
+  // ============================================================
 
   function countLeaves(node) {
-    node.leaves = node.children.length === 0
-      ? 1
-      : node.children.reduce((sum, c) => sum + countLeaves(c), 0);
+    node.leaves =
+      node.children.length === 0
+        ? 1
+        : node.children.reduce(
+            (sum, child) =>
+              sum +
+              countLeaves(child),
+            0
+          );
+
     return node.leaves;
   }
-  const totalLeaves = roots.reduce((sum, r) => sum + countLeaves(r), 0) || 1;
 
-  function assignY(node, y0, y1) {
-    node.y = (y0 + y1) / 2;
-    let cursor = y0;
-    node.children.forEach((child) => {
-      const span = (y1 - y0) * (child.leaves / node.leaves);
-      assignY(child, cursor, cursor + span);
-      cursor += span;
-    });
+  const totalLeaves =
+    roots.reduce(
+      (sum, root) =>
+        sum +
+        countLeaves(root),
+      0
+    ) || 1;
+
+
+  // ------------------------------------------------------------
+  // IMPORTANT:
+  // Reserve bottom area of tree for:
+  //
+  // cost
+  // modification type
+  //
+  // This prevents tree nodes from colliding with annotations.
+  // ------------------------------------------------------------
+
+  const treeUsableTop =
+    treeTopPadding;
+
+  const treeUsableBottom =
+    Math.max(
+      treeUsableTop + 20,
+      treeHeight -
+        treeBottomReserved
+    );
+
+  const treeUsableHeight =
+    treeUsableBottom -
+    treeUsableTop;
+
+
+  function assignY(
+    node,
+    y0,
+    y1
+  ) {
+    node.y =
+      (y0 + y1) / 2;
+
+    let cursor =
+      y0;
+
+    node.children.forEach(
+      (child) => {
+        const span =
+          (y1 - y0) *
+          (
+            child.leaves /
+            node.leaves
+          );
+
+        assignY(
+          child,
+          cursor,
+          cursor + span
+        );
+
+        cursor +=
+          span;
+      }
+    );
   }
-  let rootCursor = 10;
-  roots.forEach((r) => {
-    const span = (r.leaves / totalLeaves) * (treeHeight - 20);
-    assignY(r, rootCursor, rootCursor + span);
-    rootCursor += span;
-  });
 
-  const treeG = svg.append("g").attr("transform", `translate(0, ${headerHeight})`);
 
-  // edges
+  let rootCursor =
+    treeUsableTop;
+
+  roots.forEach(
+    (root) => {
+      const span =
+        (
+          root.leaves /
+          totalLeaves
+        ) *
+        treeUsableHeight;
+
+      assignY(
+        root,
+        rootCursor,
+        rootCursor +
+          span
+      );
+
+      rootCursor +=
+        span;
+    }
+  );
+
+
+  const treeG =
+    svg
+      .append("g")
+      .attr(
+        "transform",
+        `translate(0, ${headerHeight})`
+      );
+
+
+  // ============================================================
+  // TREE EDGES
+  // ============================================================
+
   stateKeys.forEach((k) => {
-    const parentKey = data[k]?.parent;
-    if (!parentKey || !byKey[parentKey]) return;
-    const improvement = data[k]?.["optimization improvement (%)"] ?? 0;
-    const stroke = improvement > 0 ? improveColor : improvement < 0 ? regressColor : neutralColor;
+    const parentKey =
+      data[k]?.parent;
+
+    if (
+      !parentKey ||
+      !byKey[parentKey]
+    ) {
+      return;
+    }
+
+    const improvement =
+      data[k]?.[
+        "optimization improvement (%)"
+      ] ?? 0;
+
+    const stroke =
+      improvement > 0
+        ? improveColor
+        : improvement < 0
+          ? regressColor
+          : neutralColor;
+
     treeG
       .append("line")
-      .attr("x1", xOf(parentKey) + 8)
-      .attr("y1", byKey[parentKey].y)
-      .attr("x2", xOf(k) + 8)
-      .attr("y2", byKey[k].y)
-      .attr("stroke", stroke)
-      .attr("stroke-width", 2);
+      .attr(
+        "x1",
+        xCenterOf(parentKey)
+      )
+      .attr(
+        "y1",
+        byKey[parentKey].y
+      )
+      .attr(
+        "x2",
+        xCenterOf(k)
+      )
+      .attr(
+        "y2",
+        byKey[k].y
+      )
+      .attr(
+        "stroke",
+        stroke
+      )
+      .attr(
+        "stroke-width",
+        2
+      );
   });
 
-  // nodes
+
+  // ============================================================
+  // TREE NODES
+  // ============================================================
+
   stateKeys.forEach((k) => {
-    const improvement = data[k]?.["optimization improvement (%)"] ?? 0;
-    const isBaseline = k === baselineKey;
-    const tone = improvement > 0 ? improveColor : improvement < 0 ? regressColor : neutralColor;
+    const improvement =
+      data[k]?.[
+        "optimization improvement (%)"
+      ] ?? 0;
+
+    const isBaseline =
+      k === baselineKey;
+
+    const tone =
+      improvement > 0
+        ? improveColor
+        : improvement < 0
+          ? regressColor
+          : neutralColor;
+
     treeG
       .append("circle")
-      .attr("cx", xOf(k) + 8)
-      .attr("cy", byKey[k].y)
-      .attr("r", 8)
-      .attr("fill", isBaseline ? "#fff" : tone)
-      .attr("fill-opacity", isBaseline ? 1 : 0.85)
-      .attr("stroke", isBaseline ? "#9ca3af" : tone)
-      .attr("stroke-width", 2)
-      .attr("stroke-dasharray", isBaseline ? "3,2" : null)
+      .attr(
+        "cx",
+        xCenterOf(k)
+      )
+      .attr(
+        "cy",
+        byKey[k].y
+      )
+      .attr(
+        "r",
+        8
+      )
+      .attr(
+        "fill",
+        isBaseline
+          ? "#ffffff"
+          : tone
+      )
+      .attr(
+        "fill-opacity",
+        isBaseline
+          ? 1
+          : 0.85
+      )
+      .attr(
+        "stroke",
+        isBaseline
+          ? neutralColor
+          : tone
+      )
+      .attr(
+        "stroke-width",
+        2
+      )
+      .attr(
+        "stroke-dasharray",
+        isBaseline
+          ? "3,2"
+          : null
+      )
       .append("title")
-      .text(isBaseline ? `${k} (baseline)` : `${k}: ${improvement > 0 ? "+" : ""}${improvement}%`);
+      .text(
+        isBaseline
+          ? `${k} (baseline)`
+          : `${k}: ${
+              improvement > 0
+                ? "+"
+                : ""
+            }${improvement}%`
+      );
   });
 
-  // ---- column headers ----
+
+  // ============================================================
+  // B1 — STATE HEADERS / ANNOTATIONS
+  // ============================================================
+
   const MOD_TYPE_COLOR = {
     none: "#9ca3af",
-    "two-way road": "#2563eb",
-    "one-way road": "#2563eb",
-    "two-way tunnel": "#7c3aed",
-    "one-way tunnel": "#7c3aed",
+
+    "two-way road":
+      "#2563eb",
+
+    "one-way road":
+      "#2563eb",
+
+    "two-way tunnel":
+      "#7c3aed",
+
+    "one-way tunnel":
+      "#7c3aed",
   };
 
+
   stateKeys.forEach((k) => {
-    const state = data[k] ?? {};
-    const x = xOf(k);
-    const isBaseline = k === baselineKey;
-    const improvement = state["optimization improvement (%)"] ?? 0;
-    const cost = state["cumulative cost ($M)"] ?? 0;
-    const modType = state["modification type"] ?? "none";
+    const state =
+      data[k] ?? {};
 
-    const header = svg.append("g").attr("transform", `translate(${x}, 0)`);
+    const centerX =
+      xCenterOf(k);
 
-    header
+    const isBaseline =
+      k === baselineKey;
+
+    const improvement =
+      state[
+        "optimization improvement (%)"
+      ] ?? 0;
+
+    const cost =
+      state[
+        "cumulative cost ($M)"
+      ] ?? 0;
+
+    const modType =
+      state[
+        "modification type"
+      ] ?? "none";
+
+
+    // ----------------------------------------------------------
+    // Scenario name
+    // ----------------------------------------------------------
+
+    svg
       .append("text")
-      .attr("x", colWidth / 2)
-      .attr("y", 14)
-      .attr("text-anchor", "middle")
-      .style("font-weight", 700)
-      .style("font-size", "13px")
+      .attr(
+        "x",
+        centerX
+      )
+      .attr(
+        "y",
+        14
+      )
+      .attr(
+        "text-anchor",
+        "middle"
+      )
+      .style(
+        "font-weight",
+        700
+      )
+      .style(
+        "font-size",
+        "13px"
+      )
       .text(k);
 
-    header
-      .append("text")
-      .attr("x", colWidth / 2)
-      .attr("y", 28)
-      .attr("text-anchor", "middle")
-      .style("font-size", "11px")
-      .style("font-weight", 600)
-      .attr("fill", isBaseline ? "#9ca3af" : improvement > 0 ? improveColor : improvement < 0 ? regressColor : "#6b7280")
-      .text(isBaseline ? "baseline" : `${improvement > 0 ? "+" : ""}${improvement}%`);
 
-    if (showCost && !isBaseline) {
+    // ----------------------------------------------------------
+    // Improvement percentage
+    // ----------------------------------------------------------
+
+    svg
+      .append("text")
+      .attr(
+        "x",
+        centerX
+      )
+      .attr(
+        "y",
+        29
+      )
+      .attr(
+        "text-anchor",
+        "middle"
+      )
+      .style(
+        "font-size",
+        "11px"
+      )
+      .style(
+        "font-weight",
+        600
+      )
+      .attr(
+        "fill",
+
+        isBaseline
+          ? neutralColor
+          : improvement > 0
+            ? improveColor
+            : improvement < 0
+              ? regressColor
+              : "#6b7280"
+      )
+      .text(
+        isBaseline
+          ? "baseline"
+          : `${
+              improvement > 0
+                ? "+"
+                : ""
+            }${improvement}%`
+      );
+
+
+    // ----------------------------------------------------------
+    // Cost annotation
+    //
+    // Lives in reserved space beneath tree.
+    // ----------------------------------------------------------
+
+    if (
+      showCost &&
+      !isBaseline
+    ) {
       svg
         .append("text")
-        .attr("x", x + colWidth / 2)
-        .attr("y", matrixTop - 22)
-        .attr("text-anchor", "middle")
-        .style("font-size", "11px")
-        .attr("fill", "#374151")
-        .text(`${currencySymbol}${cost}${costSuffix}`);
+        .attr(
+          "x",
+          centerX
+        )
+        .attr(
+          "y",
+          matrixTop -
+            costYOffset
+        )
+        .attr(
+          "text-anchor",
+          "middle"
+        )
+        .style(
+          "font-size",
+          "11px"
+        )
+        .attr(
+          "fill",
+          "#374151"
+        )
+        .text(
+          `${currencySymbol}${cost}${costSuffix}`
+        );
     }
 
-    if (showModificationType) {
-      const badge = svg
-        .append("g")
-        .attr("transform", `translate(${x + colWidth / 2 - 28}, ${matrixTop - 8})`);
+
+    // ----------------------------------------------------------
+    // Modification type
+    // ----------------------------------------------------------
+
+    if (
+      showModificationType &&
+      !isBaseline
+    ) {
+      const badgeY =
+        matrixTop -
+        modTypeYOffset;
+
+      const badge =
+        svg
+          .append("g")
+          .attr(
+            "transform",
+            `translate(${centerX}, ${badgeY})`
+          );
+
       badge
         .append("circle")
-        .attr("cx", 0)
-        .attr("cy", -3)
-        .attr("r", 3.5)
-        .attr("fill", MOD_TYPE_COLOR[modType] ?? "#9ca3af");
+        .attr(
+          "cx",
+          -25
+        )
+        .attr(
+          "cy",
+          -3
+        )
+        .attr(
+          "r",
+          3.5
+        )
+        .attr(
+          "fill",
+          MOD_TYPE_COLOR[
+            modType
+          ] ??
+            neutralColor
+        );
+
       badge
         .append("text")
-        .attr("x", 8)
-        .attr("y", 0)
-        .style("font-size", "9.5px")
-        .attr("fill", "#6b7280")
-        .text(modType);
+        .attr(
+          "x",
+          -17
+        )
+        .attr(
+          "y",
+          0
+        )
+        .style(
+          "font-size",
+          "9.5px"
+        )
+        .attr(
+          "fill",
+          "#6b7280"
+        )
+        .text(
+          modType
+        );
     }
   });
 
-  // ---- matrix ----
-  // Normalize cell background darkness by the largest observed relative
-  // travel-time change across the whole matrix, mirroring the paper's "darkest
-  // = max change, rest interpolated" rule (rather than normalizing each cell
-  // only against its own road, which would make an unremarkable cell on a
-  // volatile road look as saturated as the single worst cell overall).
+
+  // ============================================================
+  // B2 — ROAD-STATE MATRIX
+  // ============================================================
+
+  // Determine largest relative travel-time difference
+  // from baseline.
+  //
+  // Used to determine background darkness.
   let maxAbsDeltaFrac = 0;
+
   stateKeys.forEach((k) => {
-    if (k === baselineKey) return;
-    roadNames.forEach((road) => {
-      const cur = data[k]?.[road]?.["travel time"];
-      const base = data[baselineKey]?.[road]?.["travel time"];
-      if (cur == null || !base) return;
-      maxAbsDeltaFrac = Math.max(maxAbsDeltaFrac, Math.abs(cur - base) / base);
-    });
+    if (
+      k === baselineKey
+    ) {
+      return;
+    }
+
+    roadNames.forEach(
+      (road) => {
+        const current =
+          data[k]?.[
+            road
+          ]?.[
+            "travel time"
+          ];
+
+        const baseline =
+          data[
+            baselineKey
+          ]?.[
+            road
+          ]?.[
+            "travel time"
+          ];
+
+        if (
+          current == null ||
+          baseline == null ||
+          baseline === 0
+        ) {
+          return;
+        }
+
+        const frac =
+          Math.abs(
+            current -
+            baseline
+          ) /
+          baseline;
+
+        maxAbsDeltaFrac =
+          Math.max(
+            maxAbsDeltaFrac,
+            frac
+          );
+      }
+    );
   });
 
-  const capacityBarScale = d3
-    .scaleLinear()
-    .domain([0, 1, capacityDomainMax])
-    .clamp(true);
 
-  const matrixG = svg.append("g").attr("transform", `translate(0, ${matrixTop})`);
+  const matrixG =
+    svg
+      .append("g")
+      .attr(
+        "transform",
+        `translate(0, ${matrixTop})`
+      );
 
-  roadNames.forEach((road, i) => {
-    const rowY = i * rowHeight;
 
-    matrixG
-      .append("text")
-      .attr("x", labelColWidth - 12)
-      .attr("y", rowY + rowHeight / 2 + 4)
-      .attr("text-anchor", "end")
-      .style("font-size", "11px")
-      .style("font-weight", 600)
-      .attr("fill", "#374151")
-      .text(road);
+  // ============================================================
+  // MATRIX ROWS
+  // ============================================================
 
-    const baselineTime = data[baselineKey]?.[road]?.["travel time"];
+  roadNames.forEach(
+    (
+      road,
+      rowIndex
+    ) => {
 
-    stateKeys.forEach((k) => {
-      const metrics = data[k]?.[road];
-      const x = xOf(k);
-      const cell = matrixG.append("g").attr("transform", `translate(${x}, ${rowY})`);
-      const cellW = colWidth - 12;
-      const cellH = rowHeight - 10;
+      const rowY =
+        rowIndex *
+        rowHeight;
 
-      if (!metrics) {
-        cell
-          .append("rect")
-          .attr("x", 6)
-          .attr("y", 5)
-          .attr("width", cellW)
-          .attr("height", cellH)
-          .attr("fill", "none")
-          .attr("stroke", "#f1f5f9")
-          .attr("stroke-dasharray", "2,2");
-        return;
-      }
 
-      const capacity = metrics.capacity;
-      const flow = metrics["traffic flow"];
-      const fftt = metrics.FFTT;
-      const time = metrics["travel time"];
+      // --------------------------------------------------------
+      // Road label
+      // --------------------------------------------------------
 
-      let bg = "#ffffff";
-      if (baselineTime != null && k !== baselineKey) {
-        const delta = time - baselineTime; // negative = faster = improved
-        const magnitude = maxAbsDeltaFrac > 0 ? Math.abs(delta) / baselineTime / maxAbsDeltaFrac : 0;
-        const lightness = 92 - Math.min(magnitude, 1) * 22;
-        bg = delta < 0 ? `hsl(215, 60%, ${lightness}%)` : delta > 0 ? `hsl(28, 75%, ${lightness}%)` : "#ffffff";
-      }
-
-      const capRefW = cellW * 0.62;
-      capacityBarScale.range([0, capRefW, cellW - 4]);
-      const flowRatio = capacity ? flow / capacity : 0;
-      const barW = Math.max(capacityBarScale(flowRatio), 1);
-
-      const timeRatio = fftt && time ? Math.max(0, Math.min(fftt / time, 1)) : 0;
-      const capBoxY = 5 + cellH * 0.12;
-      const capBoxH = cellH * 0.76;
-      const barH = Math.max(capBoxH * timeRatio, 1);
-
-      cell
-        .append("rect")
-        .attr("x", 6)
-        .attr("y", 5)
-        .attr("width", cellW)
-        .attr("height", cellH)
-        .attr("fill", bg)
-        .attr("rx", 3);
-
-      // capacity reference box (100% mark)
-      cell
-        .append("rect")
-        .attr("x", 6 + (cellW - capRefW) / 2)
-        .attr("y", capBoxY)
-        .attr("width", capRefW)
-        .attr("height", capBoxH)
-        .attr("fill", "#ffffff")
-        .attr("stroke", "#d1d5db");
-
-      // actual volume (width) / closeness to FFTT (height)
-      cell
-        .append("rect")
-        .attr("x", 6 + (cellW - capRefW) / 2)
-        .attr("y", capBoxY + (capBoxH - barH))
-        .attr("width", barW)
-        .attr("height", barH)
-        .attr("fill", "#6d5bd0")
-        .attr("fill-opacity", 0.85);
-
-      cell
-        .append("title")
+      matrixG
+        .append("text")
+        .attr(
+          "x",
+          labelColWidth -
+            12
+        )
+        .attr(
+          "y",
+          rowY +
+            rowHeight / 2 +
+            4
+        )
+        .attr(
+          "text-anchor",
+          "end"
+        )
+        .style(
+          "font-size",
+          "11px"
+        )
+        .style(
+          "font-weight",
+          600
+        )
+        .attr(
+          "fill",
+          "#374151"
+        )
         .text(
-          `${road} — ${k}\ncapacity: ${capacity}\ntraffic flow: ${flow} (${capacity ? (flowRatio * 100).toFixed(0) : "?"}% of capacity)\nFFTT: ${fftt}\ntravel time: ${time}`,
+          road
         );
-    });
-  });
+
+
+      const baselineTime =
+        data[
+          baselineKey
+        ]?.[
+          road
+        ]?.[
+          "travel time"
+        ];
+
+
+      // ========================================================
+      // EACH STATE = ONE MATRIX CELL
+      // ========================================================
+
+      stateKeys.forEach(
+        (
+          k,
+          columnIndex
+        ) => {
+
+          const metrics =
+            data[k]?.[
+              road
+            ];
+
+          const centerX =
+            xCenterOf(k);
+
+
+          // ----------------------------------------------------
+          // Outer cell geometry
+          // ----------------------------------------------------
+
+          const cellW =
+            Math.min(
+              requestedCellW,
+              Math.max(
+                colWidth -
+                  12,
+                8
+              )
+            );
+
+          const cellH =
+            Math.min(
+              requestedCellH,
+              Math.max(
+                rowHeight -
+                  8,
+                8
+              )
+            );
+
+
+          // Matrix cell is centered exactly underneath
+          // its corresponding history-tree circle.
+          const cellX =
+            centerX -
+            cellW / 2;
+
+          const cellY =
+            rowY +
+            (
+              rowHeight -
+              cellH
+            ) /
+            2;
+
+
+          // ----------------------------------------------------
+          // Missing road/state
+          // ----------------------------------------------------
+
+          if (!metrics) {
+            matrixG
+              .append("rect")
+              .attr(
+                "x",
+                cellX
+              )
+              .attr(
+                "y",
+                cellY
+              )
+              .attr(
+                "width",
+                cellW
+              )
+              .attr(
+                "height",
+                cellH
+              )
+              .attr(
+                "fill",
+                "none"
+              )
+              .attr(
+                "stroke",
+                "#e5e7eb"
+              )
+              .attr(
+                "stroke-dasharray",
+                "2,2"
+              )
+              .attr(
+                "rx",
+                2
+              );
+
+            return;
+          }
+
+
+          // ----------------------------------------------------
+          // Road metrics
+          // ----------------------------------------------------
+
+          const capacity =
+            metrics.capacity;
+
+          const flow =
+            metrics[
+              "traffic flow"
+            ];
+
+          const fftt =
+            metrics.FFTT;
+
+          const time =
+            metrics[
+              "travel time"
+            ];
+
+
+          // ====================================================
+          // BACKGROUND COLOR
+          // ====================================================
+
+          let bg =
+            "#ffffff";
+
+          if (
+            baselineTime != null &&
+            baselineTime !== 0 &&
+            k !== baselineKey
+          ) {
+            const delta =
+              time -
+              baselineTime;
+
+            const magnitude =
+              maxAbsDeltaFrac >
+              0
+                ? Math.abs(
+                    delta
+                  ) /
+                  baselineTime /
+                  maxAbsDeltaFrac
+                : 0;
+
+            const lightness =
+              94 -
+              Math.min(
+                magnitude,
+                1
+              ) *
+                24;
+
+            bg =
+              delta < 0
+                ? `hsl(215, 60%, ${lightness}%)`
+                : delta > 0
+                  ? `hsl(28, 75%, ${lightness}%)`
+                  : "#ffffff";
+          }
+
+
+          // ====================================================
+          // OUTER MATRIX CELL
+          //
+          // Blue/orange exists ONLY inside this rectangle.
+          // ====================================================
+
+          matrixG
+            .append("rect")
+            .attr(
+              "x",
+              cellX
+            )
+            .attr(
+              "y",
+              cellY
+            )
+            .attr(
+              "width",
+              cellW
+            )
+            .attr(
+              "height",
+              cellH
+            )
+            .attr(
+              "fill",
+              bg
+            )
+            .attr(
+              "stroke",
+              "#e5e7eb"
+            )
+            .attr(
+              "stroke-width",
+              0.8
+            )
+            .attr(
+              "rx",
+              2
+            );
+
+
+          // ====================================================
+          // SAFE INNER AREA
+          // ====================================================
+
+          const outerPadX =
+            props.cellPaddingX ??
+            4;
+
+          const outerPadY =
+            props.cellPaddingY ??
+            4;
+
+
+          const innerX =
+            cellX +
+            outerPadX;
+
+          const innerY =
+            cellY +
+            outerPadY;
+
+          const innerW =
+            Math.max(
+              cellW -
+                outerPadX *
+                  2,
+              1
+            );
+
+          const innerH =
+            Math.max(
+              cellH -
+                outerPadY *
+                  2,
+              1
+            );
+
+
+          // ====================================================
+          // CLIPPING REGION
+          //
+          // Absolute safeguard against any inner glyph overflow.
+          // ====================================================
+
+          const safeRoadId =
+            String(
+              road
+            ).replace(
+              /[^a-zA-Z0-9_-]/g,
+              "_"
+            );
+
+          const safeStateId =
+            String(
+              k
+            ).replace(
+              /[^a-zA-Z0-9_-]/g,
+              "_"
+            );
+
+          const clipId =
+            `trasculptor-cell-${rowIndex}-${columnIndex}-${safeRoadId}-${safeStateId}`;
+
+
+          const defs =
+            svg
+              .select(
+                "defs"
+              )
+              .empty()
+              ? svg.append(
+                  "defs"
+                )
+              : svg.select(
+                  "defs"
+                );
+
+
+          defs
+            .append(
+              "clipPath"
+            )
+            .attr(
+              "id",
+              clipId
+            )
+            .append(
+              "rect"
+            )
+            .attr(
+              "x",
+              innerX
+            )
+            .attr(
+              "y",
+              innerY
+            )
+            .attr(
+              "width",
+              innerW
+            )
+            .attr(
+              "height",
+              innerH
+            );
+
+
+          const glyphG =
+            matrixG
+              .append("g")
+              .attr(
+                "clip-path",
+                `url(#${clipId})`
+              );
+
+
+          // ====================================================
+          // INNER RECTANGLE #1
+          //
+          // Capacity reference box
+          // ====================================================
+
+          const capBoxW =
+            innerW *
+            0.62;
+
+          const capBoxH =
+            innerH *
+            0.82;
+
+          const capBoxX =
+            innerX +
+            (
+              innerW -
+              capBoxW
+            ) /
+            2;
+
+          const capBoxY =
+            innerY +
+            (
+              innerH -
+              capBoxH
+            ) /
+            2;
+
+
+          glyphG
+            .append("rect")
+            .attr(
+              "x",
+              capBoxX
+            )
+            .attr(
+              "y",
+              capBoxY
+            )
+            .attr(
+              "width",
+              capBoxW
+            )
+            .attr(
+              "height",
+              capBoxH
+            )
+            .attr(
+              "fill",
+              "#ffffff"
+            )
+            .attr(
+              "stroke",
+              "#cbd5e1"
+            )
+            .attr(
+              "stroke-width",
+              1
+            );
+
+
+          // ====================================================
+          // INNER RECTANGLE #2
+          //
+          // Actual road state
+          //
+          // width  = traffic flow / capacity
+          // height = FFTT / actual travel time
+          // ====================================================
+
+          const flowRatio =
+            capacity &&
+            Number.isFinite(
+              flow
+            )
+              ? flow /
+                capacity
+              : 0;
+
+
+          const timeRatio =
+            fftt &&
+            time &&
+            Number.isFinite(
+              fftt
+            ) &&
+            Number.isFinite(
+              time
+            )
+              ? Math.max(
+                  0,
+                  Math.min(
+                    fftt /
+                      time,
+                    1
+                  )
+                )
+              : 0;
+
+
+          // ----------------------------------------------------
+          // Width
+          //
+          // ratio = 1
+          // purple width == white capacity width
+          //
+          // ratio > 1
+          // purple becomes wider, indicating congestion
+          //
+          // never exceeds innerW
+          // ----------------------------------------------------
+
+          const actualW =
+            Math.max(
+              1,
+              Math.min(
+                capBoxW *
+                  Math.max(
+                    flowRatio,
+                    0
+                  ),
+                innerW
+              )
+            );
+
+
+          // ----------------------------------------------------
+          // Height
+          //
+          // Closer travel time is to FFTT,
+          // taller the rectangle.
+          // ----------------------------------------------------
+
+          const actualH =
+            Math.max(
+              1,
+              Math.min(
+                capBoxH *
+                  timeRatio,
+                capBoxH
+              )
+            );
+
+
+          // Center actual flow rectangle horizontally.
+          const actualX =
+            innerX +
+            (
+              innerW -
+              actualW
+            ) /
+            2;
+
+
+          // Bottom-align it with capacity reference.
+          const actualY =
+            capBoxY +
+            capBoxH -
+            actualH;
+
+
+          glyphG
+            .append("rect")
+            .attr(
+              "x",
+              actualX
+            )
+            .attr(
+              "y",
+              actualY
+            )
+            .attr(
+              "width",
+              actualW
+            )
+            .attr(
+              "height",
+              actualH
+            )
+            .attr(
+              "fill",
+              glyphColor
+            )
+            .attr(
+              "fill-opacity",
+              0.88
+            );
+
+
+          // ====================================================
+          // TOOLTIP
+          // ====================================================
+
+          const tooltip =
+            `${road} — ${k}\n` +
+            `capacity: ${capacity}\n` +
+            `traffic flow: ${flow} ` +
+            `(${
+              capacity
+                ? (
+                    flowRatio *
+                    100
+                  ).toFixed(
+                    0
+                  )
+                : "?"
+            }% of capacity)\n` +
+            `FFTT: ${fftt}\n` +
+            `travel time: ${time}`;
+
+
+          glyphG
+            .append("title")
+            .text(
+              tooltip
+            );
+        }
+      );
+    }
+  );
 };

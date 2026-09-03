@@ -17,6 +17,11 @@ export type ChartTypeSummary = {
 
 export type ChartTypeRecord = ChartTypeSummary & {
   code: string;
+  // The "Example usage"/"Sample data" JSON this chart was last published
+  // with (see pages/ChartStudioPage.tsx) - absent for a chart published
+  // before these were persisted.
+  exampleUsage?: unknown;
+  sampleData?: unknown;
 };
 
 export async function listChartTypes(
@@ -55,6 +60,8 @@ export async function publishChartType(
     description: string;
     code: string;
     engine: ChartEngine;
+    exampleUsage: unknown;
+    sampleData: unknown;
   },
 ): Promise<ChartTypeRecord> {
   const res = await fetch(appUrl("/api/chart-types"), {
