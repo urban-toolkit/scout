@@ -31,19 +31,37 @@ import {
   parseAgentReply,
   validateAction,
 } from "../../agents/widgetAgent";
+import {
+  applyAgentAction as applyDataAgentAction,
+  buildSystemPrompt as buildDataAgentSystemPrompt,
+  collectPyCodeNodeSummaries,
+  parseAgentReply as parseDataAgentReply,
+  validateAction as validateDataAgentAction,
+} from "../../agents/dataAgent";
+import {
+  applyAgentAction as applyNodeAgentAction,
+  buildSystemPrompt as buildNodeAgentSystemPrompt,
+  collectNodeSummaries,
+  parseAgentReply as parseNodeAgentReply,
+  validateAction as validateNodeAgentAction,
+} from "../../agents/nodeAgent";
 
 const PANEL_WIDTH = 400;
 
-type AgentMode = "general" | "widget";
+type AgentMode = "general" | "widget" | "data" | "node";
 
 const AGENT_LABELS: Record<AgentMode, string> = {
   general: "General Chat",
   widget: "Widget Agent",
+  data: "Data Agent",
+  node: "Node Agent",
 };
 
 const AGENT_EMPTY_HINTS: Record<AgentMode, string> = {
   general: "Ask me anything.",
   widget: "Tell me which widget to change, e.g. “set season to winter”.",
+  data: "Tell me what Python code to write, e.g. “in Node A, load the CSV and print its columns”.",
+  node: "Tell me what node to add or rename, e.g. “add a data layer node named City Buildings”.",
 };
 
 export default function ChatWidget() {
@@ -126,6 +144,63 @@ export default function ChatWidget() {
     setMessages((prev) => [...prev, { role: "assistant", content }]);
   };
 
+  const sendDataAgentMessage = async (nextMessages: ChatMessage[]) => {
+    const pyNodes = collectPyCodeNodeSummaries(rf.getNodes());
+    if (!pyNodes.length) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "There are no Code nodes on the canvas right now, so there's nothing I can write to.",
+        },
+      ]);
+      return;
+    }
+
+    const raw = await sendChatMessage([
+      { role: "system", content: buildDataAgentSystemPrompt(pyNodes) },
+      ...nextMessages.filter((m) => m.role !== "system"),
+    ]);
+    const reply = parseDataAgentReply(raw);
+    const validated = validateDataAgentAction(reply.action, pyNodes);
+
+    let content = reply.message;
+    if (reply.action && !validated) {
+      content +=
+        "\n\n(That didn't name a Code node actually on the canvas, so nothing changed.)";
+    } else if (validated) {
+      applyDataAgentAction(validated, rf);
+      content += "\n\n(Wrote the code and ran the node.)";
+    }
+
+    setMessages((prev) => [...prev, { role: "assistant", content }]);
+  };
+
+  const sendNodeAgentMessage = async (nextMessages: ChatMessage[]) => {
+    // Unlike the Widget/Data agents, there's no "nothing to act on" bail-out
+    // here - adding a node is always possible even on an empty canvas.
+    const nodes = collectNodeSummaries(rf.getNodes());
+
+    const raw = await sendChatMessage([
+      { role: "system", content: buildNodeAgentSystemPrompt(nodes) },
+      ...nextMessages.filter((m) => m.role !== "system"),
+    ]);
+    const reply = parseNodeAgentReply(raw);
+    const validated = validateNodeAgentAction(reply.action, nodes);
+
+    let content = reply.message;
+    if (reply.action && !validated) {
+      content +=
+        "\n\n(That didn't name a valid node kind, or a node actually on the canvas, so nothing changed.)";
+    } else if (validated) {
+      applyNodeAgentAction(validated, rf);
+      content += validated.kind === "add" ? "\n\n(Added the node.)" : "\n\n(Renamed the node.)";
+    }
+
+    setMessages((prev) => [...prev, { role: "assistant", content }]);
+  };
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text || sending) return;
@@ -141,6 +216,10 @@ export default function ChatWidget() {
     try {
       if (agentMode === "widget") {
         await sendWidgetAgentMessage(nextMessages);
+      } else if (agentMode === "data") {
+        await sendDataAgentMessage(nextMessages);
+      } else if (agentMode === "node") {
+        await sendNodeAgentMessage(nextMessages);
       } else {
         await sendGeneralMessage(nextMessages);
       }
@@ -224,10 +303,18 @@ export default function ChatWidget() {
               ))}
             </Select>
             <Box>
-              <IconButton size="small" onClick={() => setSettingsOpen(true)} aria-label="AI settings">
+              <IconButton
+                size="small"
+                onClick={() => setSettingsOpen(true)}
+                aria-label="AI settings"
+              >
                 <SettingsIcon fontSize="small" />
               </IconButton>
-              <IconButton size="small" onClick={() => setOpen(false)} aria-label="Close chat">
+              <IconButton
+                size="small"
+                onClick={() => setOpen(false)}
+                aria-label="Close chat"
+              >
                 <CloseIcon fontSize="small" />
               </IconButton>
             </Box>
@@ -251,11 +338,15 @@ export default function ChatWidget() {
                   onClick={() => setSettingsOpen(true)}
                   sx={{ alignSelf: "center" }}
                 >
-                  Open AI Settings
+                  AI Settings
                 </Button>
               </Stack>
             ) : messages.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ pt: 2, textAlign: "center" }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ pt: 2, textAlign: "center" }}
+              >
                 {AGENT_EMPTY_HINTS[agentMode]}
               </Typography>
             ) : (
@@ -266,7 +357,10 @@ export default function ChatWidget() {
                     sx={{
                       alignSelf: m.role === "user" ? "flex-end" : "flex-start",
                       bgcolor: m.role === "user" ? "primary.main" : "#f1f5f9",
-                      color: m.role === "user" ? "primary.contrastText" : "text.primary",
+                      color:
+                        m.role === "user"
+                          ? "primary.contrastText"
+                          : "text.primary",
                       borderRadius: 2,
                       px: 1.5,
                       py: 0.75,
@@ -286,7 +380,11 @@ export default function ChatWidget() {
               </Stack>
             )}
             {error && (
-              <Typography variant="caption" color="error" sx={{ display: "block", mt: 1 }}>
+              <Typography
+                variant="caption"
+                color="error"
+                sx={{ display: "block", mt: 1 }}
+              >
                 {error}
               </Typography>
             )}
@@ -308,7 +406,11 @@ export default function ChatWidget() {
                 configured
                   ? agentMode === "widget"
                     ? "Tell the agent what to change…"
-                    : "Message the AI…"
+                    : agentMode === "data"
+                      ? "Tell the agent what code to write…"
+                      : agentMode === "node"
+                        ? "Tell the agent what node to add or rename…"
+                        : "Message the AI…"
                   : "Set up AI to chat"
               }
               value={input}

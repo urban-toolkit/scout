@@ -761,6 +761,12 @@ def publish_chart_type():
     description = data.get("description", "")
     code = data.get("code", "")
     engine = data.get("engine", "d3")
+    # The "Example usage"/"Sample data" JSON Chart Studio's Preview uses -
+    # persisted so republishing doesn't lose an author's edits to them, and
+    # so loading this chart back into Studio (or eventually Chart Gallery)
+    # can show the same worked example again instead of a guessed one.
+    example_usage = data.get("exampleUsage")
+    sample_data = data.get("sampleData")
 
     if not display_name:
         return jsonify({"error": "Chart name must be non-empty"}), 400
@@ -811,6 +817,8 @@ def publish_chart_type():
         "description": description,
         "code": code,
         "engine": engine,
+        "exampleUsage": example_usage,
+        "sampleData": sample_data,
         "componentFile": component_file,
         "componentName": render_fn_name,
         "createdAt": datetime.now(timezone.utc).isoformat(),

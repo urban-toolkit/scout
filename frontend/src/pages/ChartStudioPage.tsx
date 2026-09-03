@@ -160,17 +160,23 @@ export default function ChartStudioPage({
         setVegaSpec(JSON.parse(record.code));
         setD3Code(D3_STARTER_CODE);
       }
-      // A chart that's also one of Chart Gallery's built-ins gets its exact
-      // sample data + example usage (see charts/galleryExamples.ts) - same
-      // documented example in both places, props and all, rather than
-      // Studio re-deriving its own guess. A genuinely custom chart (not in
-      // the gallery) falls back to guessing a working example from the
-      // current Sample data's keys/first metric column, since the built-in
+      // Prefer whatever this chart was actually last published with (see
+      // server.py's publish_chart_type) - that's the author's own edits,
+      // and republishing must round-trip them rather than silently
+      // reverting to a guess. Only a chart published before this was
+      // persisted (or one that's never been published, e.g. a fresh
+      // built-in) falls back further: a Chart Gallery built-in gets its
+      // hand-authored example (charts/galleryExamples.ts), and anything
+      // else falls back to guessing a working example from the current
+      // Sample data's keys/first metric column, since the built-in
       // single-metric charts (bar/pie/table/lollipop) read params.axisLabel
       // to pick which sample-data column to plot, and leaving that blank
       // means they silently render nothing until filled in by hand.
       const galleryExample = getGalleryExample(record.name);
-      if (galleryExample) {
+      if (record.sampleData !== undefined && record.exampleUsage !== undefined) {
+        setSampleData(record.sampleData);
+        setSampleParams(record.exampleUsage);
+      } else if (galleryExample) {
         setSampleData(galleryExample.data);
         setSampleParams(galleryExample.exampleUsage);
       } else {
@@ -267,6 +273,8 @@ export default function ChartStudioPage({
         description: description.trim(),
         code,
         engine,
+        exampleUsage: sampleParams,
+        sampleData,
       });
       setPublishSuccessName(published.displayName);
       setSelectedExisting(published.name);

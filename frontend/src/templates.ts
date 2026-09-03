@@ -141,6 +141,21 @@ export const TEMPLATE_LABELS: Record<TemplateKey, string> = {
   comparison: "Comparison",
 };
 
+// The canvas node type (see ./nodes) each template creates - shared between
+// App.tsx (adding via the NodeRail/canvas drop) and any agent that creates
+// nodes itself (see agents/nodeAgent.ts), so both use the exact same
+// mapping rather than two copies that can drift. Lives here rather than in
+// App.tsx so a leaf module like nodeAgent.ts can import it without a
+// circular dependency back on App.tsx.
+export const TEMPLATE_NODE_TYPE: Record<TemplateKey, string> = {
+  data_layer: "dataLayerNode",
+  join: "joinNode",
+  view: "viewNode",
+  interaction: "interactionNode",
+  widget: "widgetNode",
+  comparison: "comparisonNode",
+};
+
 // -------------------------------------------
 // Conversion to raster:
 // -------------------------------------------

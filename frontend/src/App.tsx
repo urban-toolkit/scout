@@ -16,7 +16,7 @@ import { nodeTypes } from "./nodes"; // <-- { dataLayerNode, viewNode, ... }
 import type { Node, Connection, Edge } from "@xyflow/react";
 import type { BaseNodeData } from "./node-components/BaseGrammar";
 
-import { TEMPLATES, TemplateKey } from "./templates";
+import { TEMPLATES, TEMPLATE_NODE_TYPE, TemplateKey } from "./templates";
 import "./App.css";
 import type { PyCodeEditorNodeData } from "./nodes/computation/PyCodeEditorNode";
 
@@ -32,6 +32,7 @@ import ChartStudioPage from "./pages/ChartStudioPage";
 import ChartGalleryPage from "./pages/ChartGalleryPage";
 import ChartExamplePage from "./pages/ChartExamplePage";
 import { pushWidgetOutputToConnectedCode } from "./utils/widgetPropagation";
+import { pushInteractionToView as pushInteractionToViewShared } from "./utils/interactionPropagation";
 import ArrowAboveEdge from "./edges/ArrowAboveEdge";
 
 // Custom edge: draws the line behind nodes but the arrowhead above them -
@@ -153,51 +154,9 @@ function Canvas() {
   // }, [getNodes, getEdges]);
 
   const pushInteractionToView = useCallback(
-    (srcId: string, trgId?: string): boolean => {
-      const src = getNode(srcId);
-      if (!src || src.type !== "interactionNode") return false;
-
-      const val: any = (src.data as BaseNodeData).value;
-      const i = val?.interaction;
-      if (!i) return false;
-
-      const targetIds = trgId
-        ? [trgId]
-        : getEdges()
-            .filter((e) => e.source === srcId)
-            .map((e) => e.target!)
-            .filter(Boolean);
-
-      const viewTargetIds = targetIds.filter(
-        (tid) => getNode(tid)?.type === "viewNode",
-      );
-      if (!viewTargetIds.length) return false;
-
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (!viewTargetIds.includes(n.id)) return n;
-
-          const existing = ((n.data as any).interactions ?? []) as any[];
-
-          const already = existing.some((e) => e?.itype === i?.itype);
-
-          const nextInteractions = already
-            ? existing.map((e) => (e?.itype === i?.itype ? i : e))
-            : [...existing, i];
-
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              interactions: nextInteractions,
-            },
-          };
-        }),
-      );
-
-      return true;
-    },
-    [getNode, getEdges, setNodes],
+    (srcId: string, trgId?: string): boolean =>
+      pushInteractionToViewShared(srcId, getNodes(), getEdges(), setNodes, trgId),
+    [getNodes, getEdges, setNodes],
   );
 
   const pushWidgetToPyCodeEditorNode = useCallback(
@@ -598,16 +557,6 @@ function Canvas() {
   );
 }
 
-// Map template key -> node type key from ./nodes
-const kindToType: Record<TemplateKey, keyof typeof nodeTypes> = {
-  data_layer: "dataLayerNode",
-  join: "joinNode",
-  view: "viewNode",
-  interaction: "interactionNode",
-  widget: "widgetNode",
-  comparison: "comparisonNode",
-};
-
 function createGrammarNode({
   id,
   setNodes,
@@ -627,7 +576,7 @@ function createGrammarNode({
   onRunWidget: (srcId: string) => boolean;
 }) {
   const pos = (window as any)._desiredGrammarPos ?? { x: 100, y: 100 };
-  const type = kindToType[template];
+  const type = TEMPLATE_NODE_TYPE[template];
 
   const newNode: Node<BaseNodeData> = {
     id,
