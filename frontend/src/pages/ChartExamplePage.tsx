@@ -25,15 +25,17 @@ export default function ChartExamplePage({
   onBack: () => void;
   onEditInStudio: (name: string) => void;
 }) {
+  // charts/galleryExamples.ts is only ever a same-tick fallback now, for the
+  // handful of built-ins published before exampleUsage/sampleData started
+  // being persisted - any chart published from Chart Studio (see
+  // pages/ChartStudioPage.tsx and server.py's publish_chart_type) carries
+  // its own, which is what this page actually shows once loaded. A chart
+  // with no gallery entry at all (e.g. a brand-new custom chart) still
+  // renders fine - it just has nothing to show before the fetch below
+  // resolves.
   const example = getGalleryExample(name);
   const [record, setRecord] = useState<ChartTypeRecord | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  // Editable copy of the example's usage JSON. Whatever this chart was
-  // actually last published with (record.exampleUsage - see
-  // pages/ChartStudioPage.tsx and server.py's publish_chart_type) is the
-  // real source of truth once it's loaded; the hand-authored default in
-  // charts/galleryExamples.ts is only a same-tick fallback so this doesn't
-  // render blank while the fetch below is in flight.
   const [exampleUsage, setExampleUsage] = useState<unknown>(example?.exampleUsage ?? {});
 
   useEffect(() => {
@@ -65,17 +67,19 @@ export default function ChartExamplePage({
     | Record<string, Record<string, number>>
     | undefined;
   const defaultExampleUsage = record?.exampleUsage ?? example?.exampleUsage;
+  const title = record?.displayName ?? example?.title ?? name;
+  const description = record?.description || example?.description || "";
 
   const isModified = useMemo(
     () => defaultExampleUsage !== undefined && JSON.stringify(exampleUsage) !== JSON.stringify(defaultExampleUsage),
     [exampleUsage, defaultExampleUsage],
   );
 
-  if (!example) {
+  if (loadError) {
     return (
       <div className="chart-example-page">
         <BackLink onBack={onBack} />
-        <div className="chart-example-page__error">Unknown chart "{name}".</div>
+        <div className="chart-example-page__error">{loadError}</div>
       </div>
     );
   }
@@ -105,7 +109,7 @@ export default function ChartExamplePage({
 
       <div className="chart-example-page__title-row">
         <div className="chart-example-page__title-group">
-          <h1 className="chart-example-page__title">{example.title}</h1>
+          <h1 className="chart-example-page__title">{title}</h1>
           {record && <EngineBadge engine={record.engine} />}
         </div>
         <button
@@ -116,11 +120,7 @@ export default function ChartExamplePage({
           Edit in Chart Studio
         </button>
       </div>
-      {/* The description a chart's author wrote in Chart Studio is the real
-          source of truth - example.description (charts/galleryExamples.ts)
-          is only a fallback while the record is still loading, so this
-          doesn't flash blank. */}
-      <p className="chart-example-page__description">{record?.description || example.description}</p>
+      {description && <p className="chart-example-page__description">{description}</p>}
 
       <div className="chart-example-page__source-grid">
         <div>
@@ -153,7 +153,7 @@ export default function ChartExamplePage({
             </div>
           </div>
           <div className="chart-example-page__code readonly-json-box">
-            <JsonCodeEditor value={effectiveData} readOnly height={240} />
+            <JsonCodeEditor value={effectiveData ?? {}} readOnly height={240} />
           </div>
           <p className="chart-example-page__hint">
             The data this preview renders against - shaped like a real Comparison node's
@@ -167,10 +167,8 @@ export default function ChartExamplePage({
           <div className="chart-example-page__section-label">Preview</div>
         </div>
         <div className="chart-example-page__preview">
-          {loadError || renderError || !filteredData ? (
-            <div className="chart-example-page__error">
-              {loadError ?? renderError ?? "Invalid example usage"}
-            </div>
+          {renderError || !filteredData ? (
+            <div className="chart-example-page__error">{renderError ?? "Invalid example usage"}</div>
           ) : !record ? (
             <div className="chart-example-page__loading">Loading chart…</div>
           ) : record.engine === "vega-lite" ? (
