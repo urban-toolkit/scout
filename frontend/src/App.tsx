@@ -26,7 +26,7 @@ import {
   loadWeatherRoutingComparisonExample,
 } from "./examples/exampleWorkflows";
 import ChatWidget from "./components/ai/ChatWidget";
-import NodeRail from "./components/NodeRail";
+import NodeRail, { NODE_DRAG_MIME, PY_CODE_DRAG_VALUE } from "./components/NodeRail";
 import Toolbar from "./components/Toolbar";
 import ChartStudioPage from "./pages/ChartStudioPage";
 import ChartGalleryPage from "./pages/ChartGalleryPage";
@@ -134,7 +134,7 @@ function Canvas() {
     Node<BaseNodeData | PyCodeEditorNodeData>
   >([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const { getNode, getNodes, getEdges, fitView } = useReactFlow();
+  const { getNode, getNodes, getEdges, fitView, screenToFlowPosition } = useReactFlow();
   const [page, setPage] = useState<
     "canvas" | "chart-studio" | "chart-gallery" | "chart-example"
   >("canvas");
@@ -238,6 +238,36 @@ function Canvas() {
       // onRunViewport: pushViewportToTransformation,
     });
   }, [setNodes]);
+
+  // Dragging a NodeRail icon onto the canvas: the drop position (rather than
+  // NodeRail's own viewport-center fallback) becomes _desiredGrammarPos, so
+  // the same createGrammarNode/createPyCodeEditorNode handoff used by
+  // click-to-add places the node exactly where it was dropped.
+  const handleCanvasDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes(NODE_DRAG_MIME)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const handleCanvasDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      const dragValue = e.dataTransfer.getData(NODE_DRAG_MIME);
+      if (!dragValue) return;
+      e.preventDefault();
+
+      (window as any)._desiredGrammarPos = screenToFlowPosition({
+        x: e.clientX,
+        y: e.clientY,
+      });
+
+      if (dragValue === PY_CODE_DRAG_VALUE) {
+        addPyCodeEditorNode();
+      } else {
+        addNode(dragValue as TemplateKey);
+      }
+    },
+    [screenToFlowPosition, addNode, addPyCodeEditorNode],
+  );
 
   const allow = useCallback(
     (conn: Connection | Edge) => {
@@ -508,6 +538,8 @@ function Canvas() {
       <div
         className="canvas-wrap"
         style={page !== "canvas" ? { display: "none" } : undefined}
+        onDragOver={handleCanvasDragOver}
+        onDrop={handleCanvasDrop}
       >
         <ReactFlow
           className="canvas"
@@ -637,7 +669,7 @@ function createPyCodeEditorNode({
   >;
   // onRunViewport?: (srcId: string) => void;
 }) {
-  const pos = { x: 150, y: 150 };
+  const pos = (window as any)._desiredGrammarPos ?? { x: 150, y: 150 };
 
   const newNode: Node<PyCodeEditorNodeData> = {
     id,

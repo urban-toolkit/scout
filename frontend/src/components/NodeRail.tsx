@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import type { ReactNode, CSSProperties } from "react";
+import type { ReactNode, CSSProperties, DragEvent } from "react";
 import { useReactFlow } from "@xyflow/react";
 import Tooltip from "@mui/material/Tooltip";
 import LayersOutlinedIcon from "@mui/icons-material/LayersOutlined";
@@ -24,11 +24,19 @@ interface Props {
   onClear: () => void;
 }
 
+// dataTransfer key + sentinel the canvas' onDrop reads to tell a dragged
+// rail icon apart from any other drag source (e.g. browser text/image drags)
+// - "code" isn't a TemplateKey (it maps to onAddPyCodeEditor, not onAdd), so
+// it needs its own sentinel value distinct from every real TemplateKey.
+export const NODE_DRAG_MIME = "application/x-scout-node";
+export const PY_CODE_DRAG_VALUE = "__pyCodeEditor__";
+
 interface RailItem {
   key: string;
   label: string;
   icon: ReactNode;
   onClick: () => void;
+  dragValue: string;
 }
 
 interface RailSection {
@@ -97,6 +105,16 @@ export default function NodeRail({
     onAddPyCodeEditor();
   }, [getDropPosition, onAddPyCodeEditor]);
 
+  // The canvas' onDrop computes the real drop position itself (from the drop
+  // event's coordinates) - dragValue only needs to say *which* node to add.
+  const handleDragStart = useCallback(
+    (e: DragEvent<HTMLButtonElement>, dragValue: string) => {
+      e.dataTransfer.setData(NODE_DRAG_MIME, dragValue);
+      e.dataTransfer.effectAllowed = "move";
+    },
+    [],
+  );
+
   const sections: RailSection[] = [
     {
       title: "Intelligence",
@@ -108,18 +126,21 @@ export default function NodeRail({
           label: TEMPLATE_LABELS.data_layer,
           icon: <LayersOutlinedIcon sx={ICON_SX} />,
           onClick: () => handleAdd("data_layer"),
+          dragValue: "data_layer",
         },
         {
           key: "join",
           label: TEMPLATE_LABELS.join,
           icon: <MergeTypeOutlinedIcon sx={ICON_SX} />,
           onClick: () => handleAdd("join"),
+          dragValue: "join",
         },
         {
           key: "code",
           label: "Code",
           icon: <CodeOutlinedIcon sx={ICON_SX} />,
           onClick: handleAddPyCodeEditor,
+          dragValue: PY_CODE_DRAG_VALUE,
         },
       ],
     },
@@ -133,6 +154,7 @@ export default function NodeRail({
           label: TEMPLATE_LABELS.view,
           icon: <MapOutlinedIcon sx={ICON_SX} />,
           onClick: () => handleAdd("view"),
+          dragValue: "view",
         },
       ],
     },
@@ -146,18 +168,21 @@ export default function NodeRail({
           label: TEMPLATE_LABELS.interaction,
           icon: <TouchAppOutlinedIcon sx={ICON_SX} />,
           onClick: () => handleAdd("interaction"),
+          dragValue: "interaction",
         },
         {
           key: "widget",
           label: TEMPLATE_LABELS.widget,
           icon: <TuneOutlinedIcon sx={ICON_SX} />,
           onClick: () => handleAdd("widget"),
+          dragValue: "widget",
         },
         {
           key: "comparison",
           label: TEMPLATE_LABELS.comparison,
           icon: <BarChartOutlinedIcon sx={ICON_SX} />,
           onClick: () => handleAdd("comparison"),
+          dragValue: "comparison",
         },
       ],
     },
@@ -186,6 +211,8 @@ export default function NodeRail({
                       className="node-rail__icon"
                       aria-label={item.label}
                       onClick={item.onClick}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, item.dragValue)}
                     >
                       {item.icon}
                     </button>

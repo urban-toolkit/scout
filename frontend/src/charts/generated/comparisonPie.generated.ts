@@ -49,13 +49,6 @@ export const renderPie: ChartRenderFn = (container, data, params, d3, containerW
     .style("padding", "0 6px")
     .style("flex-wrap", "wrap");
 
-  legendRow
-    .append("div")
-    .style("font-size", "16px")
-    .style("font-family", "Inter, sans-serif")
-    .style("font-weight", "500")
-    .text("Scenario");
-
   const legendItems = legendRow
     .append("div")
     .style("display", "flex")

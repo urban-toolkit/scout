@@ -42,7 +42,7 @@ export const renderTable: ChartRenderFn = (container, data, params, d3, containe
     .style("border-bottom", "1px solid #e0e0e0")
     .style("font-weight", "600")
     .style("text-align", "center")
-    .text("Scenario");
+    .text("");
 
   headRow
     .append("th")
@@ -63,6 +63,7 @@ export const renderTable: ChartRenderFn = (container, data, params, d3, containe
       .append("td")
       .style("padding", "10px 12px")
       .style("border-bottom", "1px solid #f0f0f0")
+      .style("text-align", "center")
       .text(key);
 
     row
@@ -71,6 +72,7 @@ export const renderTable: ChartRenderFn = (container, data, params, d3, containe
       .style("border-bottom", "1px solid #f0f0f0")
       .style("font-variant-numeric", "tabular-nums")
       .style("font-weight", "500")
+      .style("text-align", "center")
       .text(value.toFixed(5));
   });
 };

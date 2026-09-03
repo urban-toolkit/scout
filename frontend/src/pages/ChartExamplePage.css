@@ -1,7 +1,4 @@
 .chart-example-page {
-  height: 100%;
-  min-height: 0;
-  overflow: auto;
   box-sizing: border-box;
   padding: 24px 40px 48px;
   max-width: 1160px;
