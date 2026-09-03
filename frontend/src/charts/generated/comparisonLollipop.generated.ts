@@ -4,23 +4,53 @@ import type { ChartRenderFn } from "../renderers/genericChartRenderer";
 
 export const renderLollipop: ChartRenderFn = (container, data, params, d3, containerWidth) => {
   container.innerHTML = "";
-  container.innerHTML = "";
-
   const axisLabel = params.axisLabel ?? "";
+  const props = params;
   const keys = Object.keys(data);
-  const margin = { top: 20, right: 20, bottom: 30, left: 20 };
+
+  const longestLabel = keys.reduce((max, k) => Math.max(max, k.length), 0);
+  const margin = {
+    top: 20,
+    right: 36,
+    bottom: 46,
+    left: Math.min(200, Math.max(90, longestLabel * 7 + 24)),
+  };
   const width = (containerWidth || 400) - margin.left - margin.right;
-  const height = keys.length * 40;
+  const rowHeight = 44;
+  const height = keys.length * rowHeight;
 
   const svg = d3.select(container)
     .append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
     .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+    .attr("transform", `translate(${margin.left},${margin.top})`);
 
-  const x = d3.scaleLinear().domain([0, d3.max(keys, (k) => data[k][axisLabel])]).nice().range([0, width]);
-  const y = d3.scaleBand().domain(keys).range([0, height]).padding(0.4);
+  const x = d3.scaleLinear()
+    .domain([0, d3.max(keys, (k) => data[k][axisLabel]) ?? 0])
+    .nice()
+    .range([0, width]);
+  const y = d3.scaleBand().domain(keys).range([0, height]).padding(0.45);
+
+  // Dot color per scenario - a "color"/"colors" prop (same shapes bar/pie
+  // accept: a single string, a positional array, or a per-key object) if
+  // given, else the same default palette bar/pie/groupedBar fall back to.
+  const colorProp = props?.color ?? props?.colors;
+  const dotColors = keys.map((k, index) => {
+    if (typeof colorProp === "string") {
+      return colorProp;
+    }
+
+    if (Array.isArray(colorProp) && colorProp.length > 0) {
+      return colorProp[index % colorProp.length];
+    }
+
+    if (colorProp && typeof colorProp === "object" && !Array.isArray(colorProp)) {
+      return colorProp[k] ?? d3.schemeTableau10[index % d3.schemeTableau10.length];
+    }
+
+    return d3.schemeTableau10[index % d3.schemeTableau10.length];
+  });
 
   svg.selectAll("line")
     .data(keys)
@@ -30,8 +60,8 @@ export const renderLollipop: ChartRenderFn = (container, data, params, d3, conta
     .attr("x2", (k) => x(data[k][axisLabel]))
     .attr("y1", (k) => y(k) + y.bandwidth() / 2)
     .attr("y2", (k) => y(k) + y.bandwidth() / 2)
-    .attr("stroke", "#94a3b8")
-    .attr("stroke-width", 2);
+    .attr("stroke", "#cbd5e1")
+    .attr("stroke-width", 2.5);
 
   svg.selectAll("circle")
     .data(keys)
@@ -39,9 +69,44 @@ export const renderLollipop: ChartRenderFn = (container, data, params, d3, conta
     .append("circle")
     .attr("cx", (k) => x(data[k][axisLabel]))
     .attr("cy", (k) => y(k) + y.bandwidth() / 2)
-    .attr("r", 6)
-    .attr("fill", "#2563eb");
+    .attr("r", 7)
+    .attr("fill", (_k, i) => dotColors[i]);
 
-  svg.append("g").call(d3.axisLeft(y));
-  svg.append("g").attr("transform", "translate(0," + height + ")").call(d3.axisBottom(x).ticks(4));
+  svg.selectAll("text.value-label")
+    .data(keys)
+    .enter()
+    .append("text")
+    .attr("class", "value-label")
+    .attr("x", (k) => x(data[k][axisLabel]) + 12)
+    .attr("y", (k) => y(k) + y.bandwidth() / 2)
+    .attr("dy", "0.32em")
+    .style("font-size", "13px")
+    .style("font-family", "Inter, sans-serif")
+    .style("fill", "#111827")
+    .text((k) => data[k][axisLabel].toFixed(2));
+
+  svg.append("g")
+    .call(d3.axisLeft(y))
+    .call((sel) => sel.select(".domain").remove())
+    .selectAll("text")
+    .style("font-size", "14px")
+    .style("font-family", "Inter, sans-serif");
+
+  svg.append("g")
+    .attr("transform", `translate(0,${height})`)
+    .call(d3.axisBottom(x).ticks(4))
+    .selectAll("text")
+    .style("font-size", "13px")
+    .style("font-family", "Inter, sans-serif");
+
+  if (axisLabel) {
+    svg.append("text")
+      .attr("x", width / 2)
+      .attr("y", height + margin.bottom - 6)
+      .attr("text-anchor", "middle")
+      .style("font-size", "13px")
+      .style("font-family", "Inter, sans-serif")
+      .style("fill", "#6b7280")
+      .text(props?.unit ? `${axisLabel} (${props.unit})` : axisLabel);
+  }
 };

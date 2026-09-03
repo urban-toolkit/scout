@@ -5,6 +5,11 @@ export type ChartEngine = "d3" | "vega-lite";
 
 export type ChartTypeSummary = {
   name: string;
+  // Human-readable name shown in Chart Studio's inputs/dropdown and Chart
+  // Gallery - "Bar chart" rather than the real technical `name` ("bar").
+  // Falls back to `name` server-side for charts published before this
+  // field existed.
+  displayName: string;
   description: string;
   createdAt: string | null;
   engine: ChartEngine;
@@ -40,7 +45,17 @@ export async function getChartType(
 }
 
 export async function publishChartType(
-  record: { name: string; description: string; code: string; engine: ChartEngine },
+  record: {
+    // Set only when overwriting a chart Chart Studio already loaded - its
+    // existing real identifier. Omitted for a brand-new chart, whose
+    // identifier the backend mints from displayName + engine (see
+    // server.py's publish_chart_type/_engine_tag).
+    name?: string;
+    displayName: string;
+    description: string;
+    code: string;
+    engine: ChartEngine;
+  },
 ): Promise<ChartTypeRecord> {
   const res = await fetch(appUrl("/api/chart-types"), {
     method: "POST",

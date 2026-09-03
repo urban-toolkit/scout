@@ -29,6 +29,8 @@ import ChatWidget from "./components/ai/ChatWidget";
 import NodeRail from "./components/NodeRail";
 import Toolbar from "./components/Toolbar";
 import ChartStudioPage from "./pages/ChartStudioPage";
+import ChartGalleryPage from "./pages/ChartGalleryPage";
+import ChartExamplePage from "./pages/ChartExamplePage";
 import { pushWidgetOutputToConnectedCode } from "./utils/widgetPropagation";
 import ArrowAboveEdge from "./edges/ArrowAboveEdge";
 
@@ -74,7 +76,9 @@ function getWorkflowPath(route: WorkflowRoute) {
 
 type AppRoute =
   | { kind: "workflow"; route: WorkflowRoute }
-  | { kind: "chart-studio" }
+  | { kind: "chart-studio"; name?: string }
+  | { kind: "chart-gallery" }
+  | { kind: "chart-example"; name: string }
   | null;
 
 function getAppRouteFromPath(pathname = window.location.pathname): AppRoute {
@@ -90,12 +94,30 @@ function getAppRouteFromPath(pathname = window.location.pathname): AppRoute {
   const route = relativePath.replace(/\/+$/, "");
 
   if (route === "chart-studio") return { kind: "chart-studio" };
+  if (route.startsWith("chart-studio/")) {
+    const name = decodeURIComponent(route.slice("chart-studio/".length));
+    if (name) return { kind: "chart-studio", name };
+  }
+  if (route === "chart-gallery") return { kind: "chart-gallery" };
+  if (route.startsWith("chart-gallery/")) {
+    const name = decodeURIComponent(route.slice("chart-gallery/".length));
+    if (name) return { kind: "chart-example", name };
+  }
 
   return null;
 }
 
-function getChartStudioPath() {
-  return `${getAppBasePath()}chart-studio`;
+function getChartStudioPath(name?: string) {
+  const base = `${getAppBasePath()}chart-studio`;
+  return name ? `${base}/${encodeURIComponent(name)}` : base;
+}
+
+function getChartGalleryPath() {
+  return `${getAppBasePath()}chart-gallery`;
+}
+
+function getChartExamplePath(name: string) {
+  return `${getAppBasePath()}chart-gallery/${encodeURIComponent(name)}`;
 }
 
 export default function App() {
@@ -113,7 +135,11 @@ function Canvas() {
   >([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { getNode, getNodes, getEdges, fitView } = useReactFlow();
-  const [page, setPage] = useState<"canvas" | "chart-studio">("canvas");
+  const [page, setPage] = useState<
+    "canvas" | "chart-studio" | "chart-gallery" | "chart-example"
+  >("canvas");
+  const [chartExampleName, setChartExampleName] = useState<string | null>(null);
+  const [chartStudioInitialName, setChartStudioInitialName] = useState<string | null>(null);
 
   // const dumpWorkflow = useCallback(() => {
   //   const nodes = getNodes();
@@ -389,12 +415,30 @@ function Canvas() {
     [loadWorkflowRoute],
   );
 
-  const navigateToChartStudio = useCallback(() => {
-    const nextPath = getChartStudioPath();
+  const navigateToChartStudio = useCallback((name?: string) => {
+    const nextPath = getChartStudioPath(name);
     if (window.location.pathname !== nextPath) {
       window.history.pushState(null, "", nextPath);
     }
+    setChartStudioInitialName(name ?? null);
     setPage("chart-studio");
+  }, []);
+
+  const navigateToChartGallery = useCallback(() => {
+    const nextPath = getChartGalleryPath();
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState(null, "", nextPath);
+    }
+    setPage("chart-gallery");
+  }, []);
+
+  const navigateToChartExample = useCallback((name: string) => {
+    const nextPath = getChartExamplePath(name);
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState(null, "", nextPath);
+    }
+    setChartExampleName(name);
+    setPage("chart-example");
   }, []);
 
   const clearCanvasAndNavigateHome = useCallback(() => {
@@ -414,7 +458,13 @@ function Canvas() {
         setPage("canvas");
         loadWorkflowRoute(appRoute.route);
       } else if (appRoute?.kind === "chart-studio") {
+        setChartStudioInitialName(appRoute.name ?? null);
         setPage("chart-studio");
+      } else if (appRoute?.kind === "chart-gallery") {
+        setPage("chart-gallery");
+      } else if (appRoute?.kind === "chart-example") {
+        setChartExampleName(appRoute.name);
+        setPage("chart-example");
       } else {
         // No recognized route (e.g. bare "/") - always show the canvas.
         // Node/edge state is untouched here (only clearCanvasAndNavigateHome
@@ -452,11 +502,12 @@ function Canvas() {
         onLoadWeatherRoutingWorkflow={() =>
           navigateToWorkflowRoute("routing")
         }
-        onOpenChartStudio={navigateToChartStudio}
+        onOpenChartGallery={navigateToChartGallery}
+        onOpenChartStudio={() => navigateToChartStudio()}
       />
       <div
         className="canvas-wrap"
-        style={page === "chart-studio" ? { display: "none" } : undefined}
+        style={page !== "canvas" ? { display: "none" } : undefined}
       >
         <ReactFlow
           className="canvas"
@@ -487,7 +538,24 @@ function Canvas() {
       </div>
       {page === "chart-studio" && (
         <div className="page-wrap">
-          <ChartStudioPage />
+          <ChartStudioPage initialChartName={chartStudioInitialName ?? undefined} />
+        </div>
+      )}
+      {page === "chart-gallery" && (
+        <div className="page-wrap">
+          <ChartGalleryPage
+            onSelectChart={navigateToChartExample}
+            onCreateNewChart={() => navigateToChartStudio()}
+          />
+        </div>
+      )}
+      {page === "chart-example" && chartExampleName && (
+        <div className="page-wrap">
+          <ChartExamplePage
+            name={chartExampleName}
+            onBack={navigateToChartGallery}
+            onEditInStudio={navigateToChartStudio}
+          />
         </div>
       )}
       {/* Rendered outside canvas-wrap (which hides via display:none on the

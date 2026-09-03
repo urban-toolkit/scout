@@ -1,0 +1,22 @@
+.engine-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 5px;
+  color: #fff;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+/* Muted qualitative pair from ColorBrewer's Dark2 scheme - the earlier
+   saturated blue/violet read as too bright/loud against the white cards. */
+.engine-badge--d3 {
+  background: #1b9e77;
+}
+
+.engine-badge--vega-lite {
+  background: #7570b3;
+}

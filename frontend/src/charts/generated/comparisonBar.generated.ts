@@ -33,9 +33,50 @@ export const renderBar: ChartRenderFn = (container, data, params, d3, containerW
     return d3.schemeTableau10[index % d3.schemeTableau10.length];
   });
 
+  // Wraps an axis tick label onto multiple lines, breaking only on word
+  // boundaries, once it would otherwise overflow its allotted width - long
+  // scenario names (e.g. "Culvert widened") were overlapping their neighbors
+  // as a single unbroken line.
+  function wrapAxisLabels(selection, maxWidth) {
+    selection.each(function () {
+      const text = d3.select(this);
+      const words = text.text().split(/\s+/).filter(Boolean).reverse();
+      const y = text.attr("y");
+      const x = text.attr("x") ?? 0;
+      const dy = parseFloat(text.attr("dy") || "0");
+      let line = [];
+      let lineNumber = 0;
+      const lineHeight = 1.1;
+      let tspan = text
+        .text(null)
+        .append("tspan")
+        .attr("x", x)
+        .attr("y", y)
+        .attr("dy", `${dy}em`);
+      let word = words.pop();
+      while (word) {
+        line.push(word);
+        tspan.text(line.join(" "));
+        if (tspan.node().getComputedTextLength() > maxWidth && line.length > 1) {
+          line.pop();
+          tspan.text(line.join(" "));
+          line = [word];
+          lineNumber += 1;
+          tspan = text
+            .append("tspan")
+            .attr("x", x)
+            .attr("y", y)
+            .attr("dy", `${lineNumber * lineHeight + dy}em`);
+          tspan.text(word);
+        }
+        word = words.pop();
+      }
+    });
+  }
+
   const margin = isHorizontal
-    ? { top: 20, right: 10, bottom: 50, left: 90 }
-    : { top: 20, right: 0, bottom: 50, left: 80 };
+    ? { top: 20, right: 10, bottom: 50, left: 110 }
+    : { top: 20, right: 0, bottom: 64, left: 80 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
@@ -81,7 +122,8 @@ export const renderBar: ChartRenderFn = (container, data, params, d3, containerW
       .call(d3.axisLeft(y))
       .selectAll("text")
       .style("font-size", "15px")
-      .style("font-family", "Inter, sans-serif");
+      .style("font-family", "Inter, sans-serif")
+      .call(wrapAxisLabels, margin.left - 12);
 
     svg
       .append("text")
@@ -91,15 +133,6 @@ export const renderBar: ChartRenderFn = (container, data, params, d3, containerW
       .style("font-size", "16px")
       .style("font-family", "Inter, sans-serif")
       .text(props?.labelX ?? `${axisLabel} ${props?.unit ?? ""}`.trim());
-
-    g.append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("y", -70)
-      .attr("x", -height / 2.5)
-      .attr("text-anchor", "middle")
-      .style("font-size", "15px")
-      .style("font-family", "Inter, sans-serif")
-      .text("Scenario");
 
     return;
   }
@@ -133,16 +166,8 @@ export const renderBar: ChartRenderFn = (container, data, params, d3, containerW
     .call(d3.axisBottom(x))
     .selectAll("text")
     .style("font-size", "15px")
-    .style("font-family", "Inter, sans-serif");
-
-  svg
-    .append("text")
-    .attr("x", width / 2 + 30)
-    .attr("y", height - 10)
-    .attr("text-anchor", "middle")
-    .style("font-size", "16px")
     .style("font-family", "Inter, sans-serif")
-    .text("Scenario");
+    .call(wrapAxisLabels, x.bandwidth());
 
   g.append("g")
     .call(d3.axisLeft(y).ticks(3))

@@ -1,6 +1,5 @@
 // pages/ChartStudioPage.tsx
 import { useCallback, useEffect, useState } from "react";
-import type { CSSProperties } from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -8,6 +7,8 @@ import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
+import ListSubheader from "@mui/material/ListSubheader";
+import Divider from "@mui/material/Divider";
 import Alert from "@mui/material/Alert";
 import Typography from "@mui/material/Typography";
 
@@ -23,6 +24,8 @@ import {
   type ChartEngine,
   type ChartTypeSummary,
 } from "../charts/chartTypes";
+import { deriveRenderParams } from "../charts/deriveRenderParams";
+import { SCENARIO_DATA, getGalleryExample } from "../charts/galleryExamples";
 import "./ChartStudioPage.css";
 
 // No worked example chart is pre-filled here on purpose - a fresh chart
@@ -33,10 +36,10 @@ const D3_STARTER_CODE = `// available: container (a <div>), data, params, d3, co
 
 const VEGA_STARTER_SPEC = {};
 
-const STARTER_DATA = {
-  A: { "median flood depth": 7.16, "mean flood depth": 6.35 },
-  B: { "median flood depth": 5.02, "mean flood depth": 4.71 },
-};
+// Same scenario data Chart Gallery ships with (see charts/galleryExamples.ts)
+// rather than Studio's own separately-invented placeholder rows - so a fresh
+// chart previews against the same shape of data a published one documents.
+const STARTER_DATA = SCENARIO_DATA;
 
 // "Example usage" holds the same shape a Comparison node's grammar JSON
 // uses (schemas/comparison.json: key, x/y, chart, props) - not a flat
@@ -46,56 +49,26 @@ const STARTER_DATA = {
 // backend's /api/comparison-view does (see asFieldList/deriveRenderParams
 // below), so what you see in Preview matches real usage.
 const STARTER_PARAMS = {
-  key: ["A", "B"],
+  key: Object.keys(STARTER_DATA),
   y: "median flood depth",
   props: {},
 };
 
-// Mirrors backend server.py's _as_field_list: a bare string is shorthand
-// for a 1-item set.
-function asFieldList(value: unknown): string[] {
-  if (value == null) return [];
-  if (typeof value === "string") return [value];
-  if (Array.isArray(value)) return value as string[];
-  return [];
-}
-
-// Mirrors backend server.py's comparison_view() derivation of axis/axisLabel
-// from a ComparisonDef's x/y fields, and renderComparison.tsx's merge of
-// props with axis/axisLabel - so Preview matches what a real Comparison
-// node would actually pass to this chart's render function.
-function deriveRenderParams(example: unknown): {
-  axis: "x" | "y";
-  axisLabel: string;
-  props: Record<string, any>;
-} {
-  const def = (example ?? {}) as {
-    key?: unknown;
-    x?: string | string[];
-    y?: string | string[];
-    props?: Record<string, any>;
-  };
-
-  if (!Array.isArray(def.key) || def.key.length === 0) {
-    throw new Error('Example usage must include a non-empty "key" array.');
-  }
-
-  const xFields = asFieldList(def.x);
-  const yFields = asFieldList(def.y);
-  const fields = [...xFields, ...yFields];
-  if (fields.length === 0) {
-    throw new Error('Example usage must declare at least one field via "x" or "y".');
-  }
-
-  return {
-    axis: xFields.length > 0 ? "x" : "y",
-    axisLabel: fields[0],
-    props: def.props ?? {},
-  };
-}
-
-export default function ChartStudioPage() {
-  const [name, setName] = useState("");
+export default function ChartStudioPage({
+  initialChartName,
+}: {
+  // Set when arriving via "Edit in Chart Studio" from a chart's own Gallery
+  // page (see ChartExamplePage) - auto-selects that chart on mount, same as
+  // if it had just been picked from "Load existing chart" below.
+  initialChartName?: string;
+}) {
+  // The one human-readable name shown here, in "Load existing chart", and in
+  // Chart Gallery - e.g. "Bar chart". The real technical identifier (manifest
+  // key, generated filename) is never edited directly; it's either the
+  // already-loaded chart's existing id (tracked by selectedExisting below) or,
+  // for a brand-new chart, minted server-side from this name + engine on
+  // publish (see server.py's publish_chart_type/_engine_tag).
+  const [displayName, setDisplayName] = useState("");
   const [description, setDescription] = useState("");
   const [engine, setEngine] = useState<ChartEngine>("d3");
   // Kept separate (not one shared "code" field) so toggling the engine back
@@ -113,12 +86,6 @@ export default function ChartStudioPage() {
   const [pushError, setPushError] = useState<string | null>(null);
   const [pushSuccess, setPushSuccess] = useState<string | null>(null);
   const [pushing, setPushing] = useState(false);
-  // Tracks the last code/spec that actually compiled+ran without throwing,
-  // so Publish can require a proven-good Preview first - publishing broken
-  // code becomes a real source-file parse error, not an isolated runtime one.
-  // Tracked per engine so switching engines doesn't wrongly gate/ungate.
-  const [lastGoodPreviewCode, setLastGoodPreviewCode] = useState<string | null>(null);
-  const [lastGoodPreviewSpecJSON, setLastGoodPreviewSpecJSON] = useState<string | null>(null);
 
   // "Load existing chart" picker
   const [chartList, setChartList] = useState<ChartTypeSummary[]>([]);
@@ -155,7 +122,7 @@ export default function ChartStudioPage() {
 
   const resetToNewChart = () => {
     setSelectedExisting("");
-    setName("");
+    setDisplayName("");
     setDescription("");
     setEngine("d3");
     setD3Code(D3_STARTER_CODE);
@@ -164,8 +131,6 @@ export default function ChartStudioPage() {
     setSampleParams(STARTER_PARAMS);
     setPreviewProps(null);
     setPreviewError(null);
-    setLastGoodPreviewCode(null);
-    setLastGoodPreviewSpecJSON(null);
     setPublishSuccessName(null);
   };
 
@@ -182,7 +147,7 @@ export default function ChartStudioPage() {
     setChartListError(null);
     try {
       const record = await getChartType(value);
-      setName(record.name);
+      setDisplayName(record.displayName ?? record.name);
       setDescription(record.description ?? "");
       setEngine(record.engine);
       // Also blank out the *other* engine's editor - this chart has no
@@ -195,34 +160,50 @@ export default function ChartStudioPage() {
         setVegaSpec(JSON.parse(record.code));
         setD3Code(D3_STARTER_CODE);
       }
-      // The built-in single-metric charts (bar/pie/table/lollipop) read
-      // params.axisLabel to pick which sample-data column to plot - a real
-      // comparison node gets that from the backend at render time, but
-      // Chart Studio's Preview derives it from "Example usage" (see
-      // deriveRenderParams above). Loading an existing chart previously
-      // left that blank, so those charts silently rendered nothing until
-      // you filled it in by hand. Guess a working example from the current
-      // Sample data's keys/first metric column - harmless for charts that
-      // don't use axisLabel.
-      const data = sampleData as Record<string, Record<string, number>>;
-      const keys = Object.keys(data);
-      const firstMetricKey = keys.length > 0 ? Object.keys(data[keys[0]])[0] : undefined;
-      setSampleParams(
-        firstMetricKey
-          ? { key: keys, y: firstMetricKey, chart: record.name, props: {} }
-          : { key: keys, chart: record.name, props: {} },
-      );
-      // Force a fresh Preview before Publish is allowed again on loaded code.
+      // A chart that's also one of Chart Gallery's built-ins gets its exact
+      // sample data + example usage (see charts/galleryExamples.ts) - same
+      // documented example in both places, props and all, rather than
+      // Studio re-deriving its own guess. A genuinely custom chart (not in
+      // the gallery) falls back to guessing a working example from the
+      // current Sample data's keys/first metric column, since the built-in
+      // single-metric charts (bar/pie/table/lollipop) read params.axisLabel
+      // to pick which sample-data column to plot, and leaving that blank
+      // means they silently render nothing until filled in by hand.
+      const galleryExample = getGalleryExample(record.name);
+      if (galleryExample) {
+        setSampleData(galleryExample.data);
+        setSampleParams(galleryExample.exampleUsage);
+      } else {
+        const data = sampleData as Record<string, Record<string, number>>;
+        const keys = Object.keys(data);
+        const firstMetricKey = keys.length > 0 ? Object.keys(data[keys[0]])[0] : undefined;
+        setSampleParams(
+          firstMetricKey
+            ? { key: keys, y: firstMetricKey, chart: record.name, props: {} }
+            : { key: keys, chart: record.name, props: {} },
+        );
+      }
+      // Clear any stale preview from whatever was previously loaded.
       setPreviewProps(null);
       setPreviewError(null);
-      setLastGoodPreviewCode(null);
-      setLastGoodPreviewSpecJSON(null);
     } catch (e) {
       setChartListError(e instanceof Error ? e.message : `Failed to load chart '${value}'`);
     } finally {
       setLoadingExisting(false);
     }
   };
+
+  // Auto-select the chart passed in via "Edit in Chart Studio" (see
+  // ChartExamplePage), same as picking it from "Load existing chart" below.
+  // Mount-only: this page unmounts/remounts fresh on every navigation (see
+  // App.tsx), so initialChartName never changes out from under an existing
+  // selection.
+  useEffect(() => {
+    if (initialChartName) {
+      void handleSelectExisting(initialChartName);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // sampleData/sampleParams are always valid JSON already - JsonCodeEditor
   // (same editor "def" mode uses) only propagates onChange for parseable
@@ -272,37 +253,24 @@ export default function ChartStudioPage() {
     }
   };
 
-  const canPublish =
-    previewProps !== null &&
-    (engine === "d3"
-      ? d3Code === lastGoodPreviewCode
-      : JSON.stringify(vegaSpec) === lastGoodPreviewSpecJSON);
-
-  // Stable per-`d3Code` identity so CustomD3Renderer's effect only re-runs
-  // when code/data/params actually change, not on unrelated re-renders
-  // (e.g. editing the name field) that would otherwise change this
-  // callback's reference on every keystroke.
-  const handleD3PreviewResult = useCallback(
-    (ok: boolean) => setLastGoodPreviewCode(ok ? d3Code : null),
-    [d3Code],
-  );
-  const handleVegaPreviewResult = useCallback(
-    (ok: boolean) => setLastGoodPreviewSpecJSON(ok ? JSON.stringify(vegaSpec) : null),
-    [vegaSpec],
-  );
-
-  const doPublish = async (trimmedName: string) => {
+  // trimmedDisplayName is always sent; `name` is only included when
+  // overwriting a chart already loaded (selectedExisting) - a brand-new
+  // chart has no existing identifier yet, so the backend mints one from
+  // displayName + engine instead (see server.py's publish_chart_type).
+  const doPublish = async (trimmedDisplayName: string) => {
     setPublishing(true);
     try {
       const code = engine === "d3" ? d3Code : JSON.stringify(vegaSpec, null, 2);
-      await publishChartType({
-        name: trimmedName,
+      const published = await publishChartType({
+        name: selectedExisting || undefined,
+        displayName: trimmedDisplayName,
         description: description.trim(),
         code,
         engine,
       });
-      setPublishSuccessName(trimmedName);
-      setSelectedExisting(trimmedName);
+      setPublishSuccessName(published.displayName);
+      setSelectedExisting(published.name);
+      setDisplayName(published.displayName);
       await fetchChartList();
     } catch (e) {
       setErrorDialogMessage(e instanceof Error ? e.message : "Failed to publish chart type");
@@ -311,49 +279,35 @@ export default function ChartStudioPage() {
     }
   };
 
-  const handlePublishClick = async () => {
-    if (!canPublish) return;
-
-    const trimmed = name.trim();
-    if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
-      setErrorDialogMessage(
-        "Name must be non-empty and contain only letters, numbers, underscores, and hyphens.",
-      );
+  const handlePublishClick = () => {
+    const trimmed = displayName.trim();
+    if (!trimmed) {
+      setErrorDialogMessage("Chart name must be non-empty.");
       return;
     }
 
     setPublishSuccessName(null);
-    setPublishing(true);
-    try {
-      let exists = true;
-      try {
-        await getChartType(trimmed);
-      } catch {
-        exists = false;
-      }
 
-      if (exists) {
-        setPublishing(false);
-        setOverwriteDialogOpen(true);
-        return;
-      }
-
-      await doPublish(trimmed);
-    } finally {
-      setPublishing(false);
+    // selectedExisting means this chart was loaded from "Load existing
+    // chart"/"Edit in Chart Studio" - we already know it exists, so confirm
+    // before overwriting it. A brand-new chart has no existing identifier
+    // to collide with (the backend mints a fresh one), so it publishes
+    // straight away.
+    if (selectedExisting) {
+      setOverwriteDialogOpen(true);
+      return;
     }
+
+    void doPublish(trimmed);
   };
 
   const confirmOverwrite = async () => {
     setOverwriteDialogOpen(false);
-    await doPublish(name.trim());
+    await doPublish(displayName.trim());
   };
 
-  const engineButtonStyle = (active: boolean): CSSProperties => ({
-    fontWeight: active ? 700 : 400,
-    background: active ? "#1f78b4" : "#fff",
-    color: active ? "#fff" : "#111827",
-  });
+  const d3Charts = chartList.filter((c) => c.engine === "d3");
+  const vegaCharts = chartList.filter((c) => c.engine === "vega-lite");
 
   return (
     <div className="chart-studio-page">
@@ -361,8 +315,8 @@ export default function ChartStudioPage() {
         <input
           type="text"
           placeholder="Write chart name…"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
           className="chart-studio-page__name-input"
         />
         <TextField
@@ -373,10 +327,42 @@ export default function ChartStudioPage() {
           size="small"
           sx={{ minWidth: 220 }}
           disabled={chartListLoading || loadingExisting}
+          // The currently-loaded chart doesn't need a persistent highlight
+          // in its own list - keep hover feedback, drop MUI's default
+          // "selected" background so the list reads as plain options.
+          SelectProps={{
+            MenuProps: {
+              sx: {
+                // MUI also auto-focuses the currently-selected item when the
+                // menu opens, adding Mui-focusVisible on top of Mui-selected -
+                // that combination has its own (equally opaque) background,
+                // so it needs overriding right alongside plain Mui-selected.
+                "& .MuiMenuItem-root.Mui-selected": {
+                  backgroundColor: "transparent !important",
+                },
+                "& .MuiMenuItem-root.Mui-selected:hover": {
+                  backgroundColor: "action.hover",
+                },
+              },
+            },
+          }}
         >
-          {chartList.map((c) => (
+          {/* Grouped by engine (D3 first, then Vega-Lite) with a section
+              header as the separator - two charts can share a display name
+              (e.g. "Grouped bar chart" as both a D3 and a Vega-Lite chart;
+              see charts/galleryExamples.ts) and this tells them apart by
+              position instead of a per-row tag. */}
+          {d3Charts.length > 0 && <ListSubheader>D3</ListSubheader>}
+          {d3Charts.map((c) => (
             <MenuItem key={c.name} value={c.name}>
-              {c.name}
+              {c.displayName}
+            </MenuItem>
+          ))}
+          {d3Charts.length > 0 && vegaCharts.length > 0 && <Divider />}
+          {vegaCharts.length > 0 && <ListSubheader>Vega-Lite</ListSubheader>}
+          {vegaCharts.map((c) => (
+            <MenuItem key={c.name} value={c.name}>
+              {c.displayName}
             </MenuItem>
           ))}
         </TextField>
@@ -436,24 +422,20 @@ export default function ChartStudioPage() {
             </button>
           </div>
 
-          <div style={{ display: "flex", gap: 4 }}>
-            <button
-              type="button"
-              onClick={() => setEngine("d3")}
-              className="chart-studio-page__btn"
-              style={engineButtonStyle(engine === "d3")}
-            >
-              D3 / JS
-            </button>
-            <button
-              type="button"
-              onClick={() => setEngine("vega-lite")}
-              className="chart-studio-page__btn"
-              style={engineButtonStyle(engine === "vega-lite")}
-            >
-              Vega-Lite
-            </button>
-          </div>
+          {/* A single either/or picker rather than two toggle buttons - only
+              one engine is ever active, and a dropdown makes that explicit
+              instead of looking like two independently-toggleable options. */}
+          <TextField
+            select
+            label="Engine"
+            value={engine}
+            onChange={(e) => setEngine(e.target.value as ChartEngine)}
+            size="small"
+            sx={{ width: 160 }}
+          >
+            <MenuItem value="d3">D3 / JS</MenuItem>
+            <MenuItem value="vega-lite">Vega-Lite</MenuItem>
+          </TextField>
 
           <div style={{ fontSize: 11, color: "#666" }}>
             {engine === "d3"
@@ -563,18 +545,9 @@ export default function ChartStudioPage() {
               </div>
             ) : previewProps ? (
               engine === "d3" ? (
-                <CustomD3Renderer
-                  code={d3Code}
-                  data={previewProps.data}
-                  params={previewProps.params}
-                  onResult={handleD3PreviewResult}
-                />
+                <CustomD3Renderer code={d3Code} data={previewProps.data} params={previewProps.params} />
               ) : (
-                <VegaLiteRenderer
-                  spec={vegaSpec}
-                  data={previewProps.data}
-                  onResult={handleVegaPreviewResult}
-                />
+                <VegaLiteRenderer spec={vegaSpec} data={previewProps.data} />
               )
             ) : (
               <div style={{ fontSize: 12, color: "#999" }}>
@@ -602,8 +575,7 @@ export default function ChartStudioPage() {
             <button
               type="button"
               onClick={() => void handlePublishClick()}
-              disabled={publishing || !canPublish}
-              title={canPublish ? undefined : "Preview your code successfully before publishing"}
+              disabled={publishing}
               className="chart-studio-page__btn chart-studio-page__btn--publish"
             >
               {publishing ? "Publishing…" : "Publish"}
@@ -616,9 +588,8 @@ export default function ChartStudioPage() {
         <DialogTitle>Overwrite existing chart?</DialogTitle>
         <DialogContent>
           <Typography variant="body2">
-            A chart type named "{name.trim()}" already exists. Publishing will overwrite
-            it — any comparison node currently rendering "{name.trim()}" will pick up the
-            new definition.
+            "{displayName.trim()}" already exists. Publishing will overwrite it — any
+            comparison node currently rendering it will pick up the new definition.
           </Typography>
         </DialogContent>
         <DialogActions>
