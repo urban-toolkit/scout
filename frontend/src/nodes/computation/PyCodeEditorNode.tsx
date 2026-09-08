@@ -20,6 +20,9 @@ export type PyCodeEditorNodeData = {
   // Bump this (see utils/widgetPropagation.ts) to trigger Run from outside
   // the node - e.g. the Widget Agent - without duplicating handleRun's logic.
   runToken?: string;
+  // Persisted here (rather than as component-local state) so a minimized
+  // node stays minimized across a save/reload.
+  minimized?: boolean;
 };
 
 export type PyCodeEditorNode = Node<PyCodeEditorNodeData, "pyCodeEditorNode">;
@@ -38,7 +41,9 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
 
   const [running, setRunning] = useState(false);
   const [runningSuccess, setRunningSuccess] = useState(false);
-  const [minimized, setMinimized] = useState(false);
+  // Seeded from the persisted node data (rather than always false) so a
+  // dataflow saved with this node minimized reopens minimized too.
+  const [minimized, setMinimized] = useState(() => Boolean(data.minimized));
 
   // NEW: store output panel data
   const [output, setOutput] = useState<{ stdout: string; stderr: string }>({
@@ -81,6 +86,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
               ...n,
               width: NODE_MINIMIZED_WIDTH,
               height: NODE_MINIMIZED_HEIGHT,
+              data: { ...n.data, minimized: next },
             };
           } else {
             // Going back to full: enforce larger min size
@@ -95,6 +101,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
               ...n,
               width: nextWidth,
               height: nextHeight,
+              data: { ...n.data, minimized: next },
             };
           }
         }),

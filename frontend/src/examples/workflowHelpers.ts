@@ -3,6 +3,7 @@ import type { Edge, Node } from "@xyflow/react";
 
 import type { BaseNodeData } from "../node-components/BaseGrammar";
 import type { PyCodeEditorNodeData } from "../nodes/computation/PyCodeEditorNode";
+import type { CatalogDataset } from "../utils/dataCatalog";
 
 export type AppNodeData = BaseNodeData | PyCodeEditorNodeData;
 
@@ -21,6 +22,7 @@ export function attachNodeBehaviors(
   getNode: (id: string) => Node | undefined,
   onRunInteraction: (srcId: string) => boolean,
   onRunWidget: (srcId: string) => boolean,
+  onAddComputedDatasets?: (datasets: CatalogDataset[]) => void,
 ): Node<AppNodeData> {
   const grammarTypes = new Set([
     "dataLayerNode",
@@ -63,6 +65,7 @@ export function attachNodeBehaviors(
           return onRunWidget(nodeId);
         }
       },
+      onAddComputedDatasets,
     },
   } as Node<AppNodeData>;
 }

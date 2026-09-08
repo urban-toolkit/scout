@@ -52,7 +52,9 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
   const updateNodeInternals = useUpdateNodeInternals();
 
   const mode = data.mode ?? "def";
-  const [minimized, setMinimized] = useState(false);
+  // Seeded from the persisted node data (rather than always false) so a
+  // dataflow saved with this node minimized reopens minimized too.
+  const [minimized, setMinimized] = useState(() => Boolean(data.minimized));
   const [widgetValue, setWidgetValue] = useState<WidgetOutput | null>(null);
   const [updateStatus, setUpdateStatus] = useState<
     "idle" | "success" | "failed"
@@ -148,6 +150,7 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
               ...n,
               width: NODE_MINIMIZED_WIDTH,
               height: NODE_MINIMIZED_HEIGHT,
+              data: { ...n.data, minimized: next },
             };
           }
 
@@ -160,6 +163,7 @@ const WidgetNode = memo(function WidgetNode(props: NodeProps<WidgetNode>) {
             ...n,
             width: nextWidth,
             height: nextHeight,
+            data: { ...n.data, minimized: next },
           };
         }),
       );

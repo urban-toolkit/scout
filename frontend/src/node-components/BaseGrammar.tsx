@@ -64,6 +64,17 @@ export type BaseNodeData = {
   onFetch?: (id: string) => void;
 
   onToggleMinimize?: (id: string) => void;
+  // Persisted on the node itself (rather than as component-local state) so
+  // a minimized node stays minimized across a save/reload - see each node
+  // type's own handleToggleMinimize (DataLayerNode, WidgetNode,
+  // InteractionNode).
+  minimized?: boolean;
+
+  // DataLayerNode only - called with whatever a successful fetch produced,
+  // so it can be merged into the dataflow's own "datasets in project" list
+  // (see App.tsx's handleAddDatasetsToProject) and show up in the Data
+  // Catalog's Computed tab.
+  onAddComputedDatasets?: (datasets: import("../utils/dataCatalog").CatalogDataset[]) => void;
 };
 
 export type BaseNode = Node<BaseNodeData, string>;

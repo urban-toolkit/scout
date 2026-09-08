@@ -29,7 +29,9 @@ const InteractionNode = memo(function InteractionNode(
   const { id, data, selected } = props;
   const { getNode, getEdges, setNodes, setEdges } = useReactFlow();
   const rf = useReactFlow();
-  const [minimized, setMinimized] = useState(false);
+  // Seeded from the persisted node data (rather than always false) so a
+  // dataflow saved with this node minimized reopens minimized too.
+  const [minimized, setMinimized] = useState(() => Boolean(data.minimized));
 
   const onCloseInteractionNode = useCallback(
     (nodeId: string) => {
@@ -100,6 +102,7 @@ const InteractionNode = memo(function InteractionNode(
               ...n,
               width: NODE_MINIMIZED_WIDTH,
               height: NODE_MINIMIZED_HEIGHT,
+              data: { ...n.data, minimized: next },
             };
           } else {
             // restoring
@@ -114,6 +117,7 @@ const InteractionNode = memo(function InteractionNode(
               ...n,
               width: nextWidth,
               height: nextHeight,
+              data: { ...n.data, minimized: next },
             };
           }
         }),

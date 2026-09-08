@@ -20,6 +20,7 @@ import subprocess
 import rasterio
 import threading
 import json as jsonlib
+import uuid
 
 from ai_settings import (
     ChatError,
@@ -36,8 +37,10 @@ worker_python_exe = None
 app = Flask(__name__)
 CORS(app)
 
-DATA_DIR = Path("data")        
+DATA_DIR = Path("data")
 OUT_DIR  = Path("data/served")
+CATALOG_DIR = Path("data/catalog")
+DATAFLOWS_DIR = Path("data/dataflows")
 vector_subdir = Path(OUT_DIR / "vector")
 raster_subdir = Path(OUT_DIR / "raster")
 metric_subdir = Path(OUT_DIR / "metric")
@@ -45,8 +48,10 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 vector_subdir.mkdir(parents=True, exist_ok=True)
 raster_subdir.mkdir(parents=True, exist_ok=True)
 metric_subdir.mkdir(parents=True, exist_ok=True)
+DATAFLOWS_DIR.mkdir(parents=True, exist_ok=True)
 
 CHART_TYPE_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+DATAFLOW_ID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 # Chart Studio "Publish" writes generated chart components directly into
 # frontend source (dev only - see docker-compose.dev.yml's frontend_src
@@ -272,8 +277,7 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
     register_cleanup_handlers()
 
 def resolve_feather_path(datafile: str, tag: str) -> Path:
-    feather_filename = f"osm/processed/{datafile}/{tag}.feather"
-    return DATA_DIR / feather_filename
+    return CATALOG_DIR / "osm" / datafile / f"{tag}.feather"
 
 def load_roi_mask(roi: dict) -> tuple[str, object]:
     rtype = roi.get("type")
@@ -380,24 +384,136 @@ def serve_vector(filename: str):
         conditional=True
     )
 
+_CATALOG_FORMAT_LABELS = {
+    ".feather": "Feather",
+    ".parquet": "Parquet",
+    ".csv": "CSV",
+    ".geojson": "GeoJSON",
+    ".json": "JSON",
+    ".tif": "GeoTIFF",
+    ".tiff": "GeoTIFF",
+    ".pbf": "OSM PBF",
+    ".pkl": "Pickle",
+    ".gz": "Gzip",
+}
+# Extensions checked as a whole filename suffix (not just the last dotted
+# part) so a name like "roads.pkl.gz" gets one label instead of just "Gzip".
+_CATALOG_COMPOUND_FORMATS = {
+    ".pkl.gz": "Pickle (gzip)",
+}
+
+
+def _catalog_format_label(path: Path) -> str:
+    lower = path.name.lower()
+    for suffix, label in _CATALOG_COMPOUND_FORMATS.items():
+        if lower.endswith(suffix):
+            return label
+    return _CATALOG_FORMAT_LABELS.get(path.suffix.lower(), path.suffix.lstrip(".").upper() or "File")
+
+
+def _catalog_display_name(path: Path) -> str:
+    # Keep the on-disk name as-is (underscores included) rather than
+    # prettifying it - it's still a real filename, not a free-text title.
+    lower = path.name.lower()
+    for suffix in _CATALOG_COMPOUND_FORMATS:
+        if lower.endswith(suffix):
+            return path.name[: -len(suffix)]
+    return path.stem
+
+
+def _catalog_human_size(num_bytes: int) -> str:
+    size = float(num_bytes)
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024 or unit == "GB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} TB"
+
+
+@app.get("/api/data-catalog")
+def list_data_catalog():
+    """Lists every file under data/catalog/ for the frontend's Data Catalog
+    sidebar. Each file becomes one dataset entry, grouped by its top-level
+    subfolder under the catalog root (e.g. "osm", "quad_city_flooding")."""
+    if not CATALOG_DIR.exists():
+        return jsonify({"status": "ok", "datasets": []})
+
+    datasets = []
+    for path in sorted(CATALOG_DIR.rglob("*")):
+        if not path.is_file() or path.name.startswith("."):
+            continue
+
+        rel = path.relative_to(CATALOG_DIR)
+        stat = path.stat()
+
+        datasets.append({
+            "id": rel.as_posix(),
+            "name": _catalog_display_name(path),
+            "group": rel.parts[0] if len(rel.parts) > 1 else "general",
+            "format": _catalog_format_label(path),
+            "sizeBytes": stat.st_size,
+            "size": _catalog_human_size(stat.st_size),
+            "modifiedAt": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+        })
+
+    return jsonify({"status": "ok", "datasets": datasets})
+
+
 @app.post('/api/extract-data-layer')
 def extract_data_layer():
     payload = request.get_json(silent=True) or {}
     pl = payload
     problems = []
-    
+    computed = []
+
     id = pl.get("id")
     src = pl.get("source")
     dtype = pl.get("dtype")
+    dataflow_id = pl.get("dataflow_id")
 
     # datafile = pl.get("datafile")
     roi = pl.get("roi") or {}
     roi_datafile = pl.get("roi").get("datafile")
 
+    if not dataflow_id:
+        return jsonify({"status": "error", "error": "dataflow_id is required"}), 400
+
+    dataflow_path = _dataflow_path(str(dataflow_id))
+    if dataflow_path is None or not dataflow_path.exists():
+        return jsonify({"status": "error", "error": f"No dataflow with id '{dataflow_id}'"}), 404
+
+    try:
+        dataflow_record = json.loads(dataflow_path.read_text())
+    except json.JSONDecodeError:
+        dataflow_record = {}
+
+    # A feature can only be fetched if its catalog file has actually been
+    # added to this dataflow's project - "added to project" is just this
+    # permission check, not a copy of the file (see projectDatasets on the
+    # saved dataflow record).
+    project_dataset_ids = {
+        d.get("id")
+        for d in (dataflow_record.get("projectDatasets") or [])
+        if isinstance(d, dict)
+    }
+
     if(src == "osm"):
         for f in (pl.get("osm_features") or []):
             feature = f.get("feature")
             attributes = f.get("attributes") or []
+            catalog_id = f"osm/{roi_datafile}/{feature}.feather"
+
+            if catalog_id not in project_dataset_ids:
+                problems.append({
+                    "data_layer_id": id,
+                    "feature": feature,
+                    "error": (
+                        f"'{feature}' ({catalog_id}) is not available in this project - "
+                        "add it from the Data Catalog first."
+                    ),
+                })
+                continue
+
             try:
                 src_path = resolve_feather_path(str(roi_datafile), str(feature))
                 if not src_path.is_file():
@@ -408,10 +524,27 @@ def extract_data_layer():
                 gdf_cut = crop_gdf(gdf, roi)
                 gdf_out = select_features(gdf_cut, attributes)
 
-                out_name = f"vector/{id}_{feature}.geojson"
-                out_path = OUT_DIR / out_name
-                
+                out_name = f"{id}_{feature}.geojson"
+                out_path = vector_subdir / out_name
+
                 gdf_out.to_file(out_path, driver="GeoJSON")
+
+                # Durable copy - out_path itself lives under OUT_DIR, which
+                # gets wiped on every backend restart (see __main__ below).
+                computed_dir = _dataflow_computed_dir(str(dataflow_id))
+                computed_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(out_path, computed_dir / out_name)
+
+                stat = out_path.stat()
+                computed.append({
+                    "id": f"computed/{out_name}",
+                    "name": f"{id}_{feature}",
+                    "group": "computed",
+                    "format": "GeoJSON",
+                    "sizeBytes": stat.st_size,
+                    "size": _catalog_human_size(stat.st_size),
+                    "modifiedAt": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                })
 
             except Exception as e:
                 error_msg = f"[ERROR] Layer {id}:{feature} → {type(e).__name__}: {e}"
@@ -425,7 +558,8 @@ def extract_data_layer():
 
         return jsonify({
             "status": "success" if not problems else "partial",
-            "problems": problems
+            "problems": problems,
+            "computed": computed,
         }), 200 if not problems else 207
     else:
         return jsonify({"status": "error", "error": f"Unsupported source: {src}"}), 400
@@ -829,6 +963,207 @@ def publish_chart_type():
 
     return jsonify({"status": "ok", **record})
 
+
+def _dataflow_path(dataflow_id: str) -> Path | None:
+    if not DATAFLOW_ID_RE.match(dataflow_id):
+        return None
+    return DATAFLOWS_DIR / f"{dataflow_id}.json"
+
+
+# Durable home for a dataflow's computed outputs (e.g. A_buildings.geojson)
+# - unlike data/served (OUT_DIR), which is wiped on every backend
+# start/reload, this lives alongside the dataflow's own record and survives
+# a restart. See _restore_computed_outputs, called at startup, which copies
+# these back into OUT_DIR so a computed dataset's file is actually there
+# again, not just its listing in the dataflow's projectDatasets.
+def _dataflow_computed_dir(dataflow_id: str) -> Path:
+    return DATAFLOWS_DIR / f"{dataflow_id}_computed"
+
+
+def _restore_computed_outputs() -> None:
+    for record_path in DATAFLOWS_DIR.glob("*.json"):
+        try:
+            record = json.loads(record_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        dataflow_id = record.get("id")
+        if not isinstance(dataflow_id, str) or not DATAFLOW_ID_RE.match(dataflow_id):
+            continue
+        computed_dir = _dataflow_computed_dir(dataflow_id)
+        if not computed_dir.is_dir():
+            continue
+        for f in computed_dir.glob("*.geojson"):
+            try:
+                shutil.copyfile(f, vector_subdir / f.name)
+            except OSError as e:
+                print(f"[startup] Failed to restore computed output {f}: {e}")
+
+
+def _dataflow_summary(record: dict) -> dict:
+    nodes = [n for n in (record.get("nodes") or []) if isinstance(n, dict)]
+    edges = [e for e in (record.get("edges") or []) if isinstance(e, dict)]
+    return {
+        "id": record["id"],
+        "name": record.get("name") or "Untitled dataflow",
+        "createdAt": record.get("createdAt"),
+        "updatedAt": record.get("updatedAt"),
+        "nodeCount": len(nodes),
+        # Just enough per node/edge to draw a canvas-layout thumbnail on the
+        # Dataflows home page (see ProjectsHomePage.tsx) without shipping
+        # each node's full (potentially large) `data` payload in the list
+        # response.
+        "nodesPreview": [
+            {
+                "id": n.get("id"),
+                "type": n.get("type"),
+                "position": n.get("position") or {"x": 0, "y": 0},
+                "width": n.get("width"),
+                "height": n.get("height"),
+            }
+            for n in nodes
+        ],
+        "edgesPreview": [
+            {"source": e.get("source"), "target": e.get("target")} for e in edges
+        ],
+    }
+
+
+@app.get("/api/dataflows")
+def list_dataflows():
+    summaries = []
+    for path in DATAFLOWS_DIR.glob("*.json"):
+        try:
+            record = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        summaries.append(_dataflow_summary(record))
+
+    summaries.sort(key=lambda s: s.get("updatedAt") or "", reverse=True)
+    return jsonify({"status": "ok", "dataflows": summaries})
+
+
+@app.post("/api/dataflows")
+def create_dataflow():
+    payload = request.get_json(silent=True) or {}
+    name = (payload.get("name") or "").strip() or "Untitled dataflow"
+
+    dataflow_id = uuid.uuid4().hex
+    now = datetime.now(timezone.utc).isoformat()
+    record = {
+        "id": dataflow_id,
+        "name": name,
+        "nodes": [],
+        "edges": [],
+        "projectDatasets": [],
+        "createdAt": now,
+        "updatedAt": now,
+    }
+    _atomic_write_text(DATAFLOWS_DIR / f"{dataflow_id}.json", json.dumps(record))
+    return jsonify({"status": "ok", **record})
+
+
+@app.get("/api/dataflows/<dataflow_id>")
+def get_dataflow(dataflow_id: str):
+    path = _dataflow_path(dataflow_id)
+    if path is None:
+        return jsonify({"error": "Invalid dataflow id"}), 400
+    if not path.exists():
+        return jsonify({"error": f"No dataflow with id '{dataflow_id}'"}), 404
+
+    try:
+        record = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return jsonify({"error": "Dataflow file is corrupted"}), 500
+
+    return jsonify({"status": "ok", **record})
+
+
+@app.put("/api/dataflows/<dataflow_id>")
+def save_dataflow(dataflow_id: str):
+    """Autosave target - Chart Studio's publish flow has its own explicit
+    save, but the canvas itself has no save button, so this is called on a
+    debounce every time nodes/edges change (see frontend/src/App.tsx)."""
+    path = _dataflow_path(dataflow_id)
+    if path is None:
+        return jsonify({"error": "Invalid dataflow id"}), 400
+    if not path.exists():
+        return jsonify({"error": f"No dataflow with id '{dataflow_id}'"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload.get("nodes"), list) or not isinstance(payload.get("edges"), list):
+        return jsonify({"error": "'nodes' and 'edges' must be arrays"}), 400
+
+    try:
+        record = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        record = {}
+
+    record["id"] = dataflow_id
+    record["nodes"] = payload["nodes"]
+    record["edges"] = payload["edges"]
+    if isinstance(payload.get("name"), str) and payload["name"].strip():
+        record["name"] = payload["name"].strip()
+    # Optional - omitted on a save that isn't touching the project dataset
+    # list leaves whatever was already persisted untouched.
+    if isinstance(payload.get("projectDatasets"), list):
+        record["projectDatasets"] = payload["projectDatasets"]
+    record.setdefault("projectDatasets", [])
+    record.setdefault("createdAt", datetime.now(timezone.utc).isoformat())
+    record["updatedAt"] = datetime.now(timezone.utc).isoformat()
+
+    _atomic_write_text(path, json.dumps(record))
+    return jsonify({"status": "ok", **_dataflow_summary(record)})
+
+
+@app.patch("/api/dataflows/<dataflow_id>")
+def rename_dataflow(dataflow_id: str):
+    """Renames a dataflow without touching its nodes/edges - kept separate
+    from save_dataflow (PUT) so the Toolbar's rename field doesn't need to
+    carry the full canvas state around just to change a name."""
+    path = _dataflow_path(dataflow_id)
+    if path is None:
+        return jsonify({"error": "Invalid dataflow id"}), 400
+    if not path.exists():
+        return jsonify({"error": f"No dataflow with id '{dataflow_id}'"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    name = payload.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return jsonify({"error": "'name' must be a non-empty string"}), 400
+
+    try:
+        record = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        record = {}
+
+    record["id"] = dataflow_id
+    record["name"] = name.strip()
+    record.setdefault("nodes", [])
+    record.setdefault("edges", [])
+    record.setdefault("createdAt", datetime.now(timezone.utc).isoformat())
+    record["updatedAt"] = datetime.now(timezone.utc).isoformat()
+
+    _atomic_write_text(path, json.dumps(record))
+    return jsonify({"status": "ok", **_dataflow_summary(record)})
+
+
+@app.delete("/api/dataflows/<dataflow_id>")
+def delete_dataflow(dataflow_id: str):
+    path = _dataflow_path(dataflow_id)
+    if path is None:
+        return jsonify({"error": "Invalid dataflow id"}), 400
+    if not path.exists():
+        return jsonify({"error": f"No dataflow with id '{dataflow_id}'"}), 404
+
+    path.unlink()
+
+    computed_dir = _dataflow_computed_dir(dataflow_id)
+    if computed_dir.is_dir():
+        shutil.rmtree(computed_dir, ignore_errors=True)
+
+    return jsonify({"status": "ok"})
+
+
 @app.post("/api/infer-filetype")
 def infer_filetype():
     payload = request.get_json(silent=True) or {}
@@ -949,6 +1284,11 @@ if __name__ == '__main__':
     vector_subdir.mkdir(parents=True, exist_ok=True)
     raster_subdir.mkdir(parents=True, exist_ok=True)
     metric_subdir.mkdir(parents=True, exist_ok=True)
+
+    # OUT_DIR was just wiped above - bring back every dataflow's computed
+    # outputs from their durable per-dataflow copy so a data_layer fetch
+    # from before this restart doesn't just vanish.
+    _restore_computed_outputs()
 
     # Start the worker up-front (or you can let send_code_to_worker lazily do it)
     try:

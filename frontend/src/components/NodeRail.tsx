@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, CSSProperties, DragEvent } from "react";
 import { useReactFlow } from "@xyflow/react";
 import Tooltip from "@mui/material/Tooltip";
@@ -10,18 +10,32 @@ import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import StorageOutlinedIcon from "@mui/icons-material/StorageOutlined";
+import FolderOutlinedIcon from "@mui/icons-material/FolderOutlined";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import CheckIcon from "@mui/icons-material/Check";
 import CircularProgress from "@mui/material/CircularProgress";
 
 import { TEMPLATE_LABELS, type TemplateKey } from "../templates";
 import { runDataflow } from "../utils/dataflowRunner";
+import { formatColor } from "../utils/formatColors";
+import {
+  collectProjectTreeFiles,
+  groupProjectDatasetsForDisplay,
+  type ProjectDataset,
+  type ProjectFolderNode,
+} from "../utils/projectDatasets";
+import { encodeDatasetDrag, type DatasetDragPayload } from "../utils/datasetDrag";
 import "./NodeRail.css";
 
 interface Props {
   onAdd: (tpl: TemplateKey) => void;
   onAddPyCodeEditor: () => void;
   onClear: () => void;
+  onOpenDataCatalog: () => void;
+  projectDatasets: ProjectDataset[];
 }
 
 // dataTransfer key + sentinel the canvas' onDrop reads to tell a dragged
@@ -30,6 +44,11 @@ interface Props {
 // it needs its own sentinel value distinct from every real TemplateKey.
 export const NODE_DRAG_MIME = "application/x-scout-node";
 export const PY_CODE_DRAG_VALUE = "__pyCodeEditor__";
+
+function startDatasetDrag(e: DragEvent<HTMLElement>, payload: DatasetDragPayload) {
+  e.dataTransfer.setData(NODE_DRAG_MIME, encodeDatasetDrag(payload));
+  e.dataTransfer.effectAllowed = "move";
+}
 
 interface RailItem {
   key: string;
@@ -48,12 +67,122 @@ interface RailSection {
 
 const ICON_SX = { fontSize: 18 };
 
+// One folder within a tree-shaped project section ("OSM Data" or "Other" -
+// see groupProjectDatasetsForDisplay). The header always shows (name + file
+// count), and clicking it reveals its contents underneath: any subfolders
+// it actually has, rebuilt from each file's real catalog path regardless
+// of whether it was added via its own folder button or as an individual
+// file, plus its own direct files.
+function ProjectFolderItem({
+  name,
+  node,
+  depth = 0,
+}: {
+  name: string;
+  node: ProjectFolderNode;
+  depth?: number;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const childFolders = [...node.folders.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const files = [...node.files].sort((a, b) => a.name.localeCompare(b.name));
+  const fileCount = collectProjectTreeFiles(node).length;
+
+  return (
+    <div className="node-rail-catalog__project-group">
+      <button
+        type="button"
+        className="node-rail-catalog__project-item node-rail-catalog__project-item--toggle"
+        onClick={() => setIsOpen((v) => !v)}
+        aria-label={isOpen ? `Collapse ${name}` : `Expand ${name}`}
+        title={name}
+        draggable
+        onDragStart={(e) =>
+          startDatasetDrag(e, { kind: "folder", name, files: collectProjectTreeFiles(node) })
+        }
+      >
+        <div className="node-rail-catalog__project-item-icon node-rail-catalog__project-item-icon--folder">
+          <FolderOutlinedIcon sx={{ fontSize: 16, color: "#64748b" }} />
+        </div>
+        <div className="node-rail-catalog__project-item-text">
+          <div className="node-rail-catalog__project-item-name">{name}</div>
+          <div className="node-rail-catalog__project-item-meta">
+            {fileCount} file{fileCount === 1 ? "" : "s"}
+          </div>
+        </div>
+        {isOpen ? (
+          <ChevronLeftIcon sx={{ fontSize: 15, color: "#94a3b8", flexShrink: 0 }} />
+        ) : (
+          <ChevronRightIcon sx={{ fontSize: 15, color: "#94a3b8", flexShrink: 0 }} />
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="node-rail-catalog__project-group-files">
+          {childFolders.map((child) => (
+            <ProjectFolderItem key={child.path} name={child.name} node={child} depth={depth + 1} />
+          ))}
+          {files.map((f) => (
+            <ProjectFileItem key={f.id} dataset={f} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// One dataset row in the flyout's project list - used for a loose file at
+// a section's root (no folder to nest under) and for a computed output
+// (the Computed section is deliberately flat, no folder tree at all).
+function ProjectFileItem({ dataset: f }: { dataset: ProjectDataset }) {
+  return (
+    <div
+      className="node-rail-catalog__project-item"
+      title={f.name}
+      draggable
+      onDragStart={(e) => startDatasetDrag(e, { kind: "file", dataset: f })}
+    >
+      <div
+        className="node-rail-catalog__project-item-icon"
+        style={{ backgroundColor: `${formatColor(f.format)}1a` }}
+      >
+        <StorageOutlinedIcon sx={{ fontSize: 16, color: formatColor(f.format) }} />
+      </div>
+      <div className="node-rail-catalog__project-item-text">
+        <div className="node-rail-catalog__project-item-name">{f.name}</div>
+        <div className="node-rail-catalog__project-item-meta">
+          {f.format} · {f.size}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function NodeRail({
   onAdd,
   onAddPyCodeEditor,
   onClear,
+  onOpenDataCatalog,
+  projectDatasets,
 }: Props) {
   const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
+  // Only the toggle button itself opens/closes this - no outside-click
+  // auto-close, since canvas interactions (selecting a node, renaming the
+  // dataflow, etc.) all count as "outside" and shouldn't fold it away.
+  const [catalogFlyoutOpen, setCatalogFlyoutOpen] = useState(false);
+  // A folder added as a whole (see DataCatalogPanel's FolderRow) shows here
+  // as one grouped entry instead of exploding into its individual files,
+  // split into an OSM card and an "Other" card for everything else.
+  const projectSections = useMemo(
+    () => groupProjectDatasetsForDisplay(projectDatasets),
+    [projectDatasets],
+  );
+
+  const handleBrowseDataCatalog = useCallback(() => {
+    // Opens the Data Catalog sidebar without closing this flyout - they're
+    // two independent panels, and closing this one on click read as the
+    // flyout "folding and disappearing" rather than a deliberate action.
+    onOpenDataCatalog();
+  }, [onOpenDataCatalog]);
 
   const [runStatus, setRunStatus] = useState<
     "idle" | "running" | "success" | "failed"
@@ -246,6 +375,79 @@ export default function NodeRail({
             </Tooltip>
           </div>
         </div>
+      </div>
+
+      <div className="node-rail-catalog">
+        <button
+          type="button"
+          className="node-rail-catalog__toggle"
+          aria-haspopup="true"
+          aria-expanded={catalogFlyoutOpen}
+          onClick={() => setCatalogFlyoutOpen((v) => !v)}
+        >
+          <div className="node-rail-catalog__icon-row">
+            <LayersOutlinedIcon sx={ICON_SX} style={{ color: "#cb181d" }} />
+            <span className="node-rail-catalog__count">{projectDatasets.length}</span>
+            {catalogFlyoutOpen ? (
+              <ChevronLeftIcon className="node-rail-catalog__chevron" sx={ICON_SX} />
+            ) : (
+              <ChevronRightIcon className="node-rail-catalog__chevron" sx={ICON_SX} />
+            )}
+          </div>
+          <span className="node-rail-catalog__label">Data Catalog</span>
+        </button>
+
+        {catalogFlyoutOpen && (
+          <div className="node-rail-catalog__flyout">
+            <p className="node-rail-catalog__flyout-title">
+              Add or compute a dataset to use it here.
+            </p>
+
+            <div className="node-rail-catalog__project-section">
+              <div className="node-rail-catalog__project-header">
+                <span>Datasets in project</span>
+                <span className="node-rail-catalog__project-count">
+                  {projectDatasets.length}
+                </span>
+              </div>
+              {projectDatasets.length === 0 ? (
+                <div className="node-rail-catalog__project-empty">No datasets added yet.</div>
+              ) : (
+                <div className="node-rail-catalog__project-list">
+                  {projectSections.map((section) => (
+                    <div key={section.key} className="node-rail-catalog__project-source">
+                      <div className="node-rail-catalog__project-source-title">
+                        {section.label}
+                      </div>
+                      {section.kind === "flat"
+                        ? section.files.map((f) => <ProjectFileItem key={f.id} dataset={f} />)
+                        : [
+                            ...[...section.root.folders.values()]
+                              .sort((a, b) => a.name.localeCompare(b.name))
+                              .map((folder) => (
+                                <ProjectFolderItem key={folder.path} name={folder.name} node={folder} />
+                              )),
+                            ...[...section.root.files]
+                              .sort((a, b) => a.name.localeCompare(b.name))
+                              .map((f) => <ProjectFileItem key={f.id} dataset={f} />),
+                          ]}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <p className="node-rail-catalog__drag-hint">Drag a dataset onto the canvas to add it.</p>
+
+            <button
+              type="button"
+              className="node-rail-catalog__browse-btn"
+              onClick={handleBrowseDataCatalog}
+            >
+              Browse Data Catalog
+            </button>
+          </div>
+        )}
       </div>
 
       <Tooltip

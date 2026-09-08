@@ -64,9 +64,13 @@ const AGENT_EMPTY_HINTS: Record<AgentMode, string> = {
   node: "Tell me what node to add or rename, e.g. “add a data layer node named City Buildings”.",
 };
 
-export default function ChatWidget() {
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export default function ChatWidget({ open, onOpenChange }: Props) {
   const rf = useReactFlow();
-  const [open, setOpen] = useState(false);
   const [agentMode, setAgentMode] = useState<AgentMode>("general");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
@@ -243,10 +247,10 @@ export default function ChatWidget() {
     <>
       {!open && (
         <Fab
-          onClick={() => setOpen(true)}
+          onClick={() => onOpenChange(true)}
           sx={{
             position: "fixed",
-            right: 24,
+            left: 24,
             bottom: 24,
             zIndex: 40,
             bgcolor: "grey.700",
@@ -312,7 +316,7 @@ export default function ChatWidget() {
               </IconButton>
               <IconButton
                 size="small"
-                onClick={() => setOpen(false)}
+                onClick={() => onOpenChange(false)}
                 aria-label="Close chat"
               >
                 <CloseIcon fontSize="small" />

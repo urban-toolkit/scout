@@ -1,6 +1,8 @@
 import { memo, useCallback, useEffect, useState } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { useReactFlow, Handle, Position, NodeResizer } from "@xyflow/react";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 
 import BaseGrammarNode, {
   BaseNodeData,
@@ -12,6 +14,7 @@ import checkPng from "../../assets/check-mark.png";
 import expandPng from "../../assets/expand.png";
 import { appUrl } from "../../utils/runtimePaths";
 import { registerNodeAction } from "../../utils/nodeActionRegistry";
+import { getCurrentDataflowId } from "../../utils/dataflows";
 // import restartPng from "../../assets/restart.png";
 
 import "./DataLayerNode.css";
@@ -34,7 +37,13 @@ const DataLayerNode = memo(function DataLayerNode(
   const [loading, setLoading] = useState(false);
   const [loadingSuccess, setLoadingSuccess] = useState(false);
 
-  const [minimized, setMinimized] = useState(false);
+  // Seeded from the persisted node data (rather than always false) so a
+  // dataflow saved with this node minimized reopens minimized too.
+  const [minimized, setMinimized] = useState(() => Boolean(data.minimized));
+  // Surfaced as a popup (see the Snackbar below) rather than just a console
+  // log - the most common cause is a feature that hasn't been added to
+  // this dataflow's project yet, which is otherwise a silent no-op.
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const onFetch = useCallback(async (): Promise<boolean> => {
     const val: any = (data.value as any)?.data_layer;
@@ -45,7 +54,6 @@ const DataLayerNode = memo(function DataLayerNode(
     }
 
     try {
-      console.log("Sending data to Flask:", val);
       setLoading(true);
       setLoadingSuccess(false);
       const response = await fetch(appUrl("/api/extract-data-layer"), {
@@ -53,24 +61,43 @@ const DataLayerNode = memo(function DataLayerNode(
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(val),
+        // dataflow_id tells the backend which project's dataset list to
+        // check a feature against - fetching only succeeds for a feature
+        // that's actually been added to this dataflow's project.
+        body: JSON.stringify({ ...val, dataflow_id: getCurrentDataflowId() }),
       });
 
-      const data = await response.json();
+      const body = await response.json().catch(() => ({}));
 
-      console.log("Response body:", data);
-
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+      if (!response.ok && response.status !== 207) {
+        throw new Error(body?.error ?? `Server returned ${response.status}`);
       }
 
-      // const result = await response.json();
-      // console.log("Flask response:", result);
+      const problems: { feature?: string; error: string }[] = body?.problems ?? [];
+      const computed = body?.computed ?? [];
+
+      // Whatever was actually fetched still shows up as available, even if
+      // other features in the same request were skipped for not being in
+      // the project - so it's added to the project (and the Computed tab)
+      // regardless of whether there were also problems.
+      if (computed.length > 0) {
+        data.onAddComputedDatasets?.(computed);
+      }
+
+      if (problems.length > 0) {
+        setErrorMessage(problems.map((p) => p.error).join(" "));
+        return false;
+      }
+
+      setErrorMessage(null);
       setLoadingSuccess(true);
       setTimeout(() => setLoadingSuccess(false), 2000);
       return true;
     } catch (err) {
       console.error("Error sending data to Flask:", err);
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to fetch this data layer.",
+      );
       return false;
     } finally {
       setLoading(false);
@@ -108,6 +135,7 @@ const DataLayerNode = memo(function DataLayerNode(
               ...n,
               width: NODE_MINIMIZED_WIDTH,
               height: NODE_MINIMIZED_HEIGHT,
+              data: { ...n.data, minimized: next },
             };
           } else {
             // restoring
@@ -122,6 +150,7 @@ const DataLayerNode = memo(function DataLayerNode(
               ...n,
               width: nextWidth,
               height: nextHeight,
+              data: { ...n.data, minimized: next },
             };
           }
         }),
@@ -259,6 +288,22 @@ const DataLayerNode = memo(function DataLayerNode(
           minimized ? "gnode__handle--hidden" : ""
         }`}
       />
+
+      <Snackbar
+        open={errorMessage !== null}
+        autoHideDuration={6000}
+        onClose={() => setErrorMessage(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setErrorMessage(null)}
+          severity="error"
+          variant="filled"
+          sx={{ maxWidth: 420 }}
+        >
+          {errorMessage}
+        </Alert>
+      </Snackbar>
     </>
   );
 });
