@@ -23,6 +23,7 @@ import mapPng from "../../assets/map.png";
 import checkPng from "../../assets/check-mark.png";
 import { appUrl } from "../../utils/runtimePaths";
 import { registerNodeAction } from "../../utils/nodeActionRegistry";
+import { getCurrentDataflowId } from "../../utils/dataflows";
 
 export type ViewNodeData = BaseNodeData & {
   mode?: "def" | "view";
@@ -89,6 +90,7 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
     setPersistSuccess(false);
 
     try {
+      const dataflowId = getCurrentDataflowId();
       const tasks = entries.map(({ ref, geojson }) =>
         fetch(appUrl("/api/update-data-layer"), {
           method: "POST",
@@ -96,6 +98,7 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
           body: JSON.stringify({
             ref,
             geojson,
+            dataflow_id: dataflowId,
           }),
         }),
       );

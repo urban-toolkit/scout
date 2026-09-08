@@ -315,14 +315,34 @@ def select_features(gdf: gpd.GeoDataFrame, features: list[str]) -> gpd.GeoDataFr
     
     return gdf[cols]
 
-@app.get("/api/list-rasters/<Id>")
+def _list_png_tiles(folder: Path) -> list[str]:
+    return [
+        f.name
+        for f in folder.iterdir()
+        if f.is_file() and f.suffix.lower() == ".png"
+    ]
+
+
+@app.get("/api/list-rasters/<path:Id>")
 def list_rasters(Id: str):
     """
-    Return a JSON list of PNG raster tiles inside:
-    data/served/raster/<Id>/
+    Return a JSON list of PNG raster tiles inside a raster ref's folder -
+    normally data/catalog/<Id>/ or this dataflow's
+    data/dataflows/<dataflow_id>_computed/<Id>/, falling back to
+    data/served/raster/<Id>/ for rasters written directly by model scripts
+    (flood/shadow/routing - see _resolve_data_source), which have no
+    catalog/computed identity of their own.
     """
-    folder = raster_subdir / Id
+    dataflow_id = request.args.get("dataflow_id")
 
+    resolved = _resolve_data_source(Id, dataflow_id)
+    if resolved is not None:
+        base_dir, rel_ref = resolved
+        folder = _safe_data_dir(base_dir, rel_ref)
+        if folder is not None and folder.is_dir():
+            return jsonify(_list_png_tiles(folder)), 200
+
+    folder = raster_subdir / Id
     try:
         folder.resolve().relative_to(raster_subdir.resolve())
     except Exception:
@@ -331,13 +351,7 @@ def list_rasters(Id: str):
     if not folder.exists() or not folder.is_dir():
         return jsonify([]), 200   # return empty list
 
-    files = [
-        f.name
-        for f in folder.iterdir()
-        if f.is_file() and f.suffix.lower() == ".png"
-    ]
-
-    return jsonify(files), 200
+    return jsonify(_list_png_tiles(folder)), 200
 
 @app.get("/generated/raster/<path:filename>")
 def serve_raster(filename: str):
@@ -351,23 +365,34 @@ def serve_raster(filename: str):
     if ext not in allowed_exts:
         abort(404)
 
+    mimetype = "image/png" if ext == "png" else "image/tiff"
+    ref = filename[: -(len(ext) + 1)]
+    dataflow_id = request.args.get("dataflow_id")
+
+    resolved = _resolve_data_source(ref, dataflow_id)
+    if resolved is not None:
+        base_dir, rel_ref = resolved
+        candidate = _safe_data_path(base_dir, rel_ref, ext)
+        if candidate is not None and candidate.is_file():
+            return send_from_directory(
+                candidate.parent, candidate.name, mimetype=mimetype, conditional=True,
+            )
+
+    # Fall back to data/served/raster - where model scripts (flood/shadow/
+    # routing) write their raster outputs directly, with no catalog/computed
+    # identity of their own (see _resolve_data_source).
     full_path = raster_subdir / filename
     try:
         full_path.resolve().relative_to(raster_subdir.resolve())
     except Exception:
         abort(403)  # Forbidden
 
-    directory = full_path.parent
-    file = full_path.name
-
-    if ext == "png":
-        mimetype = "image/png"
-    else:  # tif / tiff
-        mimetype = "image/tiff"
+    if not full_path.is_file():
+        abort(404)
 
     return send_from_directory(
-        directory,
-        file,
+        full_path.parent,
+        full_path.name,
         mimetype=mimetype,
         conditional=True,
     )
@@ -377,11 +402,38 @@ def serve_vector(filename: str):
     if not filename.lower().endswith(".geojson"):
         abort(404)
 
+    ref = filename[: -len(".geojson")]
+    dataflow_id = request.args.get("dataflow_id")
+
+    resolved = _resolve_data_source(ref, dataflow_id)
+    if resolved is not None:
+        base_dir, rel_ref = resolved
+        candidate = _safe_data_path(base_dir, rel_ref, "geojson")
+        if candidate is not None and candidate.is_file():
+            return send_from_directory(
+                candidate.parent,
+                candidate.name,
+                mimetype="application/geo+json",
+                conditional=True,
+            )
+
+    # Fall back to data/served/vector - where model scripts (e.g. weather
+    # routing) write vector outputs directly, with no catalog/computed
+    # identity of their own (see _resolve_data_source).
+    full_path = vector_subdir / filename
+    try:
+        full_path.resolve().relative_to(vector_subdir.resolve())
+    except Exception:
+        abort(403)
+
+    if not full_path.is_file():
+        abort(404)
+
     return send_from_directory(
-        vector_subdir,
-        filename,
+        full_path.parent,
+        full_path.name,
         mimetype="application/geo+json",
-        conditional=True
+        conditional=True,
     )
 
 _CATALOG_FORMAT_LABELS = {
@@ -569,8 +621,25 @@ def extract_data_layer():
 def update_data_layer():
     data = request.get_json()
     ref = data["ref"]
-    # tag = data["tag"]
+    dataflow_id = data.get("dataflow_id")
     geojson = data["geojson"]
+
+    # A "computed/" ref is this dataflow's own mutable output - edits persist
+    # there durably (data/dataflows/{dataflow_id}_computed/), the same place
+    # the view/interaction ref resolution looks it up from (see
+    # _resolve_data_source). Anything else falls back to data/served/vector,
+    # matching the pre-existing behavior for refs that come from a model
+    # script's direct output (flood/shadow/routing) rather than the catalog
+    # or a computed dataset - the catalog itself is never written to here.
+    resolved = _resolve_data_source(ref, dataflow_id) if ref.startswith("computed/") else None
+
+    if resolved is not None:
+        base_dir, rel_ref = resolved
+        filepath = _safe_data_path(base_dir, rel_ref, "geojson")
+        if filepath is None:
+            return jsonify({"status": "error", "error": "invalid ref"}), 400
+        _atomic_write_text(filepath, json.dumps(geojson))
+        return jsonify({"status": "success"}), 200
 
     filename = f"vector/{ref}.geojson"
     filepath = OUT_DIR / filename
@@ -613,9 +682,56 @@ COLORMAPS = {
     "grays":   matplotlib.colormaps.get_cmap("Greys")
 }
 
+def _resolve_raster_dir(ref: str, dataflow_id: str | None) -> Path | None:
+    """Resolves a raster tile-folder ref to its actual directory: tries the
+    catalog / this dataflow's computed dir first (see _resolve_data_source),
+    then falls back to data/served/raster/<ref> for folders written
+    directly by model scripts (flood/shadow), which have no catalog/computed
+    identity of their own."""
+    resolved = _resolve_data_source(ref, dataflow_id)
+    if resolved is not None:
+        base_dir, rel_ref = resolved
+        folder = _safe_data_dir(base_dir, rel_ref)
+        if folder is not None and folder.is_dir():
+            return folder
+
+    folder = raster_subdir / ref
+    try:
+        folder.resolve().relative_to(raster_subdir.resolve())
+    except Exception:
+        return None
+    return folder if folder.is_dir() else None
+
+
+def _resolve_raster_file(ref: str, ext: str, dataflow_id: str | None) -> Path | None:
+    """Single-file counterpart of _resolve_raster_dir (e.g. a .tif)."""
+    resolved = _resolve_data_source(ref, dataflow_id)
+    if resolved is not None:
+        base_dir, rel_ref = resolved
+        candidate = _safe_data_path(base_dir, rel_ref, ext)
+        if candidate is not None and candidate.is_file():
+            return candidate
+
+    candidate = raster_subdir / f"{ref}.{ext}"
+    try:
+        candidate.resolve().relative_to(raster_subdir.resolve())
+    except Exception:
+        return None
+    return candidate if candidate.is_file() else None
+
+
 @app.get("/generated/raster/<ref>/<name>")
 def get_colormapped_tile(ref, name):
-    path = raster_subdir / ref / name
+    dataflow_id = request.args.get("dataflow_id")
+    folder = _resolve_raster_dir(ref, dataflow_id)
+    if folder is None:
+        abort(404)
+
+    path = folder / name
+    try:
+        path.resolve().relative_to(folder.resolve())
+    except Exception:
+        abort(403)
 
     cmap_name = (request.args.get("cmap") or "").lower()
     cmap = COLORMAPS.get(cmap_name)
@@ -658,10 +774,15 @@ def get_colormapped_tile(ref, name):
 
     return send_file(BytesIO(buf.tobytes()), mimetype="image/png")
     
-def diff_dirs(dir1_, dir2_):
-    dir1 = Path(raster_subdir, dir1_)
-    dir2 = Path(raster_subdir, dir2_)
-    output_path = Path(raster_subdir, f"{dir1_}_minus_{dir2_}")
+def _diff_ref_name(ref_base: str, ref_comp: str) -> str:
+    # ref_base/ref_comp may contain "/" ("folder/file" or "computed/...") -
+    # flatten to a flat data/served/raster cache key for the synthesized
+    # diff output, which has no catalog/computed identity of its own.
+    return f"{ref_base.replace('/', '__')}_minus_{ref_comp.replace('/', '__')}"
+
+
+def diff_dirs(dir1: Path, dir2: Path, out_name: str) -> Path:
+    output_path = Path(raster_subdir, out_name)
 
     if output_path.exists():
         shutil.rmtree(output_path)
@@ -692,29 +813,29 @@ def diff_dirs(dir1_, dir2_):
 @app.route("/api/diff-png", methods=["POST"])
 def api_diff_png():
     data = request.get_json(force=True)
-    dir1 = data.get("dir1")
-    dir2 = data.get("dir2")
+    ref_base = data.get("ref_base") or data.get("dir1")
+    ref_comp = data.get("ref_comp") or data.get("dir2")
+    dataflow_id = data.get("dataflow_id")
     # colormap = data.get("colormap", "Reds")
 
-    if not dir1 or not dir2:
-        return jsonify({"error": "dir1 and dir2 are required"}), 400
+    if not ref_base or not ref_comp:
+        return jsonify({"error": "ref_base and ref_comp are required"}), 400
 
-    out_dir = diff_dirs(dir1, dir2)
+    dir1 = _resolve_raster_dir(ref_base, dataflow_id)
+    dir2 = _resolve_raster_dir(ref_comp, dataflow_id)
+    if dir1 is None or dir2 is None:
+        return jsonify({"error": "ref_base/ref_comp raster folder not found"}), 404
+
+    out_name = _diff_ref_name(ref_base, ref_comp)
+    out_dir = diff_dirs(dir1, dir2, out_name)
     return jsonify({
         "status": "ok",
         "output_dir": str(out_dir),
+        "ref": out_name,
     })
 
-def diff_tif_files(tif1_name_, tif2_name_):
-
-    tif1_name = tif1_name_ + ".tif"
-    tif2_name = tif2_name_ + ".tif"
-
-    tif1_path = Path(raster_subdir, tif1_name)
-    tif2_path = Path(raster_subdir, tif2_name)
-
-    out_name = f"{tif1_name_}_minus_{tif2_name_}.tif"
-    out_path = Path(raster_subdir, out_name)
+def diff_tif_files(tif1_path: Path, tif2_path: Path, out_name: str) -> Path:
+    out_path = Path(raster_subdir, f"{out_name}.tif")
 
     with rasterio.open(tif1_path) as r1, rasterio.open(tif2_path) as r2:
         arr1 = r1.read(1).astype("float32")
@@ -737,17 +858,25 @@ def diff_tif_files(tif1_name_, tif2_name_):
 @app.route("/api/diff-tif", methods=["POST"])
 def api_diff_tif():
     data = request.get_json(force=True)
-    tif1 = data.get("tif1")
-    tif2 = data.get("tif2")
+    ref_base = data.get("ref_base") or data.get("tif1")
+    ref_comp = data.get("ref_comp") or data.get("tif2")
+    dataflow_id = data.get("dataflow_id")
 
-    if not tif1 or not tif2:
-        return jsonify({"error": "tif1 and tif2 are required"}), 400
+    if not ref_base or not ref_comp:
+        return jsonify({"error": "ref_base and ref_comp are required"}), 400
 
-    out_path = diff_tif_files(tif1, tif2)
+    tif1_path = _resolve_raster_file(ref_base, "tif", dataflow_id)
+    tif2_path = _resolve_raster_file(ref_comp, "tif", dataflow_id)
+    if tif1_path is None or tif2_path is None:
+        return jsonify({"error": "ref_base/ref_comp raster file not found"}), 404
+
+    out_name = _diff_ref_name(ref_base, ref_comp)
+    out_path = diff_tif_files(tif1_path, tif2_path, out_name)
 
     return jsonify({
         "status": "ok",
         "output_tif": str(out_path),
+        "ref": out_name,
     })
 
 def _as_field_list(value):
@@ -980,6 +1109,56 @@ def _dataflow_computed_dir(dataflow_id: str) -> Path:
     return DATAFLOWS_DIR / f"{dataflow_id}_computed"
 
 
+# A view/interaction "ref" (e.g. "osm/quad_city_flooding/buildings" or
+# "computed/A_buildings") names a dataset the same way /api/data-catalog and
+# /api/extract-data-layer's "id" fields already do - no leading/trailing
+# slash, no ".." segments (path traversal guard for the resolver below).
+REF_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_\-./]*$")
+
+
+def _resolve_data_source(ref: str, dataflow_id: str | None) -> tuple[Path, str] | None:
+    """Maps a "ref" to the directory it should be read from (or written
+    into): a "computed/" prefix scopes it to the current dataflow's own
+    computed outputs (data/dataflows/{dataflow_id}_computed/, requires a
+    valid dataflow_id); anything else is a path into the shared, read-only
+    data catalog (data/catalog/). Returns (base_dir, rel_ref) with rel_ref
+    stripped of the "computed/" prefix and still extension-less, or None if
+    ref is malformed or a computed ref has no usable dataflow_id."""
+    if not ref or not REF_RE.match(ref) or ".." in ref.split("/"):
+        return None
+
+    if ref.startswith("computed/"):
+        if not dataflow_id or not DATAFLOW_ID_RE.match(dataflow_id):
+            return None
+        rel_ref = ref[len("computed/"):]
+        if not rel_ref:
+            return None
+        return _dataflow_computed_dir(dataflow_id), rel_ref
+
+    return CATALOG_DIR, ref
+
+
+def _safe_data_path(base_dir: Path, rel_ref: str, ext: str) -> Path | None:
+    """Joins rel_ref + ext onto base_dir, refusing to resolve outside it."""
+    full_path = (base_dir / f"{rel_ref}.{ext}").resolve()
+    try:
+        full_path.relative_to(base_dir.resolve())
+    except ValueError:
+        return None
+    return full_path
+
+
+def _safe_data_dir(base_dir: Path, rel_ref: str) -> Path | None:
+    """Like _safe_data_path but for a ref that names a folder (a raster
+    tile set) rather than a single file."""
+    full_dir = (base_dir / rel_ref).resolve()
+    try:
+        full_dir.relative_to(base_dir.resolve())
+    except ValueError:
+        return None
+    return full_dir
+
+
 def _restore_computed_outputs() -> None:
     for record_path in DATAFLOWS_DIR.glob("*.json"):
         try:
@@ -1162,6 +1341,45 @@ def delete_dataflow(dataflow_id: str):
         shutil.rmtree(computed_dir, ignore_errors=True)
 
     return jsonify({"status": "ok"})
+
+
+@app.delete("/api/dataflows/<dataflow_id>/computed/<path:name>")
+def delete_computed_dataset(dataflow_id: str, name: str):
+    """Deletes one durable computed output (e.g. "A_buildings.geojson") from
+    this dataflow's data/dataflows/{dataflow_id}_computed/ dir - unlike the
+    catalog (shared, read-only source data), a computed dataset is owned by
+    this dataflow, so "remove from project" on one actually deletes it: a
+    View/Interaction ref still pointing at "computed/{name}" will then fail
+    to resolve, which is the correct signal that it's gone."""
+    if not DATAFLOW_ID_RE.match(dataflow_id):
+        return jsonify({"status": "error", "error": "Invalid dataflow id"}), 400
+
+    def _resolve_within(base_dir: Path) -> Path | None:
+        candidate = (base_dir / name).resolve()
+        try:
+            candidate.relative_to(base_dir.resolve())
+        except ValueError:
+            return None
+        return candidate
+
+    computed_path = _resolve_within(_dataflow_computed_dir(dataflow_id))
+    if computed_path is None:
+        return jsonify({"status": "error", "error": "Invalid name"}), 400
+
+    removed = False
+    if computed_path.is_file():
+        computed_path.unlink()
+        removed = True
+
+    # extract-data-layer also writes a served/vector mirror alongside the
+    # durable computed copy (see extract_data_layer) - remove it too, or
+    # serve_vector's served-fallback would keep handing out the stale file.
+    served_path = _resolve_within(vector_subdir)
+    if served_path is not None and served_path.is_file():
+        served_path.unlink()
+        removed = True
+
+    return jsonify({"status": "ok", "removed": removed})
 
 
 @app.post("/api/infer-filetype")

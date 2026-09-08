@@ -2,5 +2,37 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "View Schema",
   "type": "array",
-  "items": { "type": "object" }
+  "items": {
+    "type": "object",
+    "properties": {
+      "ref": {
+        "type": "string",
+        "description": "'folder/file' path into the data catalog, or 'computed/name' for this dataflow's own computed output."
+      },
+      "ext": {
+        "type": "string",
+        "description": "File extension of `ref`, no leading dot (e.g. 'geojson', 'tif', 'png'). Required whenever `ref` is set."
+      },
+      "ref_base": { "type": "string" },
+      "ext_base": {
+        "type": "string",
+        "description": "File extension of `ref_base`. Required whenever `ref_base` is set."
+      },
+      "ref_comp": { "type": "string" },
+      "ext_comp": {
+        "type": "string",
+        "description": "File extension of `ref_comp`. Required whenever `ref_comp` is set."
+      },
+      "geom_type": { "type": "string" },
+      "file_type": { "type": "string" },
+      "style": { "type": "object" }
+    },
+    "required": ["style"],
+    "allOf": [
+      { "if": { "required": ["ref"] }, "then": { "required": ["ext"] } },
+      { "if": { "required": ["ref_base"] }, "then": { "required": ["ext_base"] } },
+      { "if": { "required": ["ref_comp"] }, "then": { "required": ["ext_comp"] } }
+    ],
+    "additionalProperties": true
+  }
 }

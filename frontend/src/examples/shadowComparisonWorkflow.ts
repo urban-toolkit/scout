@@ -46,7 +46,8 @@ export function loadShadowComparisonExample({
         value: {
           view: [
             {
-              ref: "A_buildings",
+              ref: "computed/A_buildings",
+              ext: "geojson",
               style: {
                 fill: {
                   feature: "height",
@@ -98,7 +99,8 @@ export function loadShadowComparisonExample({
         value: {
           view: [
             {
-              ref: "B_buildings",
+              ref: "computed/B_buildings",
+              ext: "geojson",
               style: {
                 fill: {
                   feature: "height",
@@ -115,7 +117,7 @@ export function loadShadowComparisonExample({
         pushToken: "65abcbc7-0ce1-4af1-b090-569aba7f88f8",
         interactions: [
           {
-            ref: "B_buildings",
+            ref: "computed/B_buildings",
             itype: "click",
             action: "remove",
           },
@@ -131,7 +133,7 @@ export function loadShadowComparisonExample({
       data: {
         value: {
           interaction: {
-            ref: "B_buildings",
+            ref: "computed/B_buildings",
             itype: "click",
             action: "remove",
           },
@@ -252,6 +254,7 @@ run_shadow_model(input, season, output)`,
           view: [
             {
               ref: "A_shadow",
+              ext: "png",
               style: {
                 opacity: 1,
                 colormap: "reds",
@@ -274,6 +277,7 @@ run_shadow_model(input, season, output)`,
           view: [
             {
               ref: "B_shadow",
+              ext: "png",
               style: {
                 opacity: 1,
                 colormap: "reds",
@@ -296,7 +300,9 @@ run_shadow_model(input, season, output)`,
           view: [
             {
               ref_base: "B_shadow",
+              ext_base: "png",
               ref_comp: "A_shadow",
+              ext_comp: "png",
               style: {
                 opacity: 1,
                 colormap: "reds",

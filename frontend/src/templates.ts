@@ -41,7 +41,8 @@ export const dataLayerTemplate = {
 export const viewTemplate = {
   view: [
     {
-      ref: "A_buildings",
+      ref: "computed/A_buildings",
+      ext: "geojson",
       style: {
         fill: {
           feature: "height",
@@ -55,7 +56,8 @@ export const viewTemplate = {
       },
     },
     {
-      ref: "A_roads",
+      ref: "computed/A_roads",
+      ext: "geojson",
       style: {
         stroke: {
           color: "#333333",
@@ -68,8 +70,10 @@ export const viewTemplate = {
 // {
 //   "view": [
 //     {
-//       "ref_base": "B",
-//       "ref_comp": "A",
+//       "ref_base": "computed/B",
+//       "ext_base": "tif",
+//       "ref_comp": "computed/A",
+//       "ext_comp": "tif",
 
 //       "style": {
 //         "opacity": 1,
@@ -89,9 +93,12 @@ export const joinTemplate = {
   },
 };
 
+// `ref` here must match a view layer's own `ref` exactly (see
+// renderViewLayers.ts's buildInteractionSpecsForLayer) - it's how an
+// interaction gets attached to the right layer, not a separate file lookup.
 export const interactionTemplate = {
   interaction: {
-    ref: "A_buildings",
+    ref: "computed/A_buildings",
     itype: "click",
     action: "remove",
   },
