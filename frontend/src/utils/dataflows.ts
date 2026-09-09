@@ -106,3 +106,31 @@ export async function deleteDataflow(id: string): Promise<void> {
     throw new Error(body.error ?? `Failed to delete dataflow: ${res.status}`);
   }
 }
+
+// Deletes one of this dataflow's own computed outputs (a projectDataset with
+// group "computed", id shaped "computed/<name>") from
+// data/dataflows/{dataflowId}_computed/ - unlike a catalog dataset (shared,
+// read-only source data), a computed dataset belongs to this dataflow, so
+// "remove from project" on one should actually delete its file, not just
+// revoke a permission. Any View/Interaction node still referencing it via
+// "computed/<name>" will then fail to resolve on next render.
+export async function deleteComputedDataset(dataflowId: string, datasetId: string): Promise<void> {
+  const prefix = "computed/";
+  if (!datasetId.startsWith(prefix)) {
+    throw new Error(`Not a computed dataset id: ${datasetId}`);
+  }
+  const name = datasetId.slice(prefix.length);
+  const res = await fetch(
+    appUrl(
+      `/api/dataflows/${encodeURIComponent(dataflowId)}/computed/${name
+        .split("/")
+        .map(encodeURIComponent)
+        .join("/")}`,
+    ),
+    { method: "DELETE" },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Failed to delete computed dataset: ${res.status}`);
+  }
+}

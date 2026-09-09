@@ -30,7 +30,7 @@ import ChartStudioPage from "./pages/ChartStudioPage";
 import ChartGalleryPage from "./pages/ChartGalleryPage";
 import ChartExamplePage from "./pages/ChartExamplePage";
 import DataflowsHomePage from "./pages/DataflowsHomePage";
-import { getDataflow, renameDataflow, saveDataflow } from "./utils/dataflows";
+import { getDataflow, renameDataflow, saveDataflow, deleteComputedDataset } from "./utils/dataflows";
 import type { CatalogDataset } from "./utils/dataCatalog";
 import type { ProjectDataset } from "./utils/projectDatasets";
 import { decodeDatasetDrag, type DatasetDragPayload } from "./utils/datasetDrag";
@@ -172,10 +172,26 @@ function AppShell() {
     });
   }, []);
 
-  const handleRemoveDatasetsFromProject = useCallback((ids: string[]) => {
-    const idSet = new Set(ids);
-    setProjectDatasets((prev) => prev.filter((d) => !idSet.has(d.id)));
-  }, []);
+  const handleRemoveDatasetsFromProject = useCallback(
+    (ids: string[]) => {
+      const idSet = new Set(ids);
+      setProjectDatasets((prev) => prev.filter((d) => !idSet.has(d.id)));
+
+      // A "computed" dataset is this dataflow's own derived output, not
+      // shared catalog source data - removing it from the project should
+      // actually delete its file (see deleteComputedDataset), so a
+      // View/Interaction node still referencing it fails to resolve rather
+      // than silently keeping the "removed" data alive.
+      if (!dataflowId) return;
+      for (const id of ids) {
+        if (!id.startsWith("computed/")) continue;
+        deleteComputedDataset(dataflowId, id).catch((err) =>
+          console.error(`Failed to delete computed dataset "${id}"`, err),
+        );
+      }
+    },
+    [dataflowId],
+  );
 
   // const dumpWorkflow = useCallback(() => {
   //   const nodes = getNodes();

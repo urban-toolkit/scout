@@ -466,6 +466,7 @@ calculate_weather_route(
           view: [
             {
               ref: "route_C",
+              ext: "geojson",
               style: {
                 stroke: {
                   color: "#90CAF9",
@@ -477,6 +478,7 @@ calculate_weather_route(
             },
             {
               ref: "route_D",
+              ext: "geojson",
               style: {
                 stroke: {
                   color: "#00ACC1",
@@ -488,6 +490,7 @@ calculate_weather_route(
             },
             {
               ref: "route_origin",
+              ext: "geojson",
               style: {
                 fill: "#1A73E8",
                 stroke: {
@@ -499,6 +502,7 @@ calculate_weather_route(
             },
             {
               ref: "route_destination",
+              ext: "geojson",
               style: {
                 fill: "#fc4e2a",
                 stroke: {

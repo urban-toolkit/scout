@@ -241,6 +241,7 @@ simulate_flood_projection(
           view: [
             {
               ref: "B",
+              ext: "tif",
               style: {
                 opacity: 1,
                 colormap: "blues",
@@ -263,6 +264,7 @@ simulate_flood_projection(
           view: [
             {
               ref: "A",
+              ext: "tif",
               style: {
                 opacity: 1,
                 colormap: "blues",
@@ -285,7 +287,9 @@ simulate_flood_projection(
           view: [
             {
               ref_base: "B",
+              ext_base: "tif",
               ref_comp: "A",
+              ext_comp: "tif",
               style: {
                 opacity: 1,
                 colormap: "blues",

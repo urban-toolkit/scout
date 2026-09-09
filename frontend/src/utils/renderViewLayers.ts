@@ -12,11 +12,24 @@ import { applyGeometryInteractions } from "./geomInteractions";
 import type { InteractionSpec } from "./geomInteractions";
 import type { ViewDef, InteractionDef } from "./types";
 import { appUrl } from "./runtimePaths";
+import { getCurrentDataflowId } from "./dataflows";
 
 import * as GeoTIFF from "geotiff";
 
 type TagGroup = d3.Selection<SVGGElement, unknown, null, undefined>;
 const rasterOverlays = new Set<L.Layer>();
+
+// Appends the current dataflow id (from the /dataflow/:id route) as a query
+// param, so the backend can resolve a "computed/..." ref against this
+// dataflow's own data/dataflows/{id}_computed/ dir (see
+// backend's _resolve_data_source). Catalog refs don't need it, but sending
+// it unconditionally is harmless (the backend also expects it for edits).
+function withDataflowId(url: string): string {
+  const dataflowId = getCurrentDataflowId();
+  if (!dataflowId) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}dataflow_id=${encodeURIComponent(dataflowId)}`;
+}
 
 function buildInteractionSpecsForLayer(opts: {
   interactions: InteractionDef[];
@@ -94,9 +107,9 @@ async function renderPngForView(opts: {
 
   const cmap = (view as any).style?.colormap ?? "reds";
 
-  const tiles: string[] = await fetch(appUrl(`/api/list-rasters/${ref}`)).then(
-    (r) => r.json(),
-  );
+  const tiles: string[] = await fetch(
+    withDataflowId(appUrl(`/api/list-rasters/${ref}`)),
+  ).then((r) => r.json());
 
   const cacheBust = Date.now();
 
@@ -125,9 +138,10 @@ async function renderPngForView(opts: {
     maxY = Math.max(maxY, y);
 
     // const url = `http://127.0.0.1:5000/generated/raster/${ref}/${name}?v=${cacheBust}`;
-    const url =
+    const url = withDataflowId(
       appUrl(`/generated/raster/${ref}/${name}`) +
-      `?v=${cacheBust}&cmap=${encodeURIComponent(cmap)}`;
+        `?v=${cacheBust}&cmap=${encodeURIComponent(cmap)}`,
+    );
 
     console.log(url);
     const bounds = tileBoundsFromXYZ(x, y, z, map);
@@ -161,12 +175,15 @@ async function renderGeoTiffForView(opts: {
   map: L.Map;
   view: ViewDef;
   ref: string;
+  ext: string;
   unionBounds: L.LatLngBounds | null;
 }): Promise<L.LatLngBounds | null> {
-  const { map, view, ref, unionBounds } = opts;
+  const { map, view, ref, ext, unionBounds } = opts;
 
   const cacheBust = Date.now();
-  const url = appUrl(`/generated/raster/${ref}.tif?v=${cacheBust}`);
+  const url = withDataflowId(
+    appUrl(`/generated/raster/${ref}.${ext}?v=${cacheBust}`),
+  );
 
   const colormapName = (view as any).style.colormap || undefined;
 
@@ -358,6 +375,7 @@ export async function renderLayers(opts: {
 
   for (const view of views) {
     const ref = view.ref;
+    const ext = view.ext?.toLowerCase();
     const ref_base = view.ref_base;
     const ref_comp = view.ref_comp;
     if (!ref && !ref_base && !ref_comp) {
@@ -365,37 +383,31 @@ export async function renderLayers(opts: {
     }
 
     if (ref) {
-      const res = await fetch(appUrl("/api/infer-filetype"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ref }),
-      });
-      const info = await res.json();
+      if (!ext) {
+        console.error(
+          `[Viewport ${id}] View layer with ref "${ref}" is missing required "ext"`,
+        );
+        continue;
+      }
 
-      console.log(
-        `[Viewport ${id}] Inferred file type for ref "${ref}":`,
-        info,
-      );
-
-      if (info.file_type === ".png") {
+      if (ext === "png") {
         unionBounds = await renderPngForView({
           map,
           view,
           ref,
           unionBounds,
         });
-      } else if (info.file_type === ".tif" || info.file_type === ".tiff") {
+      } else if (ext === "tif" || ext === "tiff") {
         unionBounds = await renderGeoTiffForView({
           map,
           view,
           ref,
+          ext,
           unionBounds,
         });
-      } else if (info.file_type === ".geojson") {
+      } else if (ext === "geojson") {
         // --- render GeoJSON for view. Maybe later function ---
-        const url = appUrl(`/generated/vector/${ref}.geojson`);
+        const url = withDataflowId(appUrl(`/generated/vector/${ref}.geojson`));
         let fc: any;
         try {
           const res = await fetch(url);
@@ -587,40 +599,31 @@ export async function renderLayers(opts: {
         tmp.remove();
       }
     } else if (ref_base && ref_comp) {
-      // go to server side. check inside served-raster and served-vector and infer filetype
+      const ext_base = view.ext_base?.toLowerCase();
+      const ext_comp = view.ext_comp?.toLowerCase();
+      const dataflowId = getCurrentDataflowId();
 
-      const res_base = await fetch(appUrl("/api/infer-filetype"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ref_base }),
-      });
-      const info_base = await res_base.json();
+      if (!ext_base || !ext_comp) {
+        console.error(
+          `[Viewport ${id}] Comparison layer (ref_base "${ref_base}", ref_comp "${ref_comp}") is missing required "ext_base"/"ext_comp"`,
+        );
+        continue;
+      }
 
-      const res_comp = await fetch(appUrl("/api/infer-filetype"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ref_comp }),
-      });
-      const info_comp = await res_comp.json();
-
-      if (info_base.file_type === ".png" && info_comp.file_type === ".png") {
-        const diff = ref_base + "_minus_" + ref_comp;
-
-        await fetch(appUrl("/api/diff-png"), {
+      if (ext_base === "png" && ext_comp === "png") {
+        const res = await fetch(appUrl("/api/diff-png"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            dir1: ref_base,
-            dir2: ref_comp,
+            ref_base,
+            ref_comp,
+            dataflow_id: dataflowId,
             colormap: view.style.colormap || "Reds",
           }),
         });
+        const { ref: diff } = await res.json();
 
         unionBounds = await renderPngForView({
           map,
@@ -629,26 +632,28 @@ export async function renderLayers(opts: {
           unionBounds,
         });
       } else if (
-        (info_base.file_type === ".tif" || info_base.file_type === ".tiff") &&
-        (info_comp.file_type === ".tif" || info_comp.file_type === ".tiff")
+        (ext_base === "tif" || ext_base === "tiff") &&
+        (ext_comp === "tif" || ext_comp === "tiff")
       ) {
-        const diff = ref_base + "_minus_" + ref_comp;
-        await fetch(appUrl("/api/diff-tif"), {
+        const res = await fetch(appUrl("/api/diff-tif"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            tif1: ref_base,
-            tif2: ref_comp,
+            ref_base,
+            ref_comp,
+            dataflow_id: dataflowId,
             colormap: view.style.colormap || "Reds",
           }),
         });
+        const { ref: diff } = await res.json();
 
         unionBounds = await renderGeoTiffForView({
           map,
           view,
           ref: diff,
+          ext: "tif",
           unionBounds,
         });
       }
