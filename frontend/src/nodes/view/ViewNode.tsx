@@ -7,6 +7,12 @@ import {
   NodeResizer,
   useUpdateNodeInternals,
 } from "@xyflow/react";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogActions from "@mui/material/DialogActions";
+import Button from "@mui/material/Button";
 import BaseGrammarNode, {
   type BaseNodeData,
 } from "../../node-components/BaseGrammar";
@@ -43,6 +49,12 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
   // const [minimized, setMinimized] = useState(false);
   const [persisting, setPersisting] = useState(false);
   const [persistSuccess, setPersistSuccess] = useState(false);
+  // "Save edits" always overwrites the file(s) it targets - a ref only ever
+  // gets here by already being loaded into the view (see handleDirty), so
+  // there's no "first save creates a new file" case to distinguish, unlike
+  // DataLayerNode's fetch. The confirm dialog below is purely "do you mean
+  // to commit your edits", not an overwrite-detection check.
+  const [confirmCount, setConfirmCount] = useState<number | null>(null);
   const [showBasemap, setShowBasemap] = useState(false);
   const [draftTitle, setDraftTitle] = useState(data.title ?? "View");
 
@@ -78,7 +90,7 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
     [rf, setEdges],
   );
 
-  const onPersist = useCallback(async () => {
+  const doPersist = useCallback(async () => {
     const entries = Object.values(pendingRef.current) as {
       ref: string;
       geojson: any;
@@ -115,6 +127,24 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
     }
 
     pendingRef.current = {};
+  }, []);
+
+  // The "Save edits" button's actual onClick - opens the confirm dialog
+  // instead of saving immediately. A no-op (no dialog) if there's nothing
+  // pending, matching doPersist's own early-return.
+  const onPersist = useCallback(() => {
+    const count = Object.keys(pendingRef.current).length;
+    if (!count) return;
+    setConfirmCount(count);
+  }, []);
+
+  const handleConfirmPersist = useCallback(() => {
+    setConfirmCount(null);
+    void doPersist();
+  }, [doPersist]);
+
+  const handleCancelPersist = useCallback(() => {
+    setConfirmCount(null);
   }, []);
 
   const goToView = useCallback(() => {
@@ -443,6 +473,30 @@ const ViewNode = memo(function ViewNode(props: NodeProps<ViewNode>) {
           className={`vpnode__handle vpnode__handle--right`}
         />
       </div>
+
+      <Dialog open={confirmCount !== null} onClose={handleCancelPersist}>
+        <DialogTitle sx={{ fontWeight: 700 }}>Save edits?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will overwrite {confirmCount === 1 ? "the underlying file" : `${confirmCount} underlying files`}{" "}
+            with your edits. This can't be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleCancelPersist} sx={{ textTransform: "none" }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmPersist}
+            color="error"
+            variant="contained"
+            disableElevation
+            sx={{ textTransform: "none", fontWeight: 600 }}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 });

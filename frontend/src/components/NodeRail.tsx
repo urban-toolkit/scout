@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, CSSProperties, DragEvent } from "react";
 import { useReactFlow } from "@xyflow/react";
 import Tooltip from "@mui/material/Tooltip";
@@ -9,9 +9,9 @@ import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
-import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import CloseIcon from "@mui/icons-material/Close";
 import StorageOutlinedIcon from "@mui/icons-material/StorageOutlined";
 import FolderOutlinedIcon from "@mui/icons-material/FolderOutlined";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
@@ -28,14 +28,18 @@ import {
   type ProjectFolderNode,
 } from "../utils/projectDatasets";
 import { encodeDatasetDrag, type DatasetDragPayload } from "../utils/datasetDrag";
+import { encodeComputeItemDrag } from "../utils/computeItemDrag";
+import { listComputedRasterTiles } from "../utils/dataCatalog";
+import type { ProjectComputeItem } from "../utils/dataflows";
 import "./NodeRail.css";
 
 interface Props {
   onAdd: (tpl: TemplateKey) => void;
   onAddPyCodeEditor: () => void;
-  onClear: () => void;
   onOpenDataCatalog: () => void;
+  onOpenComputeCatalog: () => void;
   projectDatasets: ProjectDataset[];
+  projectCompute: ProjectComputeItem[];
 }
 
 // dataTransfer key + sentinel the canvas' onDrop reads to tell a dragged
@@ -130,10 +134,88 @@ function ProjectFolderItem({
   );
 }
 
+// One tile inside an expanded raster folder (see ProjectFileItem below) -
+// same row look as a real dataset item, minus dragging, since nothing in
+// the app references a single tile individually.
+function TileProjectItem({ name }: { name: string }) {
+  return (
+    <div className="node-rail-catalog__project-item" title={name}>
+      <div
+        className="node-rail-catalog__project-item-icon"
+        style={{ backgroundColor: `${formatColor("PNG")}1a` }}
+      >
+        <StorageOutlinedIcon sx={{ fontSize: 16, color: formatColor("PNG") }} />
+      </div>
+      <div className="node-rail-catalog__project-item-text">
+        <div className="node-rail-catalog__project-item-name">{name}</div>
+        <div className="node-rail-catalog__project-item-meta">PNG</div>
+      </div>
+    </div>
+  );
+}
+
 // One dataset row in the flyout's project list - used for a loose file at
 // a section's root (no folder to nest under) and for a computed output
-// (the Computed section is deliberately flat, no folder tree at all).
+// (the Computed section is deliberately flat, no folder tree at all) -
+// except a computed entry that's actually a raster tile-set (see
+// CatalogDataset.isDir), which renders expandable exactly like
+// ProjectFolderItem above, listing its tiles via the same endpoint the map
+// view itself uses to fetch them.
 function ProjectFileItem({ dataset: f }: { dataset: ProjectDataset }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [tiles, setTiles] = useState<string[] | null>(null);
+  const [loadingTiles, setLoadingTiles] = useState(false);
+
+  if (f.isDir) {
+    const toggle = () => {
+      const next = !isOpen;
+      setIsOpen(next);
+      if (next && tiles === null && !loadingTiles) {
+        setLoadingTiles(true);
+        listComputedRasterTiles(f.id)
+          .then(setTiles)
+          .catch(() => setTiles([]))
+          .finally(() => setLoadingTiles(false));
+      }
+    };
+    return (
+      <div className="node-rail-catalog__project-group">
+        <button
+          type="button"
+          className="node-rail-catalog__project-item node-rail-catalog__project-item--toggle"
+          onClick={toggle}
+          aria-label={isOpen ? `Collapse ${f.name}` : `Expand ${f.name}`}
+          title={f.name}
+        >
+          <div className="node-rail-catalog__project-item-icon node-rail-catalog__project-item-icon--folder">
+            <FolderOutlinedIcon sx={{ fontSize: 16, color: "#64748b" }} />
+          </div>
+          <div className="node-rail-catalog__project-item-text">
+            <div className="node-rail-catalog__project-item-name">{f.name}</div>
+            <div className="node-rail-catalog__project-item-meta">{f.size}</div>
+          </div>
+          {isOpen ? (
+            <ChevronLeftIcon sx={{ fontSize: 15, color: "#94a3b8", flexShrink: 0 }} />
+          ) : (
+            <ChevronRightIcon sx={{ fontSize: 15, color: "#94a3b8", flexShrink: 0 }} />
+          )}
+        </button>
+
+        {isOpen && (
+          <div className="node-rail-catalog__project-group-files">
+            {loadingTiles ? (
+              <div className="node-rail-catalog__project-empty">Loading…</div>
+            ) : (tiles ?? []).length === 0 ? (
+              <div className="node-rail-catalog__project-empty">No tiles found.</div>
+            ) : (
+              (tiles ?? []).map((t) => <TileProjectItem key={t} name={t} />)
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className="node-rail-catalog__project-item"
@@ -157,18 +239,58 @@ function ProjectFileItem({ dataset: f }: { dataset: ProjectDataset }) {
   );
 }
 
+// One compute-catalog entry in the flyout's project list - mirrors
+// ProjectFileItem above. Only items already added to the project ever show
+// up here (there is no "browse everything" list in this flyout, same as
+// the Data Catalog one), so anything draggable here is by definition
+// already an "added" item - dragging from ComputeCatalogPanel's own browse
+// list is intentionally not supported, this flyout is the only drag source.
+function ComputeProjectItem({ entry }: { entry: ProjectComputeItem }) {
+  return (
+    <div
+      className="node-rail-catalog__project-item"
+      title={entry.displayName}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(NODE_DRAG_MIME, encodeComputeItemDrag({ entry }));
+        e.dataTransfer.effectAllowed = "move";
+      }}
+    >
+      <div
+        className="node-rail-catalog__project-item-icon"
+        style={{ backgroundColor: "#fee2e2" }}
+      >
+        <CodeOutlinedIcon sx={{ fontSize: 16 }} style={{ color: "#cb181d" }} />
+      </div>
+      <div className="node-rail-catalog__project-item-text">
+        <div className="node-rail-catalog__project-item-name">{entry.displayName}</div>
+        <div className="node-rail-catalog__project-item-meta">
+          {entry.kind === "package" ? "Package" : "Script"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function NodeRail({
   onAdd,
   onAddPyCodeEditor,
-  onClear,
   onOpenDataCatalog,
+  onOpenComputeCatalog,
   projectDatasets,
+  projectCompute,
 }: Props) {
   const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
-  // Only the toggle button itself opens/closes this - no outside-click
+  // Only the toggle buttons themselves open/close these - no outside-click
   // auto-close, since canvas interactions (selecting a node, renaming the
-  // dataflow, etc.) all count as "outside" and shouldn't fold it away.
-  const [catalogFlyoutOpen, setCatalogFlyoutOpen] = useState(false);
+  // dataflow, etc.) all count as "outside" and shouldn't fold it away. A
+  // single slot (rather than two independent booleans) keeps the Data and
+  // Compute flyouts mutually exclusive - both anchor to the same position
+  // (see .node-rail-catalog__flyout), so having both open at once would
+  // overlap.
+  const [openFlyout, setOpenFlyout] = useState<"data" | "compute" | null>(null);
+  const dataFlyoutOpen = openFlyout === "data";
+  const computeFlyoutOpen = openFlyout === "compute";
   // A folder added as a whole (see DataCatalogPanel's FolderRow) shows here
   // as one grouped entry instead of exploding into its individual files,
   // split into an OSM card and an "Other" card for everything else.
@@ -321,60 +443,35 @@ export default function NodeRail({
     <div className="node-rail-stack">
       <div className="node-rail">
         {sections.map((section) => (
-          <Fragment key={section.title}>
-            <div
-              className="node-rail__section"
-              style={
-                {
-                  "--rail-accent": section.accent,
-                  "--rail-hover": section.hoverBg,
-                } as CSSProperties
-              }
-            >
-              <div className="node-rail__title">{section.title}</div>
-              <div className="node-rail__grid">
-                {section.items.map((item) => (
-                  <Tooltip key={item.key} title={item.label} placement="right" arrow>
-                    <button
-                      type="button"
-                      className="node-rail__icon"
-                      aria-label={item.label}
-                      onClick={item.onClick}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, item.dragValue)}
-                    >
-                      {item.icon}
-                    </button>
-                  </Tooltip>
-                ))}
-              </div>
+          <div
+            key={section.title}
+            className="node-rail__section"
+            style={
+              {
+                "--rail-accent": section.accent,
+                "--rail-hover": section.hoverBg,
+              } as CSSProperties
+            }
+          >
+            <div className="node-rail__title">{section.title}</div>
+            <div className="node-rail__grid">
+              {section.items.map((item) => (
+                <Tooltip key={item.key} title={item.label} placement="right" arrow>
+                  <button
+                    type="button"
+                    className="node-rail__icon"
+                    aria-label={item.label}
+                    onClick={item.onClick}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, item.dragValue)}
+                  >
+                    {item.icon}
+                  </button>
+                </Tooltip>
+              ))}
             </div>
-            <div className="node-rail__divider" />
-          </Fragment>
-        ))}
-
-        <div
-          className="node-rail__section"
-          style={
-            {
-              "--rail-accent": "#64748b",
-              "--rail-hover": "rgba(100, 116, 139, 0.1)",
-            } as CSSProperties
-          }
-        >
-          <div className="node-rail__grid">
-            <Tooltip title="Clear canvas" placement="right" arrow>
-              <button
-                type="button"
-                className="node-rail__icon"
-                aria-label="Clear canvas"
-                onClick={onClear}
-              >
-                <DeleteOutlineOutlinedIcon sx={ICON_SX} />
-              </button>
-            </Tooltip>
           </div>
-        </div>
+        ))}
       </div>
 
       <div className="node-rail-catalog">
@@ -382,13 +479,14 @@ export default function NodeRail({
           type="button"
           className="node-rail-catalog__toggle"
           aria-haspopup="true"
-          aria-expanded={catalogFlyoutOpen}
-          onClick={() => setCatalogFlyoutOpen((v) => !v)}
+          aria-expanded={dataFlyoutOpen}
+          onClick={() => setOpenFlyout((v) => (v === "data" ? null : "data"))}
+          title="Data Catalog"
         >
           <div className="node-rail-catalog__icon-row">
             <LayersOutlinedIcon sx={ICON_SX} style={{ color: "#cb181d" }} />
             <span className="node-rail-catalog__count">{projectDatasets.length}</span>
-            {catalogFlyoutOpen ? (
+            {dataFlyoutOpen ? (
               <ChevronLeftIcon className="node-rail-catalog__chevron" sx={ICON_SX} />
             ) : (
               <ChevronRightIcon className="node-rail-catalog__chevron" sx={ICON_SX} />
@@ -397,8 +495,16 @@ export default function NodeRail({
           <span className="node-rail-catalog__label">Data Catalog</span>
         </button>
 
-        {catalogFlyoutOpen && (
+        {dataFlyoutOpen && (
           <div className="node-rail-catalog__flyout">
+            <button
+              type="button"
+              className="node-rail-catalog__flyout-close"
+              aria-label="Close Data Catalog"
+              onClick={() => setOpenFlyout(null)}
+            >
+              <CloseIcon sx={{ fontSize: 16 }} />
+            </button>
             <p className="node-rail-catalog__flyout-title">
               Add or compute a dataset to use it here.
             </p>
@@ -445,6 +551,72 @@ export default function NodeRail({
               onClick={handleBrowseDataCatalog}
             >
               Browse Data Catalog
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="node-rail-catalog">
+        <button
+          type="button"
+          className="node-rail-catalog__toggle"
+          aria-haspopup="true"
+          aria-expanded={computeFlyoutOpen}
+          onClick={() => setOpenFlyout((v) => (v === "compute" ? null : "compute"))}
+          title="Compute Catalog"
+        >
+          <div className="node-rail-catalog__icon-row">
+            <CodeOutlinedIcon sx={ICON_SX} style={{ color: "#cb181d" }} />
+            <span className="node-rail-catalog__count">{projectCompute.length}</span>
+            {computeFlyoutOpen ? (
+              <ChevronLeftIcon className="node-rail-catalog__chevron" sx={ICON_SX} />
+            ) : (
+              <ChevronRightIcon className="node-rail-catalog__chevron" sx={ICON_SX} />
+            )}
+          </div>
+          <span className="node-rail-catalog__label">Compute Catalog</span>
+        </button>
+
+        {computeFlyoutOpen && (
+          <div className="node-rail-catalog__flyout">
+            <button
+              type="button"
+              className="node-rail-catalog__flyout-close"
+              aria-label="Close Compute Catalog"
+              onClick={() => setOpenFlyout(null)}
+            >
+              <CloseIcon sx={{ fontSize: 16 }} />
+            </button>
+            <p className="node-rail-catalog__flyout-title">
+              Add a model or transformation from the Compute Catalog to use it here.
+            </p>
+
+            <div className="node-rail-catalog__project-section">
+              <div className="node-rail-catalog__project-header">
+                <span>Models & transformations in project</span>
+                <span className="node-rail-catalog__project-count">{projectCompute.length}</span>
+              </div>
+              {projectCompute.length === 0 ? (
+                <div className="node-rail-catalog__project-empty">No models added yet.</div>
+              ) : (
+                <div className="node-rail-catalog__project-list">
+                  {[...projectCompute]
+                    .sort((a, b) => a.displayName.localeCompare(b.displayName))
+                    .map((entry) => (
+                      <ComputeProjectItem key={entry.id} entry={entry} />
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <p className="node-rail-catalog__drag-hint">Drag a model onto the canvas to add it.</p>
+
+            <button
+              type="button"
+              className="node-rail-catalog__browse-btn"
+              onClick={onOpenComputeCatalog}
+            >
+              Browse Compute Catalog
             </button>
           </div>
         )}

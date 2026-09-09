@@ -21,7 +21,7 @@
   background: #ffffff;
   border: 1.5px solid #e5e7eb;
   border-radius: 6px;
-  padding: 12px 10px;
+  padding: 12px 0 12px 10px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -75,6 +75,11 @@
 
 .node-rail__grid {
   display: grid;
+  /* Smaller than the toggle buttons below now need to be (they're capped at
+     108px, see .node-rail-catalog__toggle) - that cap is what keeps the
+     whole card pinned at its current width even as this grid shrinks, so
+     shrinking icons/gap here doesn't narrow the toolbar, it just leaves a
+     bit of unused space to the grid's right within a same-size card. */
   grid-template-columns: repeat(2, 34px);
   column-gap: 12px;
   row-gap: 12px;
@@ -109,11 +114,6 @@
   display: block;
 }
 
-.node-rail__divider {
-  border-top: 1px solid #e5e7eb;
-  margin: 0;
-}
-
 .node-rail-catalog {
   /* Deliberately not position:relative - the flyout below needs to anchor
      to .node-rail-stack (top-aligned with the whole rail), not to this row,
@@ -123,13 +123,23 @@
 
 .node-rail-catalog__toggle {
   box-sizing: border-box;
-  width: fit-content;
-  margin: 0 auto;
+  /* Fills its parent (same width as .node-rail/.node-rail-play above it) -
+     both catalog buttons (Data, Compute) then match each other exactly.
+     max-width additionally caps how much this button's own label can
+     contribute to .node-rail-stack's fit-content sizing: a width:100% child
+     still hands its unconstrained text width up to that calculation (100%
+     alone isn't enough), so without this cap "Compute Catalog"'s longer
+     label was stretching the whole card - including the fixed-width icon
+     grid above it - well past what the icons need, leaving a gap on the
+     right. The label's own overflow/ellipsis (below) only takes effect
+     once something actually constrains its width - this is that constraint. */
+  width: 100%;
+  max-width: 108px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 7px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   background: #ffffff;
   border: 1.5px solid #e5e7eb;
   border-radius: 6px;
@@ -203,8 +213,33 @@
   gap: 12px;
 }
 
+.node-rail-catalog__flyout-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.node-rail-catalog__flyout-close:hover,
+.node-rail-catalog__flyout-close:focus-visible {
+  background: #f1f5f9;
+  color: #334155;
+}
+
 .node-rail-catalog__flyout-title {
   margin: 0;
+  padding-right: 20px;
   font-size: 12.5px;
   line-height: 1.4;
   color: #64748b;

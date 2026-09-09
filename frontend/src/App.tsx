@@ -26,17 +26,29 @@ import NodeRail, { NODE_DRAG_MIME, PY_CODE_DRAG_VALUE } from "./components/NodeR
 import Toolbar from "./components/Toolbar";
 import DataflowNameLabel from "./components/DataflowNameLabel";
 import DataCatalogPanel from "./components/DataCatalogPanel";
+import ComputeCatalogPanel from "./components/ComputeCatalogPanel";
+import ComputeConfigDialog from "./components/ComputeConfigDialog";
 import ChartStudioPage from "./pages/ChartStudioPage";
 import ChartGalleryPage from "./pages/ChartGalleryPage";
 import ChartExamplePage from "./pages/ChartExamplePage";
 import DataflowsHomePage from "./pages/DataflowsHomePage";
-import { getDataflow, renameDataflow, saveDataflow, deleteComputedDataset } from "./utils/dataflows";
+import {
+  getDataflow,
+  renameDataflow,
+  saveDataflow,
+  deleteComputedDataset,
+  type ProjectComputeItem,
+} from "./utils/dataflows";
 import type { CatalogDataset } from "./utils/dataCatalog";
 import type { ProjectDataset } from "./utils/projectDatasets";
+import type { ComputeCatalogEntry } from "./utils/computeCatalog";
+import type { ComputeSelection } from "./utils/computeCodeGen";
 import { decodeDatasetDrag, type DatasetDragPayload } from "./utils/datasetDrag";
+import { decodeComputeItemDrag } from "./utils/computeItemDrag";
 import { pushWidgetOutputToConnectedCode } from "./utils/widgetPropagation";
 import { pushInteractionToView as pushInteractionToViewShared } from "./utils/interactionPropagation";
 import ArrowAboveEdge from "./edges/ArrowAboveEdge";
+import { DataflowIdProvider } from "./contexts/DataflowIdContext";
 
 // Custom edge: draws the line behind nodes but the arrowhead above them -
 // see ArrowAboveEdge.tsx for why the default marker-based arrow can't do both.
@@ -149,9 +161,9 @@ function AppShell() {
   >("home");
   const [chartExampleName, setChartExampleName] = useState<string | null>(null);
   const [chartStudioInitialName, setChartStudioInitialName] = useState<string | null>(null);
-  // Data Catalog and the AI chat both dock in the same right-side slot, so
-  // only one of them can be open at once.
-  const [activeSidebar, setActiveSidebar] = useState<"data" | "chat" | null>(null);
+  // Data Catalog, Compute Catalog, and the AI chat all dock in the same
+  // right-side slot, so only one of them can be open at once.
+  const [activeSidebar, setActiveSidebar] = useState<"data" | "compute" | "chat" | null>(null);
   // The dataflow currently open on the canvas (from the /dataflow/:id URL),
   // and whether its saved nodes/edges have finished loading - autosave must
   // stay off until that's true, or it would immediately overwrite the
@@ -160,9 +172,16 @@ function AppShell() {
   const [dataflowLoaded, setDataflowLoaded] = useState(false);
   const [dataflowName, setDataflowName] = useState<string | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Datasets added from the Data Catalog sidebar - in-memory only for now
-  // (not yet persisted with the dataflow), so it resets on navigation/reload.
+  // Datasets added from the Data Catalog sidebar - persisted with the
+  // dataflow (see the load effect and autosave effect below).
   const [projectDatasets, setProjectDatasets] = useState<ProjectDataset[]>([]);
+  // Compute Catalog models/transformations added to this dataflow's project
+  // - same shape of state as projectDatasets, persisted the same way.
+  const [projectCompute, setProjectCompute] = useState<ProjectComputeItem[]>([]);
+  // Set when a Compute Catalog entry is dropped onto the canvas - holds it
+  // until the user picks which function/method and params in the dialog, at
+  // which point handleComputeConfigCreate actually creates the code node.
+  const [pendingComputeEntry, setPendingComputeEntry] = useState<ProjectComputeItem | null>(null);
 
   const handleAddDatasetsToProject = useCallback((toAdd: CatalogDataset[]) => {
     setProjectDatasets((prev) => {
@@ -191,6 +210,41 @@ function AppShell() {
       }
     },
     [dataflowId],
+  );
+
+  const handleAddComputeToProject = useCallback((entry: ComputeCatalogEntry) => {
+    setProjectCompute((prev) => (prev.some((c) => c.id === entry.id) ? prev : [...prev, entry]));
+  }, []);
+
+  const handleRemoveComputeFromProject = useCallback((id: string) => {
+    setProjectCompute((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  // Keeps this project's own snapshot of a Compute Catalog entry in sync
+  // after ComputeCatalogPanel re-scans it from disk - a no-op if this
+  // dataflow never added that entry in the first place.
+  const handleRefreshComputeProjectItem = useCallback((entry: ComputeCatalogEntry) => {
+    setProjectCompute((prev) => prev.map((c) => (c.id === entry.id ? entry : c)));
+  }, []);
+
+  // Records the function/method + param choices used to create a node from
+  // a Compute Catalog entry (see ComputeConfigDialog), so dragging the same
+  // entry again seeds the dialog with this instead of starting from
+  // scratch. Upserts (unlike handleAddComputeToProject, which is a no-op if
+  // already present) - creating a node always both ensures the entry is in
+  // the project and updates its remembered selection, even on a re-use.
+  const handleRecordComputeSelection = useCallback(
+    (entry: ComputeCatalogEntry, selection: ComputeSelection) => {
+      setProjectCompute((prev) => {
+        const idx = prev.findIndex((c) => c.id === entry.id);
+        const updated: ProjectComputeItem = { ...entry, lastSelection: selection };
+        if (idx === -1) return [...prev, updated];
+        const next = [...prev];
+        next[idx] = updated;
+        return next;
+      });
+    },
+    [],
   );
 
   // const dumpWorkflow = useCallback(() => {
@@ -284,9 +338,34 @@ function AppShell() {
     createPyCodeEditorNode({
       id: nextId,
       setNodes,
+      onAddComputedDatasets: handleAddDatasetsToProject,
       // onRunViewport: pushViewportToTransformation,
     });
-  }, [setNodes]);
+  }, [setNodes, handleAddDatasetsToProject]);
+
+  // Dragging a Compute Catalog entry onto the canvas doesn't create a node
+  // right away (unlike a dataset drag) - it opens ComputeConfigDialog first,
+  // since which function/method + params to call has to be chosen before
+  // there's any code to seed the node with. See handleComputeConfigCreate,
+  // which is what actually calls createPyCodeEditorNode once that's decided.
+  const addComputeEntryFromDrag = useCallback((entry: ProjectComputeItem) => {
+    setPendingComputeEntry(entry);
+  }, []);
+
+  const handleComputeConfigCreate = useCallback(
+    ({ code, title, selection }: { code: string; title: string; selection: ComputeSelection }) => {
+      const nextId = `pyCodeEditor-${idCounter.current++}`;
+      createPyCodeEditorNode({
+        id: nextId,
+        setNodes,
+        seed: { code, title },
+        onAddComputedDatasets: handleAddDatasetsToProject,
+      });
+      if (pendingComputeEntry) handleRecordComputeSelection(pendingComputeEntry, selection);
+      setPendingComputeEntry(null);
+    },
+    [setNodes, pendingComputeEntry, handleRecordComputeSelection, handleAddDatasetsToProject],
+  );
 
   // Dragging a NodeRail icon onto the canvas: the drop position (rather than
   // NodeRail's own viewport-center fallback) becomes _desiredGrammarPos, so
@@ -315,13 +394,25 @@ function AppShell() {
         return;
       }
 
+      const computePayload = decodeComputeItemDrag(dragValue);
+      if (computePayload) {
+        addComputeEntryFromDrag(computePayload.entry);
+        return;
+      }
+
       if (dragValue === PY_CODE_DRAG_VALUE) {
         addPyCodeEditorNode();
       } else {
         addNode(dragValue as TemplateKey);
       }
     },
-    [screenToFlowPosition, addNode, addPyCodeEditorNode, addDataLayerNodeFromDrag],
+    [
+      screenToFlowPosition,
+      addNode,
+      addPyCodeEditorNode,
+      addDataLayerNodeFromDrag,
+      addComputeEntryFromDrag,
+    ],
   );
 
   const allow = useCallback(
@@ -439,8 +530,7 @@ function AppShell() {
   }, []);
 
   // Brand-logo click: leaves the current dataflow entirely and returns to
-  // the Projects home page. Distinct from the NodeRail trash icon (see
-  // clearCurrentCanvas below), which only wipes the dataflow you're still on.
+  // the Projects home page.
   const navigateHome = useCallback(() => {
     const homePath = getAppBasePath();
     if (window.location.pathname !== homePath) {
@@ -451,15 +541,6 @@ function AppShell() {
     setDataflowLoaded(false);
     setDataflowName(null);
     setProjectDatasets([]);
-    setNodes([]);
-    setEdges([]);
-    idCounter.current = 1;
-  }, [setEdges, setNodes]);
-
-  // NodeRail's "Clear canvas" trash icon - wipes the nodes/edges of the
-  // dataflow currently open, without navigating away from it (the cleared
-  // state autosaves like any other edit).
-  const clearCurrentCanvas = useCallback(() => {
     setNodes([]);
     setEdges([]);
     idCounter.current = 1;
@@ -520,6 +601,7 @@ function AppShell() {
     // flash on screen while this one's own (persisted) list is still
     // loading - the real value comes back from the record just below.
     setProjectDatasets([]);
+    setProjectCompute([]);
 
     getDataflow(dataflowId)
       .then((record) => {
@@ -538,6 +620,7 @@ function AppShell() {
         setEdges(record.edges);
         setDataflowName(record.name);
         setProjectDatasets(record.projectDatasets ?? []);
+        setProjectCompute(record.projectCompute ?? []);
         idCounter.current = nextIdCounterFromNodes(record.nodes);
         setDataflowLoaded(true);
         requestAnimationFrame(() => fitView({ padding: 0.15 }));
@@ -565,14 +648,19 @@ function AppShell() {
 
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
-      let payload: { nodes: typeof nodes; edges: typeof edges; projectDatasets: typeof projectDatasets };
+      let payload: {
+        nodes: typeof nodes;
+        edges: typeof edges;
+        projectDatasets: typeof projectDatasets;
+        projectCompute: typeof projectCompute;
+      };
       try {
         // Round-trips through JSON so the onChange/onRun functions
         // attachNodeBehaviors puts on each node's data are dropped before
         // sending (they can't be serialized, and shouldn't be persisted),
         // and so a genuinely non-serializable value fails here rather than
         // inside the fetch call.
-        payload = JSON.parse(JSON.stringify({ nodes, edges, projectDatasets }));
+        payload = JSON.parse(JSON.stringify({ nodes, edges, projectDatasets, projectCompute }));
       } catch (e) {
         console.error("Dataflow autosave: nodes/edges are not serializable", e);
         return;
@@ -585,7 +673,7 @@ function AppShell() {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
-  }, [nodes, edges, projectDatasets, dataflowId, dataflowLoaded]);
+  }, [nodes, edges, projectDatasets, projectCompute, dataflowId, dataflowLoaded]);
 
   // A display:none -> visible round-trip on a ResizeObserver-driven library
   // like @xyflow/react can leave the viewport stale until something forces a
@@ -603,10 +691,15 @@ function AppShell() {
           onNavigateHome={navigateHome}
           onOpenDataflows={navigateHome}
           onOpenChartGallery={navigateToChartGallery}
+          onOpenChat={() => setActiveSidebar("chat")}
         />
         <div className="page-wrap">
           <DataflowsHomePage onOpenDataflow={navigateToDataflow} />
         </div>
+        <ChatWidget
+          open={activeSidebar === "chat"}
+          onOpenChange={(next) => setActiveSidebar(next ? "chat" : null)}
+        />
       </div>
     );
   }
@@ -617,9 +710,10 @@ function AppShell() {
         onNavigateHome={navigateHome}
         onOpenDataflows={navigateHome}
         onOpenChartGallery={navigateToChartGallery}
+        onOpenChat={() => setActiveSidebar("chat")}
         inDataflow
-        onOpenChartStudio={() => navigateToChartStudio()}
         onOpenDataCatalog={() => setActiveSidebar("data")}
+        onOpenComputeCatalog={() => setActiveSidebar("compute")}
       />
       <div
         className="canvas-wrap"
@@ -627,34 +721,37 @@ function AppShell() {
         onDragOver={handleCanvasDragOver}
         onDrop={handleCanvasDrop}
       >
-        <ReactFlow
-          className="canvas"
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          isValidConnection={allow}
-          fitView
-          minZoom={0.005}
-          maxZoom={2}
-          defaultEdgeOptions={defaultEdgeOptions}
-          proOptions={{ hideAttribution: true }}
-        >
-          {/* <Background /> */}
-          {dataflowName != null && (
-            <DataflowNameLabel name={dataflowName} onRename={handleRenameDataflow} />
-          )}
-          <NodeRail
-            onAdd={addNode}
-            onAddPyCodeEditor={addPyCodeEditorNode}
-            onClear={clearCurrentCanvas}
-            onOpenDataCatalog={() => setActiveSidebar("data")}
-            projectDatasets={projectDatasets}
-          />
-        </ReactFlow>
+        <DataflowIdProvider value={dataflowId}>
+          <ReactFlow
+            className="canvas"
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            isValidConnection={allow}
+            fitView
+            minZoom={0.005}
+            maxZoom={2}
+            defaultEdgeOptions={defaultEdgeOptions}
+            proOptions={{ hideAttribution: true }}
+          >
+            {/* <Background /> */}
+            {dataflowName != null && (
+              <DataflowNameLabel name={dataflowName} onRename={handleRenameDataflow} />
+            )}
+            <NodeRail
+              onAdd={addNode}
+              onAddPyCodeEditor={addPyCodeEditorNode}
+              onOpenDataCatalog={() => setActiveSidebar("data")}
+              onOpenComputeCatalog={() => setActiveSidebar("compute")}
+              projectDatasets={projectDatasets}
+              projectCompute={projectCompute}
+            />
+          </ReactFlow>
+        </DataflowIdProvider>
         {/* <button onClick={dumpWorkflow} className="toolbar__btn__dump">
           Dump
         </button> */}
@@ -694,6 +791,20 @@ function AppShell() {
         projectDatasets={projectDatasets}
         onAddToProject={handleAddDatasetsToProject}
         onRemoveFromProject={handleRemoveDatasetsFromProject}
+      />
+      <ComputeCatalogPanel
+        open={activeSidebar === "compute"}
+        onClose={() => setActiveSidebar(null)}
+        projectCompute={projectCompute}
+        onAddToProject={handleAddComputeToProject}
+        onRemoveFromProject={handleRemoveComputeFromProject}
+        onRefreshProjectItem={handleRefreshComputeProjectItem}
+      />
+      <ComputeConfigDialog
+        open={pendingComputeEntry != null}
+        onClose={() => setPendingComputeEntry(null)}
+        entry={pendingComputeEntry}
+        onCreate={handleComputeConfigCreate}
       />
     </div>
   );
@@ -824,6 +935,8 @@ function createGrammarNode({
 function createPyCodeEditorNode({
   id,
   setNodes,
+  seed,
+  onAddComputedDatasets,
 }: // onRunViewport,
 {
   id: string;
@@ -831,6 +944,15 @@ function createPyCodeEditorNode({
     React.SetStateAction<Node<BaseNodeData | PyCodeEditorNodeData>[]>
   >;
   // onRunViewport?: (srcId: string) => void;
+  // Prefills the node instead of the usual blank editor - used when
+  // creating a node from a Compute Catalog entry (see
+  // handleComputeConfigCreate), whose generated import+call code and a
+  // descriptive title are already known at creation time.
+  seed?: { code?: string; title?: string };
+  // Lets this node's Run action register whatever it wrote under
+  // "computed/..." into the project (see PyCodeEditorNode.tsx's handleRun) -
+  // same callback createGrammarNode already wires up for data_layer nodes.
+  onAddComputedDatasets?: (datasets: CatalogDataset[]) => void;
 }) {
   const pos = (window as any)._desiredGrammarPos ?? { x: 150, y: 150 };
 
@@ -840,7 +962,7 @@ function createPyCodeEditorNode({
     position: pos,
     width: 400,
     // height: 300,
-    data: {},
+    data: { ...seed, onAddComputedDatasets },
   };
 
   setNodes((nds) => nds.concat(newNode));

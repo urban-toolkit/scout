@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
-import Fab from "@mui/material/Fab";
 import Paper from "@mui/material/Paper";
 import Slide from "@mui/material/Slide";
 import IconButton from "@mui/material/IconButton";
@@ -12,7 +11,6 @@ import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
-import SmartToyOutlinedIcon from "@mui/icons-material/SmartToyOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import SettingsIcon from "@mui/icons-material/Settings";
 import SendIcon from "@mui/icons-material/Send";
@@ -245,24 +243,6 @@ export default function ChatWidget({ open, onOpenChange }: Props) {
 
   return (
     <>
-      {!open && (
-        <Fab
-          onClick={() => onOpenChange(true)}
-          sx={{
-            position: "fixed",
-            left: 24,
-            bottom: 24,
-            zIndex: 40,
-            bgcolor: "grey.700",
-            color: "#fff",
-            "&:hover": { bgcolor: "grey.800" },
-          }}
-          aria-label="Open LLM chat"
-        >
-          <SmartToyOutlinedIcon />
-        </Fab>
-      )}
-
       <Slide direction="left" in={open} mountOnEnter unmountOnExit>
         <Paper
           elevation={8}

@@ -9,13 +9,18 @@ import InputAdornment from "@mui/material/InputAdornment";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import StorageOutlinedIcon from "@mui/icons-material/StorageOutlined";
+import LayersOutlinedIcon from "@mui/icons-material/LayersOutlined";
 import FolderOutlinedIcon from "@mui/icons-material/FolderOutlined";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchIcon from "@mui/icons-material/Search";
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
 
-import { listDataCatalog, type CatalogDataset } from "../utils/dataCatalog";
+import {
+  listDataCatalog,
+  listComputedRasterTiles,
+  type CatalogDataset,
+} from "../utils/dataCatalog";
 import { formatColor } from "../utils/formatColors";
 import {
   collectProjectTreeFiles,
@@ -219,6 +224,203 @@ function DatasetFileRow({
       >
         {inProject ? "Remove from project" : "Add to project"}
       </Button>
+    </Box>
+  );
+}
+
+// One tile inside an expanded raster folder - same bordered-card look as
+// DatasetFileRow (icon + name + format), minus the Add/Remove button, since
+// nothing in the app references a single tile individually.
+function TileFileRow({ name, indent }: { name: string; indent: number }) {
+  const format = "PNG";
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        py: 0.75,
+        px: ROW_PR,
+        ml: indent,
+        border: "1px solid #e5e7eb",
+        borderRadius: 1.5,
+      }}
+    >
+      <Box
+        sx={{
+          width: 32,
+          height: 32,
+          flexShrink: 0,
+          borderRadius: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: `${formatColor(format)}1a`,
+        }}
+      >
+        <StorageOutlinedIcon sx={{ fontSize: 18, color: formatColor(format) }} />
+      </Box>
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography
+          sx={{
+            fontWeight: 500,
+            fontSize: 13,
+            color: "#0f172a",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {name}
+        </Typography>
+        <Typography variant="caption" sx={{ color: "#64748b", display: "block" }}>
+          {format}
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+// A computed entry that's actually a folder (a raster tile-set - see
+// CatalogDataset.isDir) renders expandable, listing its tile filenames on
+// open via the same endpoint the map view itself uses to fetch them - purely
+// for visibility, the tiles inside aren't individually addable/removable
+// (nothing else in the app references a single tile). Any non-folder
+// computed entry (the common case - a single geojson) falls straight
+// through to the plain DatasetFileRow it always used to render as.
+function ComputedEntryRow({
+  dataset: d,
+  onRemove,
+}: {
+  dataset: CatalogDataset;
+  onRemove: (ids: string[]) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [tiles, setTiles] = useState<string[] | null>(null);
+  const [loadingTiles, setLoadingTiles] = useState(false);
+  const [tilesError, setTilesError] = useState<string | null>(null);
+
+  if (!d.isDir) {
+    return <DatasetFileRow dataset={d} indent={0} inProject onAdd={noop} onRemove={onRemove} />;
+  }
+
+  const toggle = () => {
+    const next = !isOpen;
+    setIsOpen(next);
+    if (next && tiles === null && !loadingTiles) {
+      setLoadingTiles(true);
+      setTilesError(null);
+      listComputedRasterTiles(d.id)
+        .then(setTiles)
+        .catch((e) => setTilesError(e.message || "Failed to list tiles."))
+        .finally(() => setLoadingTiles(false));
+    }
+  };
+
+  return (
+    <Box>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          py: 0.75,
+          px: ROW_PR,
+          border: "1px solid #e5e7eb",
+          borderRadius: 1.5,
+        }}
+      >
+        <Box
+          component="button"
+          onClick={toggle}
+          aria-label={isOpen ? `Collapse ${d.name}` : `Expand ${d.name}`}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            flex: 1,
+            minWidth: 0,
+            border: "none",
+            background: "none",
+            p: 0,
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          <ChevronRightIcon
+            sx={{
+              fontSize: 20,
+              color: "#94a3b8",
+              transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+              transition: "transform 0.15s ease",
+              flexShrink: 0,
+            }}
+          />
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              flexShrink: 0,
+              borderRadius: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              bgcolor: `${formatColor(d.format)}1a`,
+            }}
+          >
+            <FolderOutlinedIcon sx={{ fontSize: 18, color: formatColor(d.format) }} />
+          </Box>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography
+              sx={{
+                fontWeight: 500,
+                fontSize: 13,
+                color: "#0f172a",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {d.name}
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "#64748b",
+                display: "block",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {d.format} · {d.size}
+            </Typography>
+          </Box>
+        </Box>
+        <Button variant="text" size="small" onClick={() => onRemove([d.id])} sx={ADD_BUTTON_SX}>
+          Remove from project
+        </Button>
+      </Box>
+
+      {isOpen && (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, mt: 0.5 }}>
+          {loadingTiles ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
+              <CircularProgress size={16} />
+            </Box>
+          ) : tilesError ? (
+            <Typography variant="caption" color="error" sx={{ ml: FILE_INDENT_NUDGE }}>
+              {tilesError}
+            </Typography>
+          ) : (tiles ?? []).length === 0 ? (
+            <Typography variant="caption" sx={{ color: "#94a3b8", ml: FILE_INDENT_NUDGE }}>
+              No tiles found.
+            </Typography>
+          ) : (
+            (tiles ?? []).map((t) => <TileFileRow key={t} name={t} indent={FILE_INDENT_NUDGE} />)
+          )}
+        </Box>
+      )}
     </Box>
   );
 }
@@ -613,7 +815,7 @@ export default function DataCatalogPanel({
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <StorageOutlinedIcon fontSize="small" sx={{ color: "#334155" }} />
+            <LayersOutlinedIcon fontSize="small" sx={{ color: "#cb181d" }} />
             <Typography sx={{ fontWeight: 600, fontSize: 15, color: "#0f172a" }}>
               Data Catalog
             </Typography>
@@ -700,14 +902,7 @@ export default function DataCatalogPanel({
                 {[...computedDatasets]
                   .sort((a, b) => a.name.localeCompare(b.name))
                   .map((d) => (
-                    <DatasetFileRow
-                      key={d.id}
-                      dataset={d}
-                      indent={0}
-                      inProject
-                      onAdd={onAddToProject}
-                      onRemove={onRemoveFromProject}
-                    />
+                    <ComputedEntryRow key={d.id} dataset={d} onRemove={onRemoveFromProject} />
                   ))}
               </Box>
             )

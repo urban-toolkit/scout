@@ -2,6 +2,7 @@
 import sys
 import json
 import io
+import os
 import contextlib
 import traceback
 
@@ -10,17 +11,29 @@ GLOBAL_NS = {"__name__": "__main__"}
 
 def handle_request(req):
     code = req.get("code", "")
+    # Optional per-request working directory (e.g. a dataflow's compute
+    # scratch dir, see _compute_scratch_dir in server.py) so a compute
+    # model's code can use bare relative paths like "computed/A.geojson" -
+    # restored in `finally` so it never leaks into the next request, even
+    # though GLOBAL_NS itself is intentionally shared/persistent.
+    cwd = req.get("cwd")
+    orig_cwd = os.getcwd()
 
     stdout_buf = io.StringIO()
     stderr_buf = io.StringIO()
 
     with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stderr_buf):
         try:
+            if cwd:
+                os.chdir(cwd)
             exec(code, GLOBAL_NS, GLOBAL_NS)
             ok = True
         except Exception:
             traceback.print_exc(file=stderr_buf)
             ok = False
+        finally:
+            if cwd:
+                os.chdir(orig_cwd)
 
     return {
         "ok": ok,

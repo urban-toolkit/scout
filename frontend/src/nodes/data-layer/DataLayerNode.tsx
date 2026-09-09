@@ -3,6 +3,12 @@ import type { NodeProps, Node } from "@xyflow/react";
 import { useReactFlow, Handle, Position, NodeResizer } from "@xyflow/react";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogActions from "@mui/material/DialogActions";
+import Button from "@mui/material/Button";
 
 import BaseGrammarNode, {
   BaseNodeData,
@@ -44,18 +50,26 @@ const DataLayerNode = memo(function DataLayerNode(
   // log - the most common cause is a feature that hasn't been added to
   // this dataflow's project yet, which is otherwise a silent no-op.
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Set when the backend reports that fetching again would overwrite a
+  // previous fetch's output (see runFetch) - drives the confirm Dialog
+  // below. null means "no confirmation pending", not "no conflicts exist".
+  const [pendingOverwrite, setPendingOverwrite] = useState<
+    { feature: string; name: string }[] | null
+  >(null);
 
-  const onFetch = useCallback(async (): Promise<boolean> => {
-    const val: any = (data.value as any)?.data_layer;
+  // The actual network call, parameterized by whether overwriting is
+  // already agreed to. Returns false (without setting errorMessage) when
+  // the backend instead asks for confirmation - the caller just stops
+  // there, nothing failed.
+  const runFetch = useCallback(
+    async (confirmOverwrite: boolean): Promise<boolean> => {
+      const val: any = (data.value as any)?.data_layer;
 
-    if (!val) {
-      console.warn("No data_layer data found for node", id);
-      return false;
-    }
+      if (!val) {
+        console.warn("No data_layer data found for node", id);
+        return false;
+      }
 
-    try {
-      setLoading(true);
-      setLoadingSuccess(false);
       const response = await fetch(appUrl("/api/extract-data-layer"), {
         method: "POST",
         headers: {
@@ -64,10 +78,19 @@ const DataLayerNode = memo(function DataLayerNode(
         // dataflow_id tells the backend which project's dataset list to
         // check a feature against - fetching only succeeds for a feature
         // that's actually been added to this dataflow's project.
-        body: JSON.stringify({ ...val, dataflow_id: getCurrentDataflowId() }),
+        body: JSON.stringify({
+          ...val,
+          dataflow_id: getCurrentDataflowId(),
+          confirmOverwrite,
+        }),
       });
 
       const body = await response.json().catch(() => ({}));
+
+      if (body?.status === "confirm_overwrite") {
+        setPendingOverwrite(body.existing ?? []);
+        return false;
+      }
 
       if (!response.ok && response.status !== 207) {
         throw new Error(body?.error ?? `Server returned ${response.status}`);
@@ -90,19 +113,57 @@ const DataLayerNode = memo(function DataLayerNode(
       }
 
       setErrorMessage(null);
-      setLoadingSuccess(true);
-      setTimeout(() => setLoadingSuccess(false), 2000);
       return true;
-    } catch (err) {
-      console.error("Error sending data to Flask:", err);
-      setErrorMessage(
-        err instanceof Error ? err.message : "Failed to fetch this data layer.",
-      );
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [data, id]);
+    },
+    [data, id],
+  );
+
+  const runWithFeedback = useCallback(
+    async (confirmOverwrite: boolean): Promise<boolean> => {
+      try {
+        setLoading(true);
+        setLoadingSuccess(false);
+        const ok = await runFetch(confirmOverwrite);
+        if (ok) {
+          setLoadingSuccess(true);
+          setTimeout(() => setLoadingSuccess(false), 2000);
+        }
+        return ok;
+      } catch (err) {
+        console.error("Error sending data to Flask:", err);
+        setErrorMessage(
+          err instanceof Error ? err.message : "Failed to fetch this data layer.",
+        );
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [runFetch],
+  );
+
+  const onFetch = useCallback(
+    async (opts?: { interactive?: boolean }): Promise<boolean> => {
+      // A direct click checks first and pauses for confirmation if this
+      // would overwrite a previous fetch's output (see the Dialog below).
+      // An orchestrated "Run Dataflow" run (registerNodeAction calls this
+      // with no args, so interactive defaults to false) auto-overwrites
+      // instead - there's no one present mid-run to answer a popup, and
+      // that's this node's existing behavior for that path today.
+      const interactive = opts?.interactive ?? false;
+      return runWithFeedback(!interactive);
+    },
+    [runWithFeedback],
+  );
+
+  const handleConfirmOverwrite = useCallback(() => {
+    setPendingOverwrite(null);
+    void runWithFeedback(true);
+  }, [runWithFeedback]);
+
+  const handleCancelOverwrite = useCallback(() => {
+    setPendingOverwrite(null);
+  }, []);
 
   // Lets the "Run Dataflow" orchestrator fetch this node directly and await
   // the result - see utils/nodeActionRegistry.ts.
@@ -192,7 +253,7 @@ const DataLayerNode = memo(function DataLayerNode(
                 borderColor: "#cb181d",
                 color: "#000",
               }}
-              onClick={onFetch}
+              onClick={() => onFetch({ interactive: true })}
               disabled={loading}
               aria-busy={loading}
               title={loading ? "Fetching..." : "Fetch data"}
@@ -252,7 +313,7 @@ const DataLayerNode = memo(function DataLayerNode(
             footerActions: (
               <button
                 type="button"
-                onClick={onFetch}
+                onClick={() => onFetch({ interactive: true })}
                 title={loading ? "Fetching..." : "Fetch data"}
                 aria-label="Fetch data"
                 className="gnode__actionBtn"
@@ -304,6 +365,29 @@ const DataLayerNode = memo(function DataLayerNode(
           {errorMessage}
         </Alert>
       </Snackbar>
+
+      <Dialog open={pendingOverwrite !== null} onClose={handleCancelOverwrite}>
+        <DialogTitle sx={{ fontWeight: 700 }}>Overwrite existing data</DialogTitle>
+        <DialogContent>
+          <DialogContentText component="ul" sx={{ mt: 0, mb: 0, pl: 2.5 }}>
+            {pendingOverwrite?.map((c) => <li key={c.name}>{c.name}</li>)}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleCancelOverwrite} sx={{ textTransform: "none" }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmOverwrite}
+            color="error"
+            variant="contained"
+            disableElevation
+            sx={{ textTransform: "none", fontWeight: 600 }}
+          >
+            Overwrite
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 });

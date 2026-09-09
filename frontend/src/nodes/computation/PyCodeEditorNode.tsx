@@ -10,12 +10,18 @@ import { WidgetOutput } from "../../utils/types";
 import { appUrl } from "../../utils/runtimePaths";
 import PythonCodeEditor from "../../node-components/PythonCodeEditor";
 import { registerNodeAction } from "../../utils/nodeActionRegistry";
+import { useDataflowId } from "../../contexts/DataflowIdContext";
 
 export type PyCodeEditorNodeData = {
   title?: string;
   code?: string; // <-- added here
   onClose?: (id: string) => void;
   onRun?: (srcId: string, code: string) => boolean | void;
+  // Called with whatever /api/run-python's computed-dir diff detected this
+  // run wrote under "computed/..." (see handleRun) - same shape and same
+  // callback DataLayerNode already uses, so it lands in projectDatasets and
+  // shows up in the Data Catalog's "Computed" tab the same way.
+  onAddComputedDatasets?: (datasets: import("../../utils/dataCatalog").CatalogDataset[]) => void;
   widgetOutputs?: WidgetOutput[];
   // Bump this (see utils/widgetPropagation.ts) to trigger Run from outside
   // the node - e.g. the Widget Agent - without duplicating handleRun's logic.
@@ -38,6 +44,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
   data,
 }: NodeProps<PyCodeEditorNode>) {
   const rf = useReactFlow();
+  const dataflowId = useDataflowId();
 
   const [running, setRunning] = useState(false);
   const [runningSuccess, setRunningSuccess] = useState(false);
@@ -151,7 +158,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
       const res = await fetch(appUrl("/api/run-python"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: finalCode }),
+        body: JSON.stringify({ code: finalCode, dataflow_id: dataflowId }),
       });
 
       const result = await res.json();
@@ -161,6 +168,15 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
         stdout: result.stdout || "",
         stderr: result.stderr || "",
       });
+
+      // Whatever this run wrote under "computed/..." (detected server-side
+      // by diffing the dataflow's computed dir before/after - see
+      // /api/run-python) shows up in the Data Catalog's "Computed" tab the
+      // same way a data_layer fetch's output already does.
+      if (Array.isArray(result.computed) && result.computed.length > 0) {
+        data?.onAddComputedDatasets?.(result.computed);
+      }
+
       setRunningSuccess(true);
       setTimeout(() => setRunningSuccess(false), 2000);
 
@@ -176,7 +192,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
     } finally {
       setRunning(false);
     }
-  }, [data, id]);
+  }, [data, id, dataflowId]);
 
   // ---------- EXTERNALLY-TRIGGERED RUN ----------
   // undefined on mount, so this only fires once something (the Widget Agent)

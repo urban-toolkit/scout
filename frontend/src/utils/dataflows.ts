@@ -1,6 +1,19 @@
 import type { Edge, Node } from "@xyflow/react";
 import { appUrl } from "./runtimePaths";
 import type { ProjectDataset } from "./projectDatasets";
+import type { ComputeCatalogEntry } from "./computeCatalog";
+import type { ComputeSelection } from "./computeCodeGen";
+
+// A Compute Catalog entry added to this dataflow's project - shown in
+// ComputeCatalogPanel's "In project" tab. Purely informational (unlike
+// projectDatasets, nothing server-side gates code execution on this list).
+export type ProjectComputeItem = ComputeCatalogEntry & {
+  // The function/method + param choices last used to create a code node
+  // from this entry (see ComputeConfigDialog) - dragging it again seeds the
+  // dialog with this instead of starting from scratch. Absent until the
+  // user has created at least one node from it.
+  lastSelection?: ComputeSelection;
+};
 
 export type DataflowPreviewNode = {
   id: string;
@@ -33,6 +46,9 @@ export type DataflowRecord = {
   // Which catalog datasets this dataflow's data_layer nodes are allowed to
   // fetch - a permission list, not a copy of the underlying files.
   projectDatasets: ProjectDataset[];
+  // Which Compute Catalog models/transformations have been added to this
+  // dataflow's project - see ProjectComputeItem.
+  projectCompute: ProjectComputeItem[];
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -75,7 +91,13 @@ export async function getDataflow(id: string, signal?: AbortSignal): Promise<Dat
 // (see App.tsx), which just retries on the next debounced change.
 export async function saveDataflow(
   id: string,
-  data: { nodes: Node[]; edges: Edge[]; name?: string; projectDatasets?: ProjectDataset[] },
+  data: {
+    nodes: Node[];
+    edges: Edge[];
+    name?: string;
+    projectDatasets?: ProjectDataset[];
+    projectCompute?: ProjectComputeItem[];
+  },
 ): Promise<void> {
   const res = await fetch(appUrl(`/api/dataflows/${encodeURIComponent(id)}`), {
     method: "PUT",

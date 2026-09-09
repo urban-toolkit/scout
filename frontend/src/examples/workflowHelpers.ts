@@ -32,6 +32,22 @@ export function attachNodeBehaviors(
     "comparisonNode",
   ]);
 
+  // pyCodeEditorNode manages its own local state (code, title, widgetOutputs,
+  // minimized) and doesn't need onChange/onRun - but onAddComputedDatasets
+  // still has to be reattached after a load the same as for grammar nodes,
+  // or a node created in an earlier session would silently stop registering
+  // its computed outputs into the project after a reload (functions don't
+  // survive the JSON round-trip a save goes through - see App.tsx's autosave).
+  if (node.type === "pyCodeEditorNode") {
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        onAddComputedDatasets,
+      },
+    } as Node<AppNodeData>;
+  }
+
   if (!grammarTypes.has(node.type ?? "")) {
     return node as Node<AppNodeData>;
   }

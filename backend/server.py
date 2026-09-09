@@ -3,6 +3,8 @@ from copyreg import pickle
 import json
 import tempfile
 import textwrap
+import ast
+import zipfile
 from flask import Flask, request, jsonify, send_file, abort
 from io import BytesIO
 from flask_cors import CORS
@@ -36,11 +38,26 @@ worker_python_exe = None
 
 app = Flask(__name__)
 CORS(app)
+# Compute Catalog uploads (scripts/zips/folders) can legitimately include a
+# real model's weights - now streamed straight to disk (see
+# upload_compute_item) rather than buffered in memory, so this is mainly a
+# sanity/disk-space bound, not a memory-safety one. 500MB is generous for
+# local/single-user dev; revisit downward once this is actually deployed
+# for multiple concurrent users.
+app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
 
 DATA_DIR = Path("data")
 OUT_DIR  = Path("data/served")
 CATALOG_DIR = Path("data/catalog")
 DATAFLOWS_DIR = Path("data/dataflows")
+# Uploaded Compute Catalog models/transformations live here, importable
+# bare - "<id>" (a flat module) or "<id>.<...>" (a package) - because
+# COMPUTE_DIR itself (not just backend/) is on the worker's PYTHONPATH, see
+# start_worker(). "compute.<id>..." also still resolves (backend/ is on the
+# path too), kept for backward compatibility with nodes already generated
+# under the old prefixed convention. No __init__.py needed for this
+# directory itself, same as backend/models/ (an implicit namespace package).
+COMPUTE_DIR = Path("compute")
 vector_subdir = Path(OUT_DIR / "vector")
 raster_subdir = Path(OUT_DIR / "raster")
 metric_subdir = Path(OUT_DIR / "metric")
@@ -49,9 +66,13 @@ vector_subdir.mkdir(parents=True, exist_ok=True)
 raster_subdir.mkdir(parents=True, exist_ok=True)
 metric_subdir.mkdir(parents=True, exist_ok=True)
 DATAFLOWS_DIR.mkdir(parents=True, exist_ok=True)
+COMPUTE_DIR.mkdir(parents=True, exist_ok=True)
 
 CHART_TYPE_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 DATAFLOW_ID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+# A minted compute-catalog id doubles as a bare Python module/package name,
+# so it must be a valid identifier segment - no hyphens.
+COMPUTE_ID_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 # Chart Studio "Publish" writes generated chart components directly into
 # frontend source (dev only - see docker-compose.dev.yml's frontend_src
@@ -188,6 +209,242 @@ def _check_chart_name_collision(name: str, component_file: str, manifest: dict) 
             return f"'{name}' collides with existing chart type '{other_name}' (both generate {component_file})"
     return None
 
+# Compute Catalog manifest - same flat-JSON-keyed-by-id, atomic-write pattern
+# as CHART_MANIFEST_PATH (see _load_chart_manifest/_save_chart_manifest
+# above). Lives in DATA_DIR (metadata only) - the actual uploaded code lives
+# under COMPUTE_DIR instead, since it needs to be importable.
+COMPUTE_MANIFEST_PATH = DATA_DIR / "compute_manifest.json"
+
+
+def _load_compute_manifest() -> dict:
+    if not COMPUTE_MANIFEST_PATH.exists():
+        return {}
+    try:
+        return json.loads(COMPUTE_MANIFEST_PATH.read_text())
+    except json.JSONDecodeError:
+        return {}
+
+
+def _save_compute_manifest(manifest: dict) -> None:
+    _atomic_write_text(COMPUTE_MANIFEST_PATH, json.dumps(manifest, indent=2))
+
+
+def _slugify_compute_name(name: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9_]+", "_", name.strip()).strip("_").lower()
+    if not slug or not slug[0].isalpha() and slug[0] != "_":
+        slug = f"m_{slug}" if slug else "model"
+    return slug
+
+
+def _mint_compute_id(display_name: str, manifest: dict) -> str:
+    base = _slugify_compute_name(display_name)
+    if base not in manifest:
+        return base
+    i = 2
+    while f"{base}_{i}" in manifest:
+        i += 1
+    return f"{base}_{i}"
+
+
+def _type_annotation_repr(annotation) -> str | None:
+    """Source-text repr of a param's type annotation (e.g. "int", "str",
+    "Optional[float]"), or None if it has none - most uploaded functions
+    won't, and that's fine, the config dialog just falls back to today's
+    unvalidated freeform behavior for those."""
+    if annotation is None:
+        return None
+    try:
+        return ast.unparse(annotation)
+    except Exception:
+        return None
+
+
+def _params_from_args(args: ast.arguments, skip_first: bool = False) -> list[dict]:
+    """Extracts a flat param list (name + whether it has a default + a
+    source-text repr of that default + its type annotation if any) from an
+    ast function signature - positional/keyword-only, no *args/**kwargs
+    support (not something a "variable vs fixed" picker can meaningfully
+    offer anyway)."""
+    positional = list(getattr(args, "posonlyargs", []) or []) + list(args.args)
+    if skip_first and positional:
+        positional = positional[1:]  # drop `self`/`cls`
+
+    n_positional = len(positional)
+    n_defaults = len(args.defaults)
+    params = []
+    for i, a in enumerate(positional):
+        has_default = i >= n_positional - n_defaults
+        default_repr = None
+        if has_default:
+            default_node = args.defaults[i - (n_positional - n_defaults)]
+            try:
+                default_repr = ast.unparse(default_node)
+            except Exception:
+                default_repr = None
+        params.append({
+            "name": a.arg,
+            "hasDefault": has_default,
+            "defaultRepr": default_repr,
+            "type": _type_annotation_repr(a.annotation),
+        })
+
+    for kw, default in zip(args.kwonlyargs, args.kw_defaults):
+        default_repr = None
+        if default is not None:
+            try:
+                default_repr = ast.unparse(default)
+            except Exception:
+                default_repr = None
+        params.append({
+            "name": kw.arg,
+            "hasDefault": default is not None,
+            "defaultRepr": default_repr,
+            "type": _type_annotation_repr(kw.annotation),
+        })
+
+    return params
+
+
+def _introspect_module_source(source: str) -> list[dict]:
+    """Static AST-only introspection of one module's top-level functions and
+    classes - no import/exec of uploaded code happens here, so a module with
+    missing third-party deps (osmnx, netCDF4, ...) can still be listed in
+    the catalog; those only matter once the generated code node actually
+    runs, same as any hand-written pyCodeEditorNode today.
+
+    Keyed by name (not appended to a list) because Python itself only keeps
+    the *last* top-level `def`/`class` for a given name - an earlier one at
+    the same scope is simply overwritten when the module executes. Walking
+    tree.body in order and assigning into a dict reproduces that: if a name
+    is defined twice, the second definition's body wins here too, but it
+    keeps the first definition's position in the list (dict re-assignment
+    doesn't move a key) so the callable doesn't jump around in the picker."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+
+    by_name: dict[str, dict] = {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
+            by_name[node.name] = {
+                "kind": "function",
+                "name": node.name,
+                "docstring": ast.get_docstring(node) or "",
+                "params": _params_from_args(node.args),
+            }
+        elif isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
+            ctor_params: list[dict] = []
+            methods: list[dict] = []
+            for item in node.body:
+                if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if item.name == "__init__":
+                    ctor_params = _params_from_args(item.args, skip_first=True)
+                elif not item.name.startswith("_"):
+                    methods.append({
+                        "name": item.name,
+                        "docstring": ast.get_docstring(item) or "",
+                        "params": _params_from_args(item.args, skip_first=True),
+                    })
+            by_name[node.name] = {
+                "kind": "class",
+                "name": node.name,
+                "docstring": ast.get_docstring(node) or "",
+                "ctorParams": ctor_params,
+                "methods": methods,
+            }
+    return list(by_name.values())
+
+
+def _ensure_package_inits(root: Path) -> None:
+    """For every directory under root containing at least one .py file,
+    ensures an __init__.py exists (creates an empty one if missing) so it's
+    a regular importable package - mirrors the one existing precedent for
+    this, backend/models/routing/scripts/__init__.py. Directories with no
+    .py files (model weights, sample data shipped alongside a script) are
+    left alone."""
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d != "__pycache__" and not d.startswith(".")]
+        if any(f.endswith(".py") for f in filenames):
+            init_path = Path(dirpath) / "__init__.py"
+            if not init_path.exists():
+                init_path.touch()
+
+
+def _introspect_compute_package(root: Path, compute_id: str) -> list[dict]:
+    """Recursively AST-introspects every .py file under root (a package
+    extracted/reconstructed under COMPUTE_DIR), tagging each callable with
+    the dotted import path a generated code node should use - e.g.
+    "flood_predictor.scripts.load_static.DataLoader" for a callable that
+    lives several subfolders deep (compute_id is importable bare, with no
+    "compute." prefix, because COMPUTE_DIR itself is on the worker's
+    PYTHONPATH - see start_worker)."""
+    callables = []
+    for path in sorted(root.rglob("*.py")):
+        if "__pycache__" in path.parts or path.name == "__init__.py":
+            continue
+        rel_parts = path.relative_to(root).with_suffix("").parts
+        module_dotted = ".".join([compute_id, *rel_parts])
+        try:
+            source = path.read_text()
+        except OSError:
+            continue
+        for c in _introspect_module_source(source):
+            c["importPath"] = f"{module_dotted}.{c['name']}"
+            c["sourceFile"] = path.relative_to(root).as_posix()
+            callables.append(c)
+    return callables
+
+
+def _extract_compute_import_ids(code: str) -> set[str]:
+    """Statically scans a code node's source for every plausible
+    compute-catalog id it imports - used by the /api/run-python guardrail to
+    check each one against the dataflow's projectCompute allow-list before
+    running. Catches both the current bare convention ("from
+    raster_conversion... import ...") and the legacy "compute.<id>..."
+    prefix (still importable for backward compatibility, see start_worker),
+    by adding a second-segment id whenever the top-level segment is
+    literally "compute". This is a static check, not a sandbox - it can't
+    catch a dynamically built import (importlib.import_module, exec/eval of
+    an assembled string), same caveat as the projectDatasets permission
+    check in extract_data_layer."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return set()
+
+    ids: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                _record_compute_import_id(alias.name, ids)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            _record_compute_import_id(node.module, ids)
+    return ids
+
+
+def _record_compute_import_id(dotted: str, ids: set[str]) -> None:
+    parts = dotted.split(".")
+    ids.add(parts[0])
+    if parts[0] == "compute" and len(parts) > 1:
+        ids.add(parts[1])
+
+
+def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
+    """Extracts zf into dest, refusing the whole upload if any entry would
+    resolve outside dest (zip-slip protection) - validated up front so a
+    malicious entry can't partially extract before being caught."""
+    dest_resolved = dest.resolve()
+    for member in zf.infolist():
+        member_path = (dest / member.filename).resolve()
+        try:
+            member_path.relative_to(dest_resolved)
+        except ValueError:
+            raise ValueError(f"Zip entry '{member.filename}' escapes the target directory")
+    zf.extractall(dest)
+
+
 def start_worker():
     global worker_proc, worker_python_exe
 
@@ -206,6 +463,17 @@ def start_worker():
 
     worker_python_exe = python_exe
 
+    # COMPUTE_DIR is on the path in its own right (not just project_dir) so
+    # an uploaded model imports as bare "raster_conversion...", not
+    # "compute.raster_conversion..." - project_dir staying on the path too
+    # keeps existing "models.*" imports (and any already-generated node
+    # still using the old "compute.<id>..." prefix) working unchanged.
+    worker_pythonpath = os.pathsep.join([
+        str(project_dir),
+        str((project_dir / COMPUTE_DIR).resolve()),
+        os.environ.get("PYTHONPATH", ""),
+    ])
+
     worker_proc = subprocess.Popen(
         [str(python_exe), "-u", "python_worker.py"],
         stdin=subprocess.PIPE,
@@ -213,16 +481,21 @@ def start_worker():
         stderr=subprocess.PIPE,
         text=True,
         cwd=str(project_dir),
-        env={**os.environ, "PYTHONPATH": str(project_dir) + os.pathsep + os.environ.get("PYTHONPATH", "")},
+        env={**os.environ, "PYTHONPATH": worker_pythonpath},
         bufsize=1,  # line-buffered
     )
 
     print("[WORKER] Started python_worker process PID:", worker_proc.pid)
 
-def send_code_to_worker(code: str) -> dict:
+def send_code_to_worker(code: str, cwd: str | None = None) -> dict:
     """
     Sends code to the persistent worker and returns a dict:
     { "ok": bool, "stdout": str, "stderr": str }
+
+    `cwd`, if given, is restored by the worker itself after this one request
+    (see python_worker.py's handle_request) - it never leaks into the next
+    request even though the worker process and its GLOBAL_NS are shared
+    across every dataflow.
     """
     global worker_proc
 
@@ -231,6 +504,8 @@ def send_code_to_worker(code: str) -> dict:
 
     with worker_lock:
         req = {"code": code}
+        if cwd:
+            req["cwd"] = cwd
         line = jsonlib.dumps(req) + "\n"
 
         assert worker_proc.stdin is not None
@@ -522,6 +797,10 @@ def extract_data_layer():
     src = pl.get("source")
     dtype = pl.get("dtype")
     dataflow_id = pl.get("dataflow_id")
+    # Set only on the re-send after the user has explicitly agreed to
+    # overwrite (see the pre-flight check below) - a first-time call from
+    # DataLayerNode never sets this.
+    confirm_overwrite = bool(pl.get("confirmOverwrite"))
 
     # datafile = pl.get("datafile")
     roi = pl.get("roi") or {}
@@ -550,6 +829,27 @@ def extract_data_layer():
     }
 
     if(src == "osm"):
+        computed_dir = _dataflow_computed_dir(str(dataflow_id))
+
+        # Pre-flight: a re-fetch silently overwrites whatever this same
+        # data_layer id/feature produced last time. Check first, write
+        # nothing, and let the frontend ask before actually clobbering it -
+        # unless the caller already confirmed, or this is an unattended
+        # "Run Dataflow" pass (DataLayerNode sends confirmOverwrite=true in
+        # that case, since there's no one to answer a popup mid-run).
+        if not confirm_overwrite:
+            conflicts = []
+            for f in (pl.get("osm_features") or []):
+                feature = f.get("feature")
+                catalog_id = f"osm/{roi_datafile}/{feature}.feather"
+                if catalog_id not in project_dataset_ids:
+                    continue  # reported as a permission problem in the real pass below
+                out_name = f"{id}_{feature}.geojson"
+                if (computed_dir / out_name).exists():
+                    conflicts.append({"feature": feature, "name": out_name})
+            if conflicts:
+                return jsonify({"status": "confirm_overwrite", "existing": conflicts}), 200
+
         for f in (pl.get("osm_features") or []):
             feature = f.get("feature")
             attributes = f.get("attributes") or []
@@ -583,7 +883,6 @@ def extract_data_layer():
 
                 # Durable copy - out_path itself lives under OUT_DIR, which
                 # gets wiped on every backend restart (see __main__ below).
-                computed_dir = _dataflow_computed_dir(str(dataflow_id))
                 computed_dir.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(out_path, computed_dir / out_name)
 
@@ -596,6 +895,7 @@ def extract_data_layer():
                     "sizeBytes": stat.st_size,
                     "size": _catalog_human_size(stat.st_size),
                     "modifiedAt": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                    "isDir": False,
                 })
 
             except Exception as e:
@@ -653,17 +953,80 @@ def update_data_layer():
 def run_python():
     payload = request.get_json() or {}
     code = payload.get("code", "")
+    dataflow_id = payload.get("dataflow_id")
 
     print("Received code to run:\n", code)
 
+    # Guardrail: a code node may only import an uploaded compute-catalog
+    # model/transformation that's been explicitly added to *this*
+    # dataflow's project - mirrors the projectDatasets permission check
+    # extract_data_layer already does. Only names that are actually
+    # uploaded compute-catalog ids are checked (imports of pandas,
+    # models.routing, etc. are untouched) - see _extract_compute_import_ids
+    # for what this can/can't catch.
+    referenced_ids = _extract_compute_import_ids(code) & set(_load_compute_manifest().keys())
+    if referenced_ids:
+        allowed_ids: set[str] = set()
+        if isinstance(dataflow_id, str) and DATAFLOW_ID_RE.match(dataflow_id):
+            dataflow_path = _dataflow_path(dataflow_id)
+            if dataflow_path is not None and dataflow_path.exists():
+                try:
+                    dataflow_record = json.loads(dataflow_path.read_text())
+                except json.JSONDecodeError:
+                    dataflow_record = {}
+                allowed_ids = {
+                    c.get("id")
+                    for c in (dataflow_record.get("projectCompute") or [])
+                    if isinstance(c, dict)
+                }
+        blocked_ids = sorted(referenced_ids - allowed_ids)
+        if blocked_ids:
+            names = ", ".join(blocked_ids)
+            return jsonify({
+                "stdout": "",
+                "stderr": (
+                    f"Blocked: '{names}' not added to this dataflow's project - "
+                    "add it from the Compute Catalog first."
+                ),
+                "returncode": 1,
+            }), 200
+
+    # A compute-catalog model's code uses bare relative paths ("computed/A.geojson",
+    # "quad_city_flooding/B.tif") - resolvable only if we hand the worker a
+    # per-dataflow scratch cwd with the right symlinks (see
+    # _compute_scratch_dir). Nodes with no dataflow context (or an invalid
+    # id) just run with the worker's default cwd, same as before this field
+    # existed.
+    cwd = None
+    computed_dir = None
+    before_snapshot: dict[str, tuple] = {}
+    if isinstance(dataflow_id, str) and DATAFLOW_ID_RE.match(dataflow_id):
+        cwd = str(_compute_scratch_dir(dataflow_id))
+        # Snapshotted before the run so any file/folder a compute-catalog
+        # script writes into "computed/..." can be detected afterward and
+        # reported back - see _snapshot_computed_dir.
+        computed_dir = _dataflow_computed_dir(dataflow_id)
+        before_snapshot = _snapshot_computed_dir(computed_dir)
+
     try:
-        resp = send_code_to_worker(code)
+        resp = send_code_to_worker(code, cwd=cwd)
         # resp: {"ok": bool, "stdout": "...", "stderr": "..."}
+
+        computed = []
+        if computed_dir is not None:
+            after_snapshot = _snapshot_computed_dir(computed_dir)
+            for name, sig in after_snapshot.items():
+                if before_snapshot.get(name) == sig:
+                    continue  # unchanged - not something this run touched
+                entry = _computed_catalog_entry(computed_dir, name)
+                if entry is not None:
+                    computed.append(entry)
 
         return jsonify({
             "stdout": resp.get("stdout", ""),
             "stderr": resp.get("stderr", ""),
             "returncode": 0 if resp.get("ok") else 1,
+            "computed": computed,
         }), 200
 
     except Exception as e:
@@ -1093,6 +1456,194 @@ def publish_chart_type():
     return jsonify({"status": "ok", **record})
 
 
+@app.get("/api/compute-catalog")
+def list_compute_catalog():
+    manifest = _load_compute_manifest()
+    items = sorted(manifest.values(), key=lambda r: r.get("displayName", r["id"]))
+    return jsonify({"status": "ok", "items": items})
+
+
+@app.post("/api/compute-catalog")
+def upload_compute_item():
+    """Uploads a Compute Catalog item in one of three modes - a single .py
+    file, a .zip of a package, or a raw folder (sent as multiple `files`
+    parts + a parallel `relpaths` JSON field, since a <input webkitdirectory>
+    picker already preserves each file's relative path client-side, with no
+    client-side zipping needed). Introspects it via AST only (no import/exec
+    of uploaded code) and records the result in COMPUTE_MANIFEST_PATH."""
+    mode = (request.form.get("mode") or "").strip()
+    display_name = (request.form.get("displayName") or "").strip()
+    description = request.form.get("description", "")
+
+    if not display_name:
+        return jsonify({"error": "displayName must be non-empty"}), 400
+    if mode not in ("file", "zip", "folder"):
+        return jsonify({"error": "mode must be 'file', 'zip', or 'folder'"}), 400
+
+    manifest = _load_compute_manifest()
+    compute_id = _mint_compute_id(display_name, manifest)
+
+    try:
+        if mode == "file":
+            upload = request.files.get("file")
+            if upload is None or not upload.filename.lower().endswith(".py"):
+                return jsonify({"error": "file must be a .py file"}), 400
+            dest_path = COMPUTE_DIR / f"{compute_id}.py"
+            # upload.save() streams the request body straight to disk in
+            # chunks (Werkzeug's FileStorage.save, same as the "folder" mode
+            # below already does per-file) - the temp-file + os.replace dance
+            # mirrors _atomic_write_text's own atomicity, just for a stream
+            # instead of a pre-built string.
+            tmp_fd, tmp_path_str = tempfile.mkstemp(
+                dir=str(COMPUTE_DIR), prefix=f".{compute_id}.", suffix=".py.tmp"
+            )
+            os.close(tmp_fd)
+            tmp_path = Path(tmp_path_str)
+            upload.save(tmp_path)
+            os.replace(tmp_path, dest_path)
+            source = dest_path.read_text(errors="replace")
+            kind = "file"
+            callables = _introspect_module_source(source)
+            for c in callables:
+                c["importPath"] = f"{compute_id}.{c['name']}"
+                c["sourceFile"] = f"{compute_id}.py"
+
+        elif mode == "zip":
+            upload = request.files.get("archive")
+            if upload is None or not upload.filename.lower().endswith(".zip"):
+                return jsonify({"error": "archive must be a .zip file"}), 400
+            dest = COMPUTE_DIR / compute_id
+            dest.mkdir(parents=True, exist_ok=True)
+            # Streamed to a temp file on disk rather than BytesIO(upload.read())
+            # - zipfile.ZipFile can extract straight from a path, so the full
+            # archive never has to sit in the process's memory at once.
+            tmp_fd, tmp_zip_str = tempfile.mkstemp(suffix=".zip")
+            os.close(tmp_fd)
+            tmp_zip = Path(tmp_zip_str)
+            try:
+                upload.save(tmp_zip)
+                with zipfile.ZipFile(tmp_zip) as zf:
+                    _safe_extract_zip(zf, dest)
+            finally:
+                tmp_zip.unlink(missing_ok=True)
+            _ensure_package_inits(dest)
+            kind = "package"
+            callables = _introspect_compute_package(dest, compute_id)
+
+        else:  # folder
+            files = request.files.getlist("files")
+            try:
+                relpaths = json.loads(request.form.get("relpaths") or "[]")
+            except json.JSONDecodeError:
+                return jsonify({"error": "relpaths must be a JSON array"}), 400
+            if not files or not isinstance(relpaths, list) or len(files) != len(relpaths):
+                return jsonify({"error": "files and relpaths must be non-empty and the same length"}), 400
+
+            dest = COMPUTE_DIR / compute_id
+            dest.mkdir(parents=True, exist_ok=True)
+            dest_resolved = dest.resolve()
+            for f, relpath in zip(files, relpaths):
+                if not isinstance(relpath, str) or not relpath or relpath.startswith("/"):
+                    return jsonify({"error": f"Invalid relative path: {relpath!r}"}), 400
+                target = (dest / relpath).resolve()
+                try:
+                    target.relative_to(dest_resolved)
+                except ValueError:
+                    return jsonify({"error": f"Path escapes upload directory: {relpath!r}"}), 400
+                target.parent.mkdir(parents=True, exist_ok=True)
+                f.save(target)
+            _ensure_package_inits(dest)
+            kind = "package"
+            callables = _introspect_compute_package(dest, compute_id)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    record = {
+        "id": compute_id,
+        "displayName": display_name,
+        "description": description,
+        "kind": kind,
+        # Empty is valid, not an error - a script with no introspectable
+        # top-level function/class (e.g. argparse/__main__-only) just isn't
+        # usable through the picker yet; the frontend flags this.
+        "callables": callables,
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+    }
+    manifest[compute_id] = record
+    _save_compute_manifest(manifest)
+
+    return jsonify({"status": "ok", **record})
+
+
+@app.post("/api/compute-catalog/<compute_id>/refresh")
+def refresh_compute_item(compute_id: str):
+    """Re-introspects whatever is currently on disk under COMPUTE_DIR for
+    this entry, without requiring a fresh upload - the manifest is a
+    snapshot taken at upload time, so a hand-edit made directly to an
+    already-uploaded file (e.g. deleting a duplicate function) won't show up
+    in the catalog until this runs."""
+    if not COMPUTE_ID_RE.match(compute_id):
+        return jsonify({"error": "Invalid id"}), 400
+
+    manifest = _load_compute_manifest()
+    record = manifest.get(compute_id)
+    if not record:
+        return jsonify({"error": f"No compute item '{compute_id}'"}), 404
+
+    file_path = COMPUTE_DIR / f"{compute_id}.py"
+    pkg_path = COMPUTE_DIR / compute_id
+
+    if record.get("kind") == "file":
+        if not file_path.is_file():
+            return jsonify({"error": f"Source file missing: {file_path}"}), 404
+        source = file_path.read_text()
+        callables = _introspect_module_source(source)
+        for c in callables:
+            c["importPath"] = f"{compute_id}.{c['name']}"
+            c["sourceFile"] = f"{compute_id}.py"
+    else:
+        if not pkg_path.is_dir():
+            return jsonify({"error": f"Source directory missing: {pkg_path}"}), 404
+        _ensure_package_inits(pkg_path)
+        callables = _introspect_compute_package(pkg_path, compute_id)
+
+    record["callables"] = callables
+    manifest[compute_id] = record
+    _save_compute_manifest(manifest)
+
+    return jsonify({"status": "ok", **record})
+
+
+@app.patch("/api/compute-catalog/<compute_id>")
+def rename_compute_item(compute_id: str):
+    """Renames a compute-catalog entry's displayName (and optionally its
+    description) - mirrors rename_dataflow's shape. The id/slug itself (and
+    therefore every callable's importPath, e.g. "raster_conversion.scripts.
+    ...") is never touched by this - it's the stable technical identifier,
+    independent of whatever the entry is displayed as."""
+    if not COMPUTE_ID_RE.match(compute_id):
+        return jsonify({"error": "Invalid id"}), 400
+
+    manifest = _load_compute_manifest()
+    record = manifest.get(compute_id)
+    if not record:
+        return jsonify({"error": f"No compute item '{compute_id}'"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    display_name = payload.get("displayName")
+    if not isinstance(display_name, str) or not display_name.strip():
+        return jsonify({"error": "'displayName' must be a non-empty string"}), 400
+
+    record["displayName"] = display_name.strip()
+    if isinstance(payload.get("description"), str):
+        record["description"] = payload["description"]
+
+    manifest[compute_id] = record
+    _save_compute_manifest(manifest)
+
+    return jsonify({"status": "ok", **record})
+
+
 def _dataflow_path(dataflow_id: str) -> Path | None:
     if not DATAFLOW_ID_RE.match(dataflow_id):
         return None
@@ -1107,6 +1658,150 @@ def _dataflow_path(dataflow_id: str) -> Path | None:
 # again, not just its listing in the dataflow's projectDatasets.
 def _dataflow_computed_dir(dataflow_id: str) -> Path:
     return DATAFLOWS_DIR / f"{dataflow_id}_computed"
+
+
+def _snapshot_computed_dir(computed_dir: Path) -> dict[str, tuple]:
+    """One signature per top-level entry (file or dir) directly under a
+    dataflow's computed dir, used by run_python to detect what a
+    compute-catalog script's arbitrary code just wrote there (unlike
+    extract_data_layer, which knows its own output filename ahead of time,
+    /api/run-python has no idea what a script will create - diffing a
+    before/after snapshot is what makes this work for any script, not just
+    ones we specifically know about). A directory's own mtime changes
+    whenever an entry inside it is added/removed/replaced, which is exactly
+    what a freshly-(re)written raster_out tile folder looks like - so
+    (is_dir, mtime, entry-count-or-size) is enough to catch "new or changed"
+    without needing to hash file contents."""
+    if not computed_dir.is_dir():
+        return {}
+    snapshot: dict[str, tuple] = {}
+    for entry in computed_dir.iterdir():
+        if entry.name.startswith("."):
+            continue
+        try:
+            stat = entry.stat()
+        except OSError:
+            continue
+        if entry.is_dir():
+            try:
+                count = sum(1 for _ in entry.iterdir())
+            except OSError:
+                count = 0
+            snapshot[entry.name] = (True, stat.st_mtime, count)
+        else:
+            snapshot[entry.name] = (False, stat.st_mtime, stat.st_size)
+    return snapshot
+
+
+def _computed_catalog_entry(computed_dir: Path, name: str) -> dict | None:
+    """Builds one Data-Catalog-shaped "computed" entry for a top-level name
+    under computed_dir - same shape extract_data_layer's own `computed` list
+    already uses, so it plugs into the exact same
+    onAddComputedDatasets/projectDatasets flow on the frontend regardless of
+    which backend path produced it."""
+    path = computed_dir / name
+    if not path.exists():
+        return None
+    stat = path.stat()
+    if path.is_dir():
+        try:
+            file_count = sum(1 for _ in path.iterdir())
+        except OSError:
+            file_count = 0
+        return {
+            "id": f"computed/{name}",
+            "name": name,
+            "group": "computed",
+            "format": "Raster tiles",
+            "sizeBytes": 0,
+            "size": f"{file_count} file{'s' if file_count != 1 else ''}",
+            "modifiedAt": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+            # Lets the frontend render this as an expandable folder (see
+            # DataCatalogPanel's Computed tab) rather than a plain file row -
+            # a raster tile-set is always addressed as one unit elsewhere in
+            # the app (GET /api/list-rasters/<ref>), so this doesn't explode
+            # into per-tile catalog entries, just a browsable one.
+            "isDir": True,
+        }
+    return {
+        "id": f"computed/{name}",
+        "name": _catalog_display_name(path),
+        "group": "computed",
+        "format": _catalog_format_label(path),
+        "sizeBytes": stat.st_size,
+        "size": _catalog_human_size(stat.st_size),
+        "modifiedAt": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+        "isDir": False,
+    }
+
+
+def _ensure_symlink(link_path: Path, target_path: Path) -> None:
+    """Creates/refreshes a symlink at link_path pointing at target_path - the
+    mechanism that lets a compute-catalog script use bare relative paths
+    (see _compute_scratch_dir) instead of real filesystem paths. Leaves a
+    real file/dir already at link_path alone rather than clobbering it."""
+    target_resolved = target_path.resolve()
+    if link_path.is_symlink():
+        if Path(os.path.realpath(link_path)) == target_resolved:
+            return
+        link_path.unlink()
+    elif link_path.exists():
+        return
+    link_path.symlink_to(target_resolved, target_is_directory=target_path.is_dir())
+
+
+def _compute_scratch_dir(dataflow_id: str) -> Path:
+    """A per-dataflow working directory for any code node to run from:
+    "computed/..." resolves to this dataflow's own computed outputs (never
+    another dataflow's - _dataflow_computed_dir is already per-dataflow), and
+    a catalog path (e.g. "quad_city_flooding/B.tif") resolves to its real
+    counterpart in the shared data catalog *only if that exact file has been
+    added to this dataflow's project* - mirrors the same projectDatasets
+    permission check extract_data_layer already enforces, and the
+    projectCompute check _extract_compute_import_ids enforces for compute
+    imports. Rebuilt from scratch on every call - not just adding symlinks
+    for what's currently allowed, but discarding the whole directory first -
+    so a dataset *removed* from the project takes effect immediately too,
+    not just one newly added. (Safe: scratch/ only ever holds symlinks and
+    the empty directories needed to place them, never real file content -
+    shutil.rmtree doesn't follow/delete through a symlinked directory, so
+    this never touches CATALOG_DIR or the dataflow's own computed dir.)
+    Datasets are placed at their own path (not their whole enclosing
+    top-level folder), so a catalog folder with 10 files where only 1 is
+    added exposes just that 1."""
+    scratch = DATAFLOWS_DIR / f"{dataflow_id}_scratch"
+    if scratch.exists():
+        shutil.rmtree(scratch)
+    scratch.mkdir(parents=True, exist_ok=True)
+
+    computed_dir = _dataflow_computed_dir(dataflow_id)
+    computed_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_symlink(scratch / "computed", computed_dir)
+
+    dataflow_path = _dataflow_path(dataflow_id)
+    if dataflow_path is not None and dataflow_path.exists():
+        try:
+            dataflow_record = json.loads(dataflow_path.read_text())
+        except json.JSONDecodeError:
+            dataflow_record = {}
+        for d in (dataflow_record.get("projectDatasets") or []):
+            if not isinstance(d, dict) or d.get("group") == "computed":
+                continue  # "computed/..." entries are already covered above
+            rel_id = d.get("id")
+            if not isinstance(rel_id, str) or not REF_RE.match(rel_id) or ".." in rel_id.split("/"):
+                continue
+            src = (CATALOG_DIR / rel_id).resolve()
+            try:
+                src.relative_to(CATALOG_DIR.resolve())
+            except ValueError:
+                continue
+            if not src.exists():
+                continue
+            link = scratch / rel_id
+            link.parent.mkdir(parents=True, exist_ok=True)
+            _ensure_symlink(link, src)
+
+    return scratch
 
 
 # A view/interaction "ref" (e.g. "osm/quad_city_flooding/buildings" or
@@ -1234,6 +1929,7 @@ def create_dataflow():
         "nodes": [],
         "edges": [],
         "projectDatasets": [],
+        "projectCompute": [],
         "createdAt": now,
         "updatedAt": now,
     }
@@ -1287,10 +1983,26 @@ def save_dataflow(dataflow_id: str):
     if isinstance(payload.get("projectDatasets"), list):
         record["projectDatasets"] = payload["projectDatasets"]
     record.setdefault("projectDatasets", [])
+    # Same optional-if-present pattern as projectDatasets - which Compute
+    # Catalog items this dataflow's "In project" tab shows. Purely
+    # informational; running compute code isn't gated by this list (unlike
+    # projectDatasets, which extract_data_layer treats as a permission check).
+    if isinstance(payload.get("projectCompute"), list):
+        record["projectCompute"] = payload["projectCompute"]
+    record.setdefault("projectCompute", [])
     record.setdefault("createdAt", datetime.now(timezone.utc).isoformat())
     record["updatedAt"] = datetime.now(timezone.utc).isoformat()
 
     _atomic_write_text(path, json.dumps(record))
+
+    # Rebuild the scratch dir right away rather than waiting for this
+    # dataflow's next code-node run - otherwise an add/remove in the Data
+    # Catalog only autosaves here and the symlinks stay stale until
+    # something happens to execute a node. Cheap (just a handful of
+    # symlinks, no real data touched) so no need to check whether
+    # projectDatasets/projectCompute actually changed in this particular save.
+    _compute_scratch_dir(dataflow_id)
+
     return jsonify({"status": "ok", **_dataflow_summary(record)})
 
 
@@ -1339,6 +2051,10 @@ def delete_dataflow(dataflow_id: str):
     computed_dir = _dataflow_computed_dir(dataflow_id)
     if computed_dir.is_dir():
         shutil.rmtree(computed_dir, ignore_errors=True)
+
+    scratch_dir = DATAFLOWS_DIR / f"{dataflow_id}_scratch"
+    if scratch_dir.is_dir():
+        shutil.rmtree(scratch_dir, ignore_errors=True)
 
     return jsonify({"status": "ok"})
 

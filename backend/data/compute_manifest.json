@@ -1,0 +1,353 @@
+{
+  "raster_conversion": {
+    "id": "raster_conversion",
+    "displayName": "OSM vector to raster",
+    "description": "",
+    "kind": "package",
+    "callables": [
+      {
+        "kind": "function",
+        "name": "get_flat_coords_offset_arrays",
+        "docstring": "Version for MultiPolygon data",
+        "params": [
+          {
+            "name": "arr",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "raster_conversion.scripts.convert_to_raster.get_flat_coords_offset_arrays",
+        "sourceFile": "scripts/convert_to_raster.py"
+      },
+      {
+        "kind": "function",
+        "name": "spatialpandas_from_pygeos",
+        "docstring": "",
+        "params": [
+          {
+            "name": "arr",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "raster_conversion.scripts.convert_to_raster.spatialpandas_from_pygeos",
+        "sourceFile": "scripts/convert_to_raster.py"
+      },
+      {
+        "kind": "function",
+        "name": "polygons",
+        "docstring": "",
+        "params": [
+          {
+            "name": "self",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "source",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "geometry",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "agg",
+            "hasDefault": true,
+            "defaultRepr": "None",
+            "type": null
+          }
+        ],
+        "importPath": "raster_conversion.scripts.convert_to_raster.polygons",
+        "sourceFile": "scripts/convert_to_raster.py"
+      },
+      {
+        "kind": "function",
+        "name": "deg2num",
+        "docstring": "",
+        "params": [
+          {
+            "name": "lat_deg",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "lon_deg",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "zoom",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "raster_conversion.scripts.convert_to_raster.deg2num",
+        "sourceFile": "scripts/convert_to_raster.py"
+      },
+      {
+        "kind": "function",
+        "name": "num2deg",
+        "docstring": "",
+        "params": [
+          {
+            "name": "xtile",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "ytile",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "zoom",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "raster_conversion.scripts.convert_to_raster.num2deg",
+        "sourceFile": "scripts/convert_to_raster.py"
+      },
+      {
+        "kind": "function",
+        "name": "compute_all",
+        "docstring": "",
+        "params": [
+          {
+            "name": "gdf",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "zoom",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "max_height",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "outputfolder",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "raster_conversion.scripts.convert_to_raster.compute_all",
+        "sourceFile": "scripts/convert_to_raster.py"
+      },
+      {
+        "kind": "function",
+        "name": "elevation",
+        "docstring": "",
+        "params": [
+          {
+            "name": "filtered",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "bbox",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "raster_conversion.scripts.convert_to_raster.elevation",
+        "sourceFile": "scripts/convert_to_raster.py"
+      },
+      {
+        "kind": "function",
+        "name": "create_image",
+        "docstring": "",
+        "params": [
+          {
+            "name": "values",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "i",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "j",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "zoom",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "max_height",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "outputfolder",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "raster_conversion.scripts.convert_to_raster.create_image",
+        "sourceFile": "scripts/convert_to_raster.py"
+      },
+      {
+        "kind": "function",
+        "name": "compute_tile",
+        "docstring": "",
+        "params": [
+          {
+            "name": "gdf",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "i",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "j",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "zoom",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "max_height",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "outputfolder",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "raster_conversion.scripts.convert_to_raster.compute_tile",
+        "sourceFile": "scripts/convert_to_raster.py"
+      },
+      {
+        "kind": "function",
+        "name": "convert_raster",
+        "docstring": "",
+        "params": [
+          {
+            "name": "vector_in",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": "str"
+          },
+          {
+            "name": "attribute",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": "str"
+          },
+          {
+            "name": "zoom",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": "int"
+          },
+          {
+            "name": "raster_out",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": "str"
+          }
+        ],
+        "importPath": "raster_conversion.scripts.convert_to_raster.convert_raster",
+        "sourceFile": "scripts/convert_to_raster.py"
+      }
+    ],
+    "createdAt": "2026-09-09T05:11:04.017494+00:00"
+  },
+  "quad_city_flooding_simulation": {
+    "id": "quad_city_flooding_simulation",
+    "displayName": "Quad city flooding simulation",
+    "description": "",
+    "kind": "package",
+    "callables": [
+      {
+        "kind": "function",
+        "name": "simulate_flood_projection",
+        "docstring": "",
+        "params": [
+          {
+            "name": "topleft",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "bottomright",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "output",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "year",
+            "hasDefault": true,
+            "defaultRepr": "'2020 - 2040'",
+            "type": null
+          },
+          {
+            "name": "use_NBS_classes",
+            "hasDefault": true,
+            "defaultRepr": "['Bioswales/Infiltration trenches', 'Permeable pavements', 'Retention ponds', 'Infiltration trench', 'Bioswales', 'Constructed wetlands']",
+            "type": null
+          }
+        ],
+        "importPath": "quad_city_flooding_simulation.scripts.flood_simulation.simulate_flood_projection",
+        "sourceFile": "scripts/flood_simulation.py"
+      }
+    ],
+    "createdAt": "2026-09-09T22:40:51.071667+00:00"
+  }
+}
