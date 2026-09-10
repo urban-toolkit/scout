@@ -10,25 +10,37 @@ export type ProjectDataset = CatalogDataset;
 export interface ProjectFolderNode {
   name: string;
   path: string;
+  // Same folder, but as it actually sits under the catalog root (i.e. with
+  // `stripPrefix` - "osm/" for the OSM section - added back) - what a
+  // download request needs to resolve to a real directory, since `path`
+  // itself is display-only once a section strips its own header prefix.
+  realPath: string;
   folders: Map<string, ProjectFolderNode>;
   files: ProjectDataset[];
 }
 
-function insertIntoProjectTree(root: ProjectFolderNode, parts: string[], dataset: ProjectDataset) {
+function insertIntoProjectTree(
+  root: ProjectFolderNode,
+  parts: string[],
+  realParts: string[],
+  dataset: ProjectDataset,
+) {
   if (parts.length === 0) {
     root.files.push(dataset);
     return;
   }
   const [head, ...rest] = parts;
+  const [realHead, ...realRest] = realParts;
   if (!root.folders.has(head)) {
     root.folders.set(head, {
       name: head,
       path: root.path ? `${root.path}/${head}` : head,
+      realPath: root.realPath ? `${root.realPath}/${realHead}` : realHead,
       folders: new Map(),
       files: [],
     });
   }
-  insertIntoProjectTree(root.folders.get(head)!, rest, dataset);
+  insertIntoProjectTree(root.folders.get(head)!, rest, realRest, dataset);
 }
 
 // `stripPrefix` drops a leading path segment shared by every dataset in
@@ -36,13 +48,15 @@ function insertIntoProjectTree(root: ProjectFolderNode, parts: string[], dataset
 // header ("OSM Data") isn't immediately followed by a redundant "osm"
 // folder row repeating the same thing.
 function buildProjectTree(datasets: ProjectDataset[], stripPrefix?: string): ProjectFolderNode {
-  const root: ProjectFolderNode = { name: "", path: "", folders: new Map(), files: [] };
+  const root: ProjectFolderNode = { name: "", path: "", realPath: "", folders: new Map(), files: [] };
   for (const d of datasets) {
     const relativeId =
       stripPrefix && d.id.startsWith(stripPrefix) ? d.id.slice(stripPrefix.length) : d.id;
     const parts = relativeId.split("/");
     parts.pop();
-    insertIntoProjectTree(root, parts, d);
+    const realParts = d.id.split("/");
+    realParts.pop();
+    insertIntoProjectTree(root, parts, realParts, d);
   }
   return root;
 }

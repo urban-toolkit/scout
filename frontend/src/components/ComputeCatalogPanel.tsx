@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Paper from "@mui/material/Paper";
 import Slide from "@mui/material/Slide";
 import Box from "@mui/material/Box";
@@ -9,7 +9,6 @@ import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import CodeOutlinedIcon from "@mui/icons-material/CodeOutlined";
 import CloseIcon from "@mui/icons-material/Close";
-import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
 import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import Tooltip from "@mui/material/Tooltip";
@@ -19,10 +18,13 @@ import {
   uploadComputeItem,
   refreshComputeItem,
   renameComputeItem,
+  computeCatalogDownloadUrl,
   type ComputeCatalogEntry,
-  type ComputeUploadSource,
 } from "../utils/computeCatalog";
 import type { ProjectComputeItem } from "../utils/dataflows";
+import { DownloadIconButton, AddRemoveIconButton } from "./CatalogActionIcons";
+import ImportDropzone from "./ImportDropzone";
+import type { ResolvedDrop } from "../utils/dragDropFiles";
 
 const PANEL_WIDTH = 420;
 
@@ -178,22 +180,13 @@ function ComputeItemRow({
           </IconButton>
         </span>
       </Tooltip>
-      <Button
-        variant="text"
-        size="small"
-        onClick={() => (inProject ? onRemove(entry.id) : onAdd(entry))}
-        sx={{
-          textTransform: "none",
-          fontWeight: 600,
-          fontSize: 11,
-          minWidth: 0,
-          width: 136,
-          color: "#94a3b8",
-          "&:hover": { color: "#334155", bgcolor: "transparent" },
-        }}
-      >
-        {inProject ? "Remove from project" : "Add to project"}
-      </Button>
+      <DownloadIconButton href={computeCatalogDownloadUrl(entry.id)} name={entry.displayName} />
+      <AddRemoveIconButton
+        inProject={inProject}
+        onAdd={() => onAdd(entry)}
+        onRemove={() => onRemove(entry.id)}
+        label={entry.displayName}
+      />
     </Box>
   );
 }
@@ -224,15 +217,12 @@ export default function ComputeCatalogPanel({
   const [error, setError] = useState<string | null>(null);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
-  const [pendingSource, setPendingSource] = useState<ComputeUploadSource | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [pendingSource, setPendingSource] = useState<ResolvedDrop | null>(null);
   const [uploadName, setUploadName] = useState("");
   const [uploadDescription, setUploadDescription] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const zipInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
 
   const projectIds = useMemo(() => new Set(projectCompute.map((c) => c.id)), [projectCompute]);
 
@@ -274,35 +264,20 @@ export default function ComputeCatalogPanel({
     }
   };
 
-  const handleFilePicked = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setPendingSource({ mode: "file", file });
-    setUploadName(file.name.replace(/\.py$/i, ""));
+  const resetImportForm = () => {
+    setImportOpen(false);
+    setPendingSource(null);
+    setUploadName("");
+    setUploadDescription("");
+    setUploadError(null);
   };
 
-  const handleZipPicked = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setPendingSource({ mode: "zip", file });
-    setUploadName(file.name.replace(/\.zip$/i, ""));
-  };
-
-  const handleFolderPicked = (e: ChangeEvent<HTMLInputElement>) => {
-    const fileList = Array.from(e.target.files ?? []);
-    e.target.value = "";
-    if (fileList.length === 0) return;
-    const relpaths = fileList.map((f) => (f as any).webkitRelativePath || f.name);
-    // Strip the folder's own top-level name from every relpath so files land
-    // directly under compute/<slug>/ rather than compute/<slug>/<folderName>/.
-    const firstSegment = relpaths[0].split("/")[0];
-    const stripped = relpaths.map((p) =>
-      p.startsWith(`${firstSegment}/`) ? p.slice(firstSegment.length + 1) : p,
-    );
-    setPendingSource({ mode: "folder", files: fileList, relpaths: stripped });
-    setUploadName(firstSegment);
+  const handleDropResolved = (drop: ResolvedDrop) => {
+    setPendingSource(drop);
+    if (drop.mode === "file") setUploadName(drop.file.name.replace(/\.py$/i, ""));
+    else if (drop.mode === "zip") setUploadName(drop.file.name.replace(/\.zip$/i, ""));
+    else if (drop.suggestedDestination) setUploadName(drop.suggestedDestination);
+    setUploadError(null);
   };
 
   const handleUploadSubmit = async () => {
@@ -312,9 +287,7 @@ export default function ComputeCatalogPanel({
     try {
       const created = await uploadComputeItem(uploadName.trim(), uploadDescription, pendingSource);
       setItems((prev) => [...prev.filter((i) => i.id !== created.id), created]);
-      setPendingSource(null);
-      setUploadName("");
-      setUploadDescription("");
+      resetImportForm();
     } catch (e: any) {
       setUploadError(e.message || "Failed to upload model.");
     } finally {
@@ -444,7 +417,7 @@ export default function ComputeCatalogPanel({
             </Typography>
           ) : items.length === 0 ? (
             <Typography variant="body2" sx={{ color: "#94a3b8", textAlign: "center", pt: 4 }}>
-              Nothing uploaded yet - use "Upload model" below.
+              Nothing uploaded yet - use "Upload package" below.
             </Typography>
           ) : (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -467,11 +440,30 @@ export default function ComputeCatalogPanel({
         </Box>
 
         <Box sx={{ p: 2, borderTop: "1px solid #e5e7eb", flexShrink: 0 }}>
-          {pendingSource ? (
+          {!importOpen ? (
+            <Button
+              fullWidth
+              variant="outlined"
+              sx={{
+                bgcolor: "#fff",
+                borderColor: "#cbd5e1",
+                color: "#0f172a",
+                textTransform: "none",
+                fontWeight: 600,
+                py: 1,
+                "&:hover": { bgcolor: "#f8fafc", borderColor: "#94a3b8" },
+              }}
+              onClick={() => setImportOpen(true)}
+            >
+              Upload package
+            </Button>
+          ) : pendingSource ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
               <Typography variant="caption" sx={{ color: "#64748b" }}>
                 {pendingSource.mode === "folder"
-                  ? `${pendingSource.files.length} file(s) selected`
+                  ? pendingSource.suggestedDestination
+                    ? `${pendingSource.suggestedDestination}/ - ${pendingSource.files.length} file(s)`
+                    : `${pendingSource.files.length} file(s) selected`
                   : pendingSource.file.name}
               </Typography>
               <TextField
@@ -494,15 +486,7 @@ export default function ComputeCatalogPanel({
                 </Typography>
               )}
               <Box sx={{ display: "flex", gap: 1 }}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  disabled={uploading}
-                  onClick={() => {
-                    setPendingSource(null);
-                    setUploadError(null);
-                  }}
-                >
+                <Button fullWidth variant="outlined" disabled={uploading} onClick={resetImportForm}>
                   Cancel
                 </Button>
                 <Button
@@ -517,51 +501,19 @@ export default function ComputeCatalogPanel({
             </Box>
           ) : (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".py"
-                hidden
-                onChange={handleFilePicked}
-              />
-              <input ref={zipInputRef} type="file" accept=".zip" hidden onChange={handleZipPicked} />
-              <input
-                ref={folderInputRef}
-                type="file"
-                hidden
-                // @ts-expect-error - non-standard but broadly supported attrs for folder selection
-                webkitdirectory=""
-                directory=""
-                multiple
-                onChange={handleFolderPicked}
+              <ImportDropzone
+                acceptHint=".py or .zip - or a whole package folder"
+                onResolved={handleDropResolved}
               />
               <Button
                 fullWidth
-                variant="outlined"
-                startIcon={<UploadFileOutlinedIcon />}
-                sx={{ textTransform: "none", fontWeight: 600 }}
-                onClick={() => fileInputRef.current?.click()}
+                variant="text"
+                size="small"
+                sx={{ textTransform: "none", color: "#94a3b8" }}
+                onClick={resetImportForm}
               >
-                Upload .py file
+                Cancel
               </Button>
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  sx={{ textTransform: "none", fontWeight: 600 }}
-                  onClick={() => zipInputRef.current?.click()}
-                >
-                  Upload .zip
-                </Button>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  sx={{ textTransform: "none", fontWeight: 600 }}
-                  onClick={() => folderInputRef.current?.click()}
-                >
-                  Upload folder
-                </Button>
-              </Box>
             </Box>
           )}
         </Box>

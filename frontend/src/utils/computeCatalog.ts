@@ -83,6 +83,13 @@ export async function uploadComputeItem(
   return body;
 }
 
+// URL for downloading one compute-catalog entry - a single .py file as-is,
+// or a package directory zipped on the fly by the backend. Plain <a href>,
+// no fetch needed.
+export function computeCatalogDownloadUrl(id: string): string {
+  return appUrl(`/api/compute-catalog/${encodeURIComponent(id)}/download`);
+}
+
 // Renames the entry's display name (and optionally its description) -
 // doesn't touch its id/slug, so every callable's importPath (e.g.
 // "compute.raster_conversion...") stays exactly as it was.

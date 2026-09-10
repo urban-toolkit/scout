@@ -15,13 +15,22 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchIcon from "@mui/icons-material/Search";
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import Tooltip from "@mui/material/Tooltip";
 
 import {
   listDataCatalog,
   listComputedRasterTiles,
+  dataCatalogDownloadUrl,
+  uploadDataCatalogItem,
+  DataCatalogOverwriteError,
   type CatalogDataset,
 } from "../utils/dataCatalog";
+import { getCurrentDataflowId, deleteComputedDataset } from "../utils/dataflows";
 import { formatColor } from "../utils/formatColors";
+import { DownloadIconButton, AddRemoveIconButton } from "./CatalogActionIcons";
+import ImportDropzone from "./ImportDropzone";
+import type { ResolvedDrop } from "../utils/dragDropFiles";
 import {
   collectProjectTreeFiles,
   groupProjectDatasetsForDisplay,
@@ -82,6 +91,14 @@ function collectAllFiles(folder: FolderNode): CatalogDataset[] {
 // calls it - there's nothing to add, it's already in the project.
 function noop() {}
 
+// Same "N file(s)" count shown as every folder row's subtitle when
+// collapsed (Browse-all, In-project, and the Computed tab's raster folders
+// alike) - one shared formatter so the pluralization never drifts between
+// them.
+function formatFileCount(n: number): string {
+  return `${n} file${n === 1 ? "" : "s"}`;
+}
+
 // A line-label-line divider ("---- OSM Data ----") separating one source's
 // datasets from another's - shared by the "Browse all" and "In project"
 // tabs so a given source is grouped the same way in both.
@@ -106,43 +123,37 @@ function SectionDivider({ label }: { label: string }) {
   );
 }
 
-// Same fixed width/alignment for every add/remove button, folder or file -
-// text-only so it reads as a minimal affordance, not a CTA. Both states
-// share one width (sized for the longer "Remove from project" label) so
-// toggling a row between them never shifts its position.
-const TOGGLE_BUTTON_SX_BASE = {
-  textTransform: "none" as const,
-  fontWeight: 600,
-  fontSize: 11,
-  lineHeight: 1,
-  minWidth: 0,
-  width: 136,
-  whiteSpace: "nowrap" as const,
-  px: 0.5,
-  py: 0.5,
-  flexShrink: 0,
-  justifyContent: "flex-end",
-};
-
-// Same styling for both states - only the label changes ("Add to project" /
-// "Remove from project"), so this isn't styled as a destructive action.
-const ADD_BUTTON_SX = {
-  ...TOGGLE_BUTTON_SX_BASE,
-  color: "#94a3b8",
-  "&:hover": { color: "#334155", bgcolor: "transparent" },
-};
-
 // Shared right padding so a folder row's button and a file row's button
 // land on the exact same right edge regardless of nesting depth.
 const ROW_PR = 1;
-// Horizontal space added per nesting level - kept small so nested rows
-// stay close to their parent instead of drifting far right.
+// Horizontal space added per nesting level - both a nested folder card and
+// the files sitting directly inside it indent by the same amount (one unit
+// per level), matching NodeRail's own flyout, which indents its whole
+// nested group uniformly rather than aligning files to their parent's icon.
 const INDENT_UNIT = 1.5;
-// Constant nudge (not scaled by depth) so a folder's files line up under
-// its own folder icon - i.e. depth*INDENT_UNIT + this equals the pixel
-// offset of the folder row's icon (chevron + gap + folder icon width),
-// converted to spacing units and minus the file card's own inner padding.
-const FILE_INDENT_NUDGE = 2.25;
+
+// Same neutral icon-box treatment every folder row gets - matches
+// NodeRail's own flyout (the left sidebar), where a folder's icon sits in a
+// flat grey box just like a file's own (format-tinted) icon box, rather
+// than floating bare the way it used to here.
+function FolderIconBox() {
+  return (
+    <Box
+      sx={{
+        width: 32,
+        height: 32,
+        flexShrink: 0,
+        borderRadius: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        bgcolor: "#f1f5f9",
+      }}
+    >
+      <FolderOutlinedIcon sx={{ fontSize: 18, color: "#64748b" }} />
+    </Box>
+  );
+}
 
 // Renders one file's card. `indent` is the margin-left (in spacing units)
 // used to nest it under a folder - 0 for a file that sits at the catalog
@@ -216,14 +227,13 @@ function DatasetFileRow({
           {d.format} · {d.size}
         </Typography>
       </Box>
-      <Button
-        variant="text"
-        size="small"
-        onClick={() => (inProject ? onRemove([d.id]) : onAdd([d]))}
-        sx={ADD_BUTTON_SX}
-      >
-        {inProject ? "Remove from project" : "Add to project"}
-      </Button>
+      <DownloadIconButton href={dataCatalogDownloadUrl(d.id)} name={d.name} />
+      <AddRemoveIconButton
+        inProject={inProject}
+        onAdd={() => onAdd([d])}
+        onRemove={() => onRemove([d.id])}
+        label={d.name}
+      />
     </Box>
   );
 }
@@ -231,7 +241,17 @@ function DatasetFileRow({
 // One tile inside an expanded raster folder - same bordered-card look as
 // DatasetFileRow (icon + name + format), minus the Add/Remove button, since
 // nothing in the app references a single tile individually.
-function TileFileRow({ name, indent }: { name: string; indent: number }) {
+function TileFileRow({
+  name,
+  indent,
+  folderId,
+  onRemove,
+}: {
+  name: string;
+  indent: number;
+  folderId: string;
+  onRemove: (name: string) => void;
+}) {
   const format = "PNG";
   return (
     <Box
@@ -277,6 +297,17 @@ function TileFileRow({ name, indent }: { name: string; indent: number }) {
           {format}
         </Typography>
       </Box>
+      <DownloadIconButton href={dataCatalogDownloadUrl(`${folderId}/${name}`)} name={name} />
+      <Tooltip title="Remove from project">
+        <IconButton
+          size="small"
+          onClick={() => onRemove(name)}
+          aria-label={`Remove ${name} from project`}
+          sx={{ p: 0.25 }}
+        >
+          <DeleteOutlineIcon sx={{ fontSize: 15, color: "#94a3b8" }} />
+        </IconButton>
+      </Tooltip>
     </Box>
   );
 }
@@ -317,6 +348,24 @@ function ComputedEntryRow({
     }
   };
 
+  // Before the folder's first expand, tiles is still null - fall back to
+  // the backend's own count (baked into d.size, e.g. "4 files") so the
+  // subtitle isn't blank while collapsed. Once tiles has loaded, its own
+  // length takes over - the source of truth after a tile is removed below,
+  // since d.size itself (a prop) doesn't update from that.
+  const fileCount = tiles !== null ? tiles.length : Number.parseInt(d.size, 10) || 0;
+
+  const handleRemoveTile = async (tileName: string) => {
+    const dataflowId = getCurrentDataflowId();
+    if (!dataflowId) return;
+    try {
+      await deleteComputedDataset(dataflowId, `${d.id}/${tileName}`);
+      setTiles((prev) => (prev ?? []).filter((t) => t !== tileName));
+    } catch (e: any) {
+      setTilesError(e?.message || `Failed to remove '${tileName}'.`);
+    }
+  };
+
   return (
     <Box>
       <Box
@@ -337,7 +386,7 @@ function ComputedEntryRow({
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: 1,
+            gap: 0.75,
             flex: 1,
             minWidth: 0,
             border: "none",
@@ -347,29 +396,7 @@ function ComputedEntryRow({
             textAlign: "left",
           }}
         >
-          <ChevronRightIcon
-            sx={{
-              fontSize: 20,
-              color: "#94a3b8",
-              transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-              transition: "transform 0.15s ease",
-              flexShrink: 0,
-            }}
-          />
-          <Box
-            sx={{
-              width: 32,
-              height: 32,
-              flexShrink: 0,
-              borderRadius: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              bgcolor: `${formatColor(d.format)}1a`,
-            }}
-          >
-            <FolderOutlinedIcon sx={{ fontSize: 18, color: formatColor(d.format) }} />
-          </Box>
+          <FolderIconBox />
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography
               sx={{
@@ -383,23 +410,22 @@ function ComputedEntryRow({
             >
               {d.name}
             </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                color: "#64748b",
-                display: "block",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {d.format} · {d.size}
+            <Typography variant="caption" sx={{ color: "#64748b", display: "block" }}>
+              {formatFileCount(fileCount)}
             </Typography>
           </Box>
+          <ChevronRightIcon
+            sx={{
+              fontSize: 20,
+              color: "#94a3b8",
+              transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+              transition: "transform 0.15s ease",
+              flexShrink: 0,
+            }}
+          />
         </Box>
-        <Button variant="text" size="small" onClick={() => onRemove([d.id])} sx={ADD_BUTTON_SX}>
-          Remove from project
-        </Button>
+        <DownloadIconButton href={dataCatalogDownloadUrl(d.id)} name={d.name} />
+        <AddRemoveIconButton inProject onAdd={noop} onRemove={() => onRemove([d.id])} label={d.name} />
       </Box>
 
       {isOpen && (
@@ -409,15 +435,23 @@ function ComputedEntryRow({
               <CircularProgress size={16} />
             </Box>
           ) : tilesError ? (
-            <Typography variant="caption" color="error" sx={{ ml: FILE_INDENT_NUDGE }}>
+            <Typography variant="caption" color="error" sx={{ ml: INDENT_UNIT }}>
               {tilesError}
             </Typography>
           ) : (tiles ?? []).length === 0 ? (
-            <Typography variant="caption" sx={{ color: "#94a3b8", ml: FILE_INDENT_NUDGE }}>
+            <Typography variant="caption" sx={{ color: "#94a3b8", ml: INDENT_UNIT }}>
               No tiles found.
             </Typography>
           ) : (
-            (tiles ?? []).map((t) => <TileFileRow key={t} name={t} indent={FILE_INDENT_NUDGE} />)
+            (tiles ?? []).map((t) => (
+              <TileFileRow
+                key={t}
+                name={t}
+                indent={INDENT_UNIT}
+                folderId={d.id}
+                onRemove={handleRemoveTile}
+              />
+            ))
           )}
         </Box>
       )}
@@ -455,9 +489,13 @@ function ProjectTreeFolderRow({
           display: "flex",
           alignItems: "center",
           gap: 1,
-          pl: depth * INDENT_UNIT,
-          pr: ROW_PR,
-          py: 0.5,
+          py: 0.75,
+          px: ROW_PR,
+          // Indenting a bordered box needs margin, not padding - see
+          // DatasetFileRow's own note on this.
+          ml: depth * INDENT_UNIT,
+          border: "1px solid #e5e7eb",
+          borderRadius: 1.5,
         }}
       >
         <Box
@@ -477,6 +515,24 @@ function ProjectTreeFolderRow({
             textAlign: "left",
           }}
         >
+          <FolderIconBox />
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography
+              sx={{
+                fontWeight: 500,
+                fontSize: 13,
+                color: "#0f172a",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {name}
+            </Typography>
+            <Typography variant="caption" sx={{ color: "#64748b", display: "block" }}>
+              {formatFileCount(allFiles.length)}
+            </Typography>
+          </Box>
           <ChevronRightIcon
             sx={{
               fontSize: 20,
@@ -486,28 +542,14 @@ function ProjectTreeFolderRow({
               flexShrink: 0,
             }}
           />
-          <FolderOutlinedIcon sx={{ fontSize: 24, color: "#64748b", flexShrink: 0 }} />
-          <Typography
-            sx={{
-              fontWeight: 500,
-              fontSize: 13,
-              color: "#0f172a",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {name}
-          </Typography>
         </Box>
-        <Button
-          variant="text"
-          size="small"
-          onClick={() => onRemove(allFiles.map((f) => f.id))}
-          sx={ADD_BUTTON_SX}
-        >
-          Remove from project
-        </Button>
+        <DownloadIconButton href={dataCatalogDownloadUrl(node.realPath)} name={name} />
+        <AddRemoveIconButton
+          inProject
+          onAdd={noop}
+          onRemove={() => onRemove(allFiles.map((f) => f.id))}
+          label={name}
+        />
       </Box>
 
       {isOpen && (
@@ -525,7 +567,7 @@ function ProjectTreeFolderRow({
             <DatasetFileRow
               key={d.id}
               dataset={d}
-              indent={depth * INDENT_UNIT + FILE_INDENT_NUDGE}
+              indent={(depth + 1) * INDENT_UNIT}
               inProject
               onAdd={noop}
               onRemove={onRemove}
@@ -575,9 +617,13 @@ function FolderRow({
           display: "flex",
           alignItems: "center",
           gap: 1,
-          pl: depth * INDENT_UNIT,
-          pr: ROW_PR,
-          py: 0.5,
+          py: 0.75,
+          px: ROW_PR,
+          // Indenting a bordered box needs margin, not padding - see
+          // DatasetFileRow's own note on this.
+          ml: depth * INDENT_UNIT,
+          border: "1px solid #e5e7eb",
+          borderRadius: 1.5,
         }}
       >
         <Box
@@ -597,6 +643,24 @@ function FolderRow({
             textAlign: "left",
           }}
         >
+          <FolderIconBox />
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography
+              sx={{
+                fontWeight: 500,
+                fontSize: 13,
+                color: "#0f172a",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {folder.name}
+            </Typography>
+            <Typography variant="caption" sx={{ color: "#64748b", display: "block" }}>
+              {formatFileCount(allFiles.length)}
+            </Typography>
+          </Box>
           <ChevronRightIcon
             sx={{
               fontSize: 20,
@@ -606,33 +670,17 @@ function FolderRow({
               flexShrink: 0,
             }}
           />
-          <FolderOutlinedIcon sx={{ fontSize: 24, color: "#64748b", flexShrink: 0 }} />
-          <Typography
-            sx={{
-              fontWeight: 500,
-              fontSize: 13,
-              color: "#0f172a",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {folder.name}
-          </Typography>
         </Box>
         {allFiles.length > 0 && (
-          <Button
-            variant="text"
-            size="small"
-            onClick={() =>
-              allFilesInProject
-                ? onRemoveFromProject(allFiles.map((f) => f.id))
-                : onAddToProject(allFiles)
-            }
-            sx={ADD_BUTTON_SX}
-          >
-            {allFilesInProject ? "Remove from project" : "Add to project"}
-          </Button>
+          <>
+            <DownloadIconButton href={dataCatalogDownloadUrl(folder.path)} name={folder.name} />
+            <AddRemoveIconButton
+              inProject={allFilesInProject}
+              onAdd={() => onAddToProject(allFiles)}
+              onRemove={() => onRemoveFromProject(allFiles.map((f) => f.id))}
+              label={folder.name}
+            />
+          </>
         )}
       </Box>
 
@@ -655,7 +703,7 @@ function FolderRow({
             <DatasetFileRow
               key={d.id}
               dataset={d}
-              indent={depth * INDENT_UNIT + FILE_INDENT_NUDGE}
+              indent={(depth + 1) * INDENT_UNIT}
               inProject={projectDatasetIds.has(d.id)}
               onAdd={onAddToProject}
               onRemove={onRemoveFromProject}
@@ -688,6 +736,16 @@ export default function DataCatalogPanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [pendingSource, setPendingSource] = useState<ResolvedDrop | null>(null);
+  const [destination, setDestination] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  // Set when the backend reports the upload would overwrite these existing
+  // catalog paths - drives an inline "overwrite anyway?" prompt, same
+  // confirm/retry pattern as DataLayerNode's own pre-flight check.
+  const [overwriteConflict, setOverwriteConflict] = useState<string[] | null>(null);
 
   const projectDatasetIds = useMemo(
     () => new Set(projectDatasets.map((d) => d.id)),
@@ -773,6 +831,47 @@ export default function DataCatalogPanel({
       else next.add(path);
       return next;
     });
+  };
+
+  const resetImportForm = () => {
+    setImportOpen(false);
+    setPendingSource(null);
+    setDestination("");
+    setUploadError(null);
+    setOverwriteConflict(null);
+  };
+
+  const handleDropResolved = (drop: ResolvedDrop) => {
+    setPendingSource(drop);
+    if (drop.mode === "folder" && drop.suggestedDestination) {
+      setDestination((prev) => prev || drop.suggestedDestination!);
+    }
+    setUploadError(null);
+    setOverwriteConflict(null);
+  };
+
+  const submitUpload = async (confirmOverwrite: boolean) => {
+    if (!pendingSource) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const added = await uploadDataCatalogItem(destination, pendingSource, confirmOverwrite);
+      setOverwriteConflict(null);
+      setDatasets((prev) => {
+        const byId = new Map(prev.map((d) => [d.id, d]));
+        for (const d of added) byId.set(d.id, d);
+        return [...byId.values()];
+      });
+      resetImportForm();
+    } catch (e: any) {
+      if (e instanceof DataCatalogOverwriteError) {
+        setOverwriteConflict(e.existing);
+      } else {
+        setUploadError(e.message || "Failed to upload dataset.");
+      }
+    } finally {
+      setUploading(false);
+    }
   };
 
   const tabs: { key: CatalogTab; label: string }[] = [
@@ -921,12 +1020,9 @@ export default function DataCatalogPanel({
                         ? [...section.files]
                             .sort((a, b) => a.name.localeCompare(b.name))
                             .map((d) => (
-                              <DatasetFileRow
+                              <ComputedEntryRow
                                 key={d.id}
                                 dataset={d}
-                                indent={0}
-                                inProject
-                                onAdd={onAddToProject}
                                 onRemove={onRemoveFromProject}
                               />
                             ))
@@ -1035,22 +1131,101 @@ export default function DataCatalogPanel({
         </Box>
 
         <Box sx={{ p: 2, borderTop: "1px solid #e5e7eb", flexShrink: 0 }}>
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<UploadFileOutlinedIcon />}
-            sx={{
-              bgcolor: "#fff",
-              borderColor: "#cbd5e1",
-              color: "#0f172a",
-              textTransform: "none",
-              fontWeight: 600,
-              py: 1,
-              "&:hover": { bgcolor: "#f8fafc", borderColor: "#94a3b8" },
-            }}
-          >
-            Import dataset
-          </Button>
+          {!importOpen ? (
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<UploadFileOutlinedIcon />}
+              sx={{
+                bgcolor: "#fff",
+                borderColor: "#cbd5e1",
+                color: "#0f172a",
+                textTransform: "none",
+                fontWeight: 600,
+                py: 1,
+                "&:hover": { bgcolor: "#f8fafc", borderColor: "#94a3b8" },
+              }}
+              onClick={() => setImportOpen(true)}
+            >
+              Import dataset
+            </Button>
+          ) : pendingSource ? (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <Typography variant="caption" sx={{ color: "#64748b" }}>
+                {pendingSource.mode === "folder"
+                  ? pendingSource.suggestedDestination
+                    ? `${pendingSource.suggestedDestination}/ - ${pendingSource.files.length} file(s)`
+                    : `${pendingSource.files.length} file(s) selected`
+                  : pendingSource.file.name}
+              </Typography>
+              <TextField
+                size="small"
+                label="Destination folder (optional)"
+                placeholder="e.g. osm/chicago - leave empty for catalog root"
+                value={destination}
+                onChange={(e) => {
+                  setDestination(e.target.value);
+                  setOverwriteConflict(null);
+                }}
+                fullWidth
+              />
+              {uploadError && (
+                <Typography variant="caption" color="error">
+                  {uploadError}
+                </Typography>
+              )}
+              {overwriteConflict && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+                  <Typography variant="caption" color="error">
+                    {overwriteConflict.length === 1
+                      ? `"${overwriteConflict[0]}" already exists in the catalog.`
+                      : `${overwriteConflict.length} files already exist in the catalog (e.g. "${overwriteConflict[0]}").`}
+                  </Typography>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    color="warning"
+                    size="small"
+                    disabled={uploading}
+                    onClick={() => submitUpload(true)}
+                  >
+                    Overwrite and upload
+                  </Button>
+                </Box>
+              )}
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Button fullWidth variant="outlined" disabled={uploading} onClick={resetImportForm}>
+                  Cancel
+                </Button>
+                {!overwriteConflict && (
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    disabled={uploading}
+                    onClick={() => submitUpload(false)}
+                  >
+                    {uploading ? "Uploading…" : "Upload"}
+                  </Button>
+                )}
+              </Box>
+            </Box>
+          ) : (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <ImportDropzone
+                acceptHint=".geojson, .csv, .tif, .zip - or a whole folder"
+                onResolved={handleDropResolved}
+              />
+              <Button
+                fullWidth
+                variant="text"
+                size="small"
+                sx={{ textTransform: "none", color: "#94a3b8" }}
+                onClick={resetImportForm}
+              >
+                Cancel
+              </Button>
+            </Box>
+          )}
         </Box>
       </Paper>
     </Slide>

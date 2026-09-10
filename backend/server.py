@@ -757,6 +757,30 @@ def _catalog_human_size(num_bytes: int) -> str:
     return f"{size:.1f} TB"
 
 
+def _catalog_dataset_entry(path: Path) -> dict:
+    """Builds one Data-Catalog-shaped entry for a real file under
+    CATALOG_DIR - the same shape list_data_catalog's own loop below
+    produces, factored out so upload_data_catalog_item can hand back
+    entries for what it just wrote without a full re-list. Resolves both
+    sides before computing the relative id, since callers pass paths built
+    both ways - list_data_catalog's own rglob() results are already
+    relative, but upload_data_catalog_item's folder-mode targets are
+    resolved to absolute along the way (see the traversal check there) -
+    relative_to() raises ValueError if the two sides don't match in that
+    regard, which folder-mode uploads previously never caught."""
+    rel = path.resolve().relative_to(CATALOG_DIR.resolve())
+    stat = path.stat()
+    return {
+        "id": rel.as_posix(),
+        "name": _catalog_display_name(path),
+        "group": rel.parts[0] if len(rel.parts) > 1 else "general",
+        "format": _catalog_format_label(path),
+        "sizeBytes": stat.st_size,
+        "size": _catalog_human_size(stat.st_size),
+        "modifiedAt": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+    }
+
+
 @app.get("/api/data-catalog")
 def list_data_catalog():
     """Lists every file under data/catalog/ for the frontend's Data Catalog
@@ -765,24 +789,159 @@ def list_data_catalog():
     if not CATALOG_DIR.exists():
         return jsonify({"status": "ok", "datasets": []})
 
-    datasets = []
-    for path in sorted(CATALOG_DIR.rglob("*")):
-        if not path.is_file() or path.name.startswith("."):
-            continue
+    datasets = [
+        _catalog_dataset_entry(path)
+        for path in sorted(CATALOG_DIR.rglob("*"))
+        if path.is_file() and not path.name.startswith(".")
+    ]
 
-        rel = path.relative_to(CATALOG_DIR)
-        stat = path.stat()
+    return jsonify({"status": "ok", "datasets": datasets})
 
-        datasets.append({
-            "id": rel.as_posix(),
-            "name": _catalog_display_name(path),
-            "group": rel.parts[0] if len(rel.parts) > 1 else "general",
-            "format": _catalog_format_label(path),
-            "sizeBytes": stat.st_size,
-            "size": _catalog_human_size(stat.st_size),
-            "modifiedAt": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
-        })
 
+def _sanitize_catalog_destination(raw: str) -> str | None:
+    """Normalizes a user-supplied destination subfolder (e.g. "osm/chicago",
+    where an uploaded file/folder should land under CATALOG_DIR) into a
+    clean relative path - "" means the catalog root. None means the input
+    was invalid (a ".." segment, an absolute path, or a stray slash)."""
+    raw = (raw or "").strip().strip("/")
+    if not raw:
+        return ""
+    parts = raw.split("/")
+    if any(not p or p in (".", "..") or "\\" in p for p in parts):
+        return None
+    return "/".join(parts)
+
+
+def _catalog_upload_conflicts(dest_dir: Path, rel_names: list[str]) -> list[str]:
+    """Catalog-root-relative paths (for the confirm_overwrite prompt) of
+    whichever of these rel_names (relative to dest_dir) already exist."""
+    conflicts = []
+    catalog_resolved = CATALOG_DIR.resolve()
+    for rel in rel_names:
+        target = dest_dir / rel
+        if target.exists():
+            try:
+                conflicts.append(target.resolve().relative_to(catalog_resolved).as_posix())
+            except ValueError:
+                continue
+    return conflicts
+
+
+@app.post("/api/data-catalog/upload")
+def upload_data_catalog_item():
+    """Uploads a new Data Catalog entry - a single file, a .zip (extracted
+    on the server), or a raw folder (sent as multiple `files` parts + a
+    parallel `relpaths` JSON field, same convention as the Compute Catalog's
+    own folder upload) - landing under CATALOG_DIR/<destination>/ (the
+    catalog root if destination is empty).
+
+    Mirrors extract_data_layer's own pre-flight "confirm_overwrite" pattern:
+    a first call that would clobber an existing catalog file returns the
+    would-be conflicts instead of writing anything, and the frontend
+    re-sends the same upload with confirmOverwrite=true once the user has
+    agreed."""
+    mode = (request.form.get("mode") or "").strip()
+    if mode not in ("file", "zip", "folder"):
+        return jsonify({"error": "mode must be 'file', 'zip', or 'folder'"}), 400
+
+    destination = _sanitize_catalog_destination(request.form.get("destination") or "")
+    if destination is None:
+        return jsonify({"error": "Invalid destination folder"}), 400
+    dest_dir = (CATALOG_DIR / destination) if destination else CATALOG_DIR
+    try:
+        dest_dir.resolve().relative_to(CATALOG_DIR.resolve())
+    except ValueError:
+        return jsonify({"error": "Invalid destination folder"}), 400
+
+    confirm_overwrite = (request.form.get("confirmOverwrite") or "").strip().lower() == "true"
+    added_paths: list[Path] = []
+
+    try:
+        if mode == "file":
+            upload = request.files.get("file")
+            filename = Path(upload.filename).name if upload and upload.filename else ""
+            if upload is None or not filename:
+                return jsonify({"error": "file is required"}), 400
+
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            target = dest_dir / filename
+            if not confirm_overwrite:
+                conflicts = _catalog_upload_conflicts(dest_dir, [filename])
+                if conflicts:
+                    return jsonify({"status": "confirm_overwrite", "existing": conflicts}), 200
+
+            # Streamed to disk rather than buffered in memory, same reasoning
+            # as the Compute Catalog's own file upload (see
+            # upload_compute_item).
+            tmp_fd, tmp_path_str = tempfile.mkstemp(
+                dir=str(dest_dir), prefix=".", suffix=".upload.tmp"
+            )
+            os.close(tmp_fd)
+            tmp_path = Path(tmp_path_str)
+            upload.save(tmp_path)
+            os.replace(tmp_path, target)
+            added_paths = [target]
+
+        elif mode == "zip":
+            upload = request.files.get("archive")
+            if upload is None or not (upload.filename or "").lower().endswith(".zip"):
+                return jsonify({"error": "archive must be a .zip file"}), 400
+
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            tmp_fd, tmp_zip_str = tempfile.mkstemp(suffix=".zip")
+            os.close(tmp_fd)
+            tmp_zip = Path(tmp_zip_str)
+            try:
+                upload.save(tmp_zip)
+                with zipfile.ZipFile(tmp_zip) as zf:
+                    names = [n for n in zf.namelist() if not n.endswith("/")]
+                    if not confirm_overwrite:
+                        conflicts = _catalog_upload_conflicts(dest_dir, names)
+                        if conflicts:
+                            return jsonify({"status": "confirm_overwrite", "existing": conflicts}), 200
+                    _safe_extract_zip(zf, dest_dir)
+                added_paths = [dest_dir / n for n in names]
+            finally:
+                tmp_zip.unlink(missing_ok=True)
+
+        else:  # folder
+            files = request.files.getlist("files")
+            try:
+                relpaths = json.loads(request.form.get("relpaths") or "[]")
+            except json.JSONDecodeError:
+                return jsonify({"error": "relpaths must be a JSON array"}), 400
+            if not files or not isinstance(relpaths, list) or len(files) != len(relpaths):
+                return jsonify({"error": "files and relpaths must be non-empty and the same length"}), 400
+
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest_resolved = dest_dir.resolve()
+            targets = []
+            for relpath in relpaths:
+                if not isinstance(relpath, str) or not relpath or relpath.startswith("/"):
+                    return jsonify({"error": f"Invalid relative path: {relpath!r}"}), 400
+                target = (dest_dir / relpath).resolve()
+                try:
+                    target.relative_to(dest_resolved)
+                except ValueError:
+                    return jsonify({"error": f"Path escapes destination folder: {relpath!r}"}), 400
+                targets.append(target)
+
+            if not confirm_overwrite:
+                catalog_resolved = CATALOG_DIR.resolve()
+                conflicts = [
+                    t.relative_to(catalog_resolved).as_posix() for t in targets if t.exists()
+                ]
+                if conflicts:
+                    return jsonify({"status": "confirm_overwrite", "existing": conflicts}), 200
+
+            for f, target in zip(files, targets):
+                target.parent.mkdir(parents=True, exist_ok=True)
+                f.save(target)
+            added_paths = targets
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    datasets = [_catalog_dataset_entry(p) for p in added_paths if p.is_file()]
     return jsonify({"status": "ok", "datasets": datasets})
 
 
@@ -1644,6 +1803,40 @@ def rename_compute_item(compute_id: str):
     return jsonify({"status": "ok", **record})
 
 
+@app.get("/api/compute-catalog/<compute_id>/download")
+def download_compute_item(compute_id: str):
+    """Downloads a compute-catalog entry as it sits on disk - a single .py
+    file as-is, or a package directory zipped up on the fly (never persisted,
+    built straight into an in-memory buffer)."""
+    if not COMPUTE_ID_RE.match(compute_id):
+        return jsonify({"error": "Invalid id"}), 400
+
+    manifest = _load_compute_manifest()
+    record = manifest.get(compute_id)
+    if not record:
+        return jsonify({"error": f"No compute item '{compute_id}'"}), 404
+
+    if record.get("kind") == "package":
+        pkg_path = COMPUTE_DIR / compute_id
+        if not pkg_path.is_dir():
+            return jsonify({"error": f"Source directory missing: {pkg_path}"}), 404
+        buf = BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for file_path in sorted(pkg_path.rglob("*")):
+                if file_path.is_file():
+                    zf.write(file_path, file_path.relative_to(pkg_path).as_posix())
+        buf.seek(0)
+        return send_file(
+            buf, mimetype="application/zip", as_attachment=True,
+            download_name=f"{compute_id}.zip",
+        )
+
+    file_path = COMPUTE_DIR / f"{compute_id}.py"
+    if not file_path.is_file():
+        return jsonify({"error": f"Source file missing: {file_path}"}), 404
+    return send_file(file_path, as_attachment=True, download_name=file_path.name)
+
+
 def _dataflow_path(dataflow_id: str) -> Path | None:
     if not DATAFLOW_ID_RE.match(dataflow_id):
         return None
@@ -1852,6 +2045,67 @@ def _safe_data_dir(base_dir: Path, rel_ref: str) -> Path | None:
     except ValueError:
         return None
     return full_dir
+
+
+def _resolve_download_target(ref: str, dataflow_id: str | None) -> Path | None:
+    """Resolves a Data Catalog "id" (as handed back by /api/data-catalog and
+    /api/list-rasters) straight to its real file or directory on disk, for
+    download. Unlike _resolve_data_source/_safe_data_path (which split a ref
+    into base_dir + extension-less rel_ref, since callers there are choosing
+    among a few known extensions), this trusts the ref to already carry its
+    own extension for a file - every id passed in here came from listing a
+    real file/dir in the first place, never a caller-constructed guess."""
+    if not ref or not REF_RE.match(ref) or ".." in ref.split("/"):
+        return None
+
+    if ref.startswith("computed/"):
+        if not dataflow_id or not DATAFLOW_ID_RE.match(dataflow_id):
+            return None
+        rel_ref = ref[len("computed/"):]
+        if not rel_ref:
+            return None
+        base_dir = _dataflow_computed_dir(dataflow_id)
+    else:
+        base_dir = CATALOG_DIR
+        rel_ref = ref
+
+    full_path = (base_dir / rel_ref).resolve()
+    try:
+        full_path.relative_to(base_dir.resolve())
+    except ValueError:
+        return None
+    if not full_path.exists():
+        return None
+    return full_path
+
+
+@app.get("/api/data-catalog/download")
+def download_data_catalog_item():
+    """Downloads one Data Catalog entry - a plain catalog file, a computed
+    file, or (zipped on the fly, never persisted) a computed raster folder's
+    whole tile set. `id` is the same id /api/data-catalog and
+    /api/extract-data-layer's `computed` entries already use; `dataflow_id`
+    is required for a "computed/..." id, same as /api/list-rasters."""
+    ref = request.args.get("id", "")
+    dataflow_id = request.args.get("dataflow_id")
+
+    target = _resolve_download_target(ref, dataflow_id)
+    if target is None:
+        return jsonify({"error": "Not found"}), 404
+
+    if target.is_dir():
+        buf = BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for file_path in sorted(target.rglob("*")):
+                if file_path.is_file():
+                    zf.write(file_path, file_path.relative_to(target).as_posix())
+        buf.seek(0)
+        return send_file(
+            buf, mimetype="application/zip", as_attachment=True,
+            download_name=f"{target.name}.zip",
+        )
+
+    return send_file(target, as_attachment=True, download_name=target.name)
 
 
 def _restore_computed_outputs() -> None:
@@ -2085,6 +2339,12 @@ def delete_computed_dataset(dataflow_id: str, name: str):
     removed = False
     if computed_path.is_file():
         computed_path.unlink()
+        removed = True
+    elif computed_path.is_dir():
+        # A computed raster tile-set (isDir entry, e.g. "A_raster/") - same
+        # "remove from project actually deletes it" contract as a single
+        # computed file, just for a whole directory of tiles instead of one.
+        shutil.rmtree(computed_path)
         removed = True
 
     # extract-data-layer also writes a served/vector mirror alongside the
