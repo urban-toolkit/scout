@@ -390,13 +390,20 @@ export async function renderLayers(opts: {
         continue;
       }
 
-      if (ext === "png") {
+      if (ext === "png*") {
+        // "png*" - a folder of tiled PNGs (ref is a directory, e.g.
+        // "computed/A_shadows"); bare "png" is reserved for a single raster
+        // file, not yet supported (see the branch below).
         unionBounds = await renderPngForView({
           map,
           view,
           ref,
           unionBounds,
         });
+      } else if (ext === "png") {
+        console.error(
+          `[Viewport ${id}] View layer with ref "${ref}": ext "png" (a single raster file) isn't supported yet - use "png*" for a folder of tiled PNGs.`,
+        );
       } else if (ext === "tif" || ext === "tiff") {
         unionBounds = await renderGeoTiffForView({
           map,
@@ -610,7 +617,7 @@ export async function renderLayers(opts: {
         continue;
       }
 
-      if (ext_base === "png" && ext_comp === "png") {
+      if (ext_base === "png*" && ext_comp === "png*") {
         const res = await fetch(appUrl("/api/diff-png"), {
           method: "POST",
           headers: {

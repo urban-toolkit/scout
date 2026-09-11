@@ -628,6 +628,44 @@ def list_rasters(Id: str):
 
     return jsonify(_list_png_tiles(folder)), 200
 
+def _colormapped_png_response(path: Path, cmap):
+    """Recolors a grayscale PNG tile with a matplotlib colormap - the same
+    transform get_colormapped_tile used to apply before its own route
+    (a single-segment <ref>/<name>) stopped being reachable for a
+    "computed/..." ref (which itself contains a "/", so it never matches a
+    2-segment path - Flask fell through to serve_raster's raw-file path
+    instead, silently dropping the colormap). Folded in here so the one
+    route that actually resolves computed/catalog refs is also the one that
+    can recolor them."""
+    img = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
+    if img is None:
+        abort(404)
+
+    if img.ndim == 2:
+        gray = img.astype(np.float32)
+        alpha = None
+    elif img.shape[2] == 4:
+        gray = img[:, :, 0].astype(np.float32)
+        alpha = img[:, :, 3]
+    else:
+        gray = img[:, :, 0].astype(np.float32)
+        alpha = None
+
+    t = np.clip(gray / 255.0, 0.0, 1.0)
+    rgba = (cmap(t) * 255).astype(np.uint8)  # H x W x 4
+
+    if alpha is not None:
+        rgba[:, :, 3] = alpha
+
+    rgba = rgba[..., [2, 1, 0, 3]]  # RGBA -> BGRA for OpenCV
+
+    ok, buf = cv2.imencode(".png", rgba)
+    if not ok:
+        abort(500)
+
+    return send_file(BytesIO(buf.tobytes()), mimetype="image/png")
+
+
 @app.get("/generated/raster/<path:filename>")
 def serve_raster(filename: str):
     allowed_exts = {"png", "tif", "tiff"}
@@ -644,30 +682,38 @@ def serve_raster(filename: str):
     ref = filename[: -(len(ext) + 1)]
     dataflow_id = request.args.get("dataflow_id")
 
+    candidate = None
     resolved = _resolve_data_source(ref, dataflow_id)
     if resolved is not None:
         base_dir, rel_ref = resolved
-        candidate = _safe_data_path(base_dir, rel_ref, ext)
-        if candidate is not None and candidate.is_file():
-            return send_from_directory(
-                candidate.parent, candidate.name, mimetype=mimetype, conditional=True,
-            )
+        maybe = _safe_data_path(base_dir, rel_ref, ext)
+        if maybe is not None and maybe.is_file():
+            candidate = maybe
 
-    # Fall back to data/served/raster - where model scripts (flood/shadow/
-    # routing) write their raster outputs directly, with no catalog/computed
-    # identity of their own (see _resolve_data_source).
-    full_path = raster_subdir / filename
-    try:
-        full_path.resolve().relative_to(raster_subdir.resolve())
-    except Exception:
-        abort(403)  # Forbidden
+    if candidate is None:
+        # Fall back to data/served/raster - where model scripts (flood/shadow/
+        # routing) write their raster outputs directly, with no catalog/computed
+        # identity of their own (see _resolve_data_source).
+        full_path = raster_subdir / filename
+        try:
+            full_path.resolve().relative_to(raster_subdir.resolve())
+        except Exception:
+            abort(403)  # Forbidden
 
-    if not full_path.is_file():
+        if full_path.is_file():
+            candidate = full_path
+
+    if candidate is None:
         abort(404)
 
+    if ext == "png":
+        cmap = COLORMAPS.get((request.args.get("cmap") or "").lower())
+        if cmap is not None:
+            return _colormapped_png_response(candidate, cmap)
+
     return send_from_directory(
-        full_path.parent,
-        full_path.name,
+        candidate.parent,
+        candidate.name,
         mimetype=mimetype,
         conditional=True,
     )
@@ -1242,60 +1288,6 @@ def _resolve_raster_file(ref: str, ext: str, dataflow_id: str | None) -> Path | 
     return candidate if candidate.is_file() else None
 
 
-@app.get("/generated/raster/<ref>/<name>")
-def get_colormapped_tile(ref, name):
-    dataflow_id = request.args.get("dataflow_id")
-    folder = _resolve_raster_dir(ref, dataflow_id)
-    if folder is None:
-        abort(404)
-
-    path = folder / name
-    try:
-        path.resolve().relative_to(folder.resolve())
-    except Exception:
-        abort(403)
-
-    cmap_name = (request.args.get("cmap") or "").lower()
-    cmap = COLORMAPS.get(cmap_name)
-
-    # If no/unknown colormap → return original PNG
-    if cmap is None:
-        return send_file(path, mimetype="image/png")
-
-    # Read image (gray / BGR / BGRA)
-    img = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
-    if img is None:
-        abort(404)
-
-    # ---- extract grayscale 0–255 ----
-    if img.ndim == 2:
-        gray = img.astype(np.float32)
-        alpha = None
-    elif img.shape[2] == 4:
-        gray = img[:, :, 0].astype(np.float32)
-        alpha = img[:, :, 3]
-    else:
-        gray = img[:, :, 0].astype(np.float32)
-        alpha = None
-
-    # ---- normalize FIXED 0–255 ----
-    t = np.clip(gray / 255.0, 0.0, 1.0)
-
-    # ---- apply matplotlib colormap ----
-    rgba = (cmap(t) * 255).astype(np.uint8)  # H x W x 4
-
-    # ---- preserve alpha if present ----
-    if alpha is not None:
-        rgba[:, :, 3] = alpha
-
-    rgba = rgba[..., [2, 1, 0, 3]]  # RGBA -> BGRA for OpenCV
-
-    ok, buf = cv2.imencode(".png", rgba)
-    if not ok:
-        abort(500)
-
-    return send_file(BytesIO(buf.tobytes()), mimetype="image/png")
-    
 def _diff_ref_name(ref_base: str, ref_comp: str) -> str:
     # ref_base/ref_comp may contain "/" ("folder/file" or "computed/...") -
     # flatten to a flat data/served/raster cache key for the synthesized

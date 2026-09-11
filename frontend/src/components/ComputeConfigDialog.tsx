@@ -19,12 +19,7 @@ import {
   type ParamChoice,
   type ComputeSelection,
 } from "../utils/computeCodeGen";
-import {
-  simplifyParamType,
-  validateFixedValue,
-  pythonStringLiteral,
-  contentFromPythonStringLiteral,
-} from "../utils/computeParamTypes";
+import { simplifyParamType, exampleLiteralForType } from "../utils/computeParamTypes";
 import type { ProjectComputeItem } from "../utils/dataflows";
 
 interface Props {
@@ -56,17 +51,6 @@ function initialChoice(p: ComputeParam): ParamChoice {
   return p.hasDefault
     ? { name: p.name, mode: "fixed", fixedRepr: p.defaultRepr ?? "", type: p.type }
     : { name: p.name, mode: "variable", type: p.type };
-}
-
-// null when the choice isn't a checkable "fixed" value (either it's wired
-// as a variable, or its type isn't one we validate - see simplifyParamType).
-function paramValidationError(param: ComputeParam, choice: ParamChoice): string | null {
-  if (choice.mode !== "fixed") return null;
-  return validateFixedValue(simplifyParamType(param.type), choice.fixedRepr ?? "");
-}
-
-function hasValidationErrors(params: ComputeParam[], choices: Record<string, ParamChoice>): boolean {
-  return params.some((p) => paramValidationError(p, choices[p.name] ?? initialChoice(p)) !== null);
 }
 
 // Seeds a param-choices map from a remembered selection's args (see
@@ -134,7 +118,6 @@ function ParamCard({
   onChange: (next: ParamChoice) => void;
 }) {
   const simpleType = simplifyParamType(param.type);
-  const errorText = paramValidationError(param, choice);
   const setFixed = (fixedRepr: string) =>
     onChange({ name: param.name, mode: "fixed", fixedRepr, type: param.type });
 
@@ -181,45 +164,25 @@ function ParamCard({
           fixed
         </ToggleButton>
       </ToggleButtonGroup>
-      {choice.mode === "fixed" &&
-        (simpleType === "bool" ? (
-          <ToggleButtonGroup
-            value={choice.fixedRepr === "True" || choice.fixedRepr === "False" ? choice.fixedRepr : null}
-            exclusive
-            size="small"
-            onChange={(_, next) => {
-              if (next) setFixed(next);
-            }}
-          >
-            <ToggleButton value="True" sx={{ fontSize: 10, textTransform: "none", py: 0.15, px: 0.9 }}>
-              True
-            </ToggleButton>
-            <ToggleButton value="False" sx={{ fontSize: 10, textTransform: "none", py: 0.15, px: 0.9 }}>
-              False
-            </ToggleButton>
-          </ToggleButtonGroup>
-        ) : (
-          <TextField
-            size="small"
-            type={simpleType === "int" || simpleType === "float" ? "number" : "text"}
-            placeholder={simpleType === "str" ? "text" : "value"}
-            error={Boolean(errorText)}
-            value={
-              simpleType === "str"
-                ? contentFromPythonStringLiteral(choice.fixedRepr ?? "")
-                : (choice.fixedRepr ?? "")
-            }
-            onChange={(e) =>
-              setFixed(simpleType === "str" ? pythonStringLiteral(e.target.value) : e.target.value)
-            }
-            sx={{
-              width: 130,
-              "& .MuiInputBase-input": { fontFamily: CODE_FONT, fontSize: 12 },
-            }}
-          />
-        ))}
-      {errorText && (
-        <Typography sx={{ fontSize: 10, color: "#dc2626" }}>{errorText}</Typography>
+      {choice.mode === "fixed" && (
+        // Free text, always - whatever the user types becomes the literal
+        // spliced into the generated call verbatim (see computeCodeGen.ts's
+        // callArg). The type above is a hint, not a constraint: the
+        // placeholder shows an example literal for this param's declared
+        // type (quotes included for str, so it's clear those are typed by
+        // hand), but nothing here reformats or rejects what's entered -
+        // 10, False, "computed/A_buildings.geojson" are all just text.
+        <TextField
+          size="small"
+          type="text"
+          placeholder={exampleLiteralForType(simpleType)}
+          value={choice.fixedRepr ?? ""}
+          onChange={(e) => setFixed(e.target.value)}
+          sx={{
+            width: 150,
+            "& .MuiInputBase-input": { fontFamily: CODE_FONT, fontSize: 12 },
+          }}
+        />
       )}
     </Box>
   );
@@ -476,15 +439,7 @@ export default function ComputeConfigDialog({ open, onClose, entry, onCreate }: 
           onClick={handleCreate}
           variant="contained"
           disabled={
-            !callable ||
-            (callable.kind === "class" && !methodName && callable.methods.length > 0) ||
-            (callable?.kind === "function" && hasValidationErrors(callable.params, argChoices)) ||
-            (callable?.kind === "class" &&
-              (hasValidationErrors(callable.ctorParams, ctorChoices) ||
-                hasValidationErrors(
-                  callable.methods.find((m) => m.name === methodName)?.params ?? [],
-                  methodChoices,
-                )))
+            !callable || (callable.kind === "class" && !methodName && callable.methods.length > 0)
           }
         >
           Create

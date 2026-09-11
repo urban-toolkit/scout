@@ -254,7 +254,7 @@ run_shadow_model(input, season, output)`,
           view: [
             {
               ref: "A_shadow",
-              ext: "png",
+              ext: "png*",
               style: {
                 opacity: 1,
                 colormap: "reds",
@@ -277,7 +277,7 @@ run_shadow_model(input, season, output)`,
           view: [
             {
               ref: "B_shadow",
-              ext: "png",
+              ext: "png*",
               style: {
                 opacity: 1,
                 colormap: "reds",
@@ -300,9 +300,9 @@ run_shadow_model(input, season, output)`,
           view: [
             {
               ref_base: "B_shadow",
-              ext_base: "png",
+              ext_base: "png*",
               ref_comp: "A_shadow",
-              ext_comp: "png",
+              ext_comp: "png*",
               style: {
                 opacity: 1,
                 colormap: "reds",

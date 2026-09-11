@@ -349,5 +349,751 @@
       }
     ],
     "createdAt": "2026-09-09T22:40:51.071667+00:00"
+  },
+  "accumulated_shadow_simulation": {
+    "id": "accumulated_shadow_simulation",
+    "displayName": "Accumulated shadow simulation",
+    "description": "",
+    "kind": "package",
+    "callables": [
+      {
+        "kind": "function",
+        "name": "rad2deg",
+        "docstring": "",
+        "params": [
+          {
+            "name": "rad",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.rad2deg",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "num2deg",
+        "docstring": "",
+        "params": [
+          {
+            "name": "xtile",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "ytile",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "zoom",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.num2deg",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "load_input",
+        "docstring": "",
+        "params": [
+          {
+            "name": "path",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "zoom",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "i",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "j",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.load_input",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "load_input_grid",
+        "docstring": "",
+        "params": [
+          {
+            "name": "path",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "date",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "zoom",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "i",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "j",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.load_input_grid",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "normalize_input",
+        "docstring": "",
+        "params": [
+          {
+            "name": "input_image",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "lat_image",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "date_image",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.normalize_input",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "predict_shadow",
+        "docstring": "",
+        "params": [
+          {
+            "name": "generator",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "path",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "date",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "zoom",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "i",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "j",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "lat",
+            "hasDefault": true,
+            "defaultRepr": "True",
+            "type": null
+          },
+          {
+            "name": "dat",
+            "hasDefault": true,
+            "defaultRepr": "True",
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.predict_shadow",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "gan_loss",
+        "docstring": "",
+        "params": [
+          {
+            "name": "disc_generated_output",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.gan_loss",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "generator_loss",
+        "docstring": "",
+        "params": [
+          {
+            "name": "disc_generated_output",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "gen_output",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "target",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "loss_funcs",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.generator_loss",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "discriminator_loss",
+        "docstring": "",
+        "params": [
+          {
+            "name": "disc_real_output",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "disc_generated_output",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.discriminator_loss",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "ssim_loss",
+        "docstring": "",
+        "params": [
+          {
+            "name": "target",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "gen_output",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.ssim_loss",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "sobel",
+        "docstring": "",
+        "params": [
+          {
+            "name": "img",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.sobel",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "sobel_loss",
+        "docstring": "",
+        "params": [
+          {
+            "name": "target",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "gen_output",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.sobel_loss",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "l1_loss",
+        "docstring": "",
+        "params": [
+          {
+            "name": "target",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "gen_output",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.l1_loss",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "downsample",
+        "docstring": "",
+        "params": [
+          {
+            "name": "filters",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "size",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "strides",
+            "hasDefault": true,
+            "defaultRepr": "2",
+            "type": null
+          },
+          {
+            "name": "apply_batchnorm",
+            "hasDefault": true,
+            "defaultRepr": "True",
+            "type": null
+          },
+          {
+            "name": "apply_specnorm",
+            "hasDefault": true,
+            "defaultRepr": "False",
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.downsample",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "upsample",
+        "docstring": "",
+        "params": [
+          {
+            "name": "filters",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "size",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "apply_batchnorm",
+            "hasDefault": true,
+            "defaultRepr": "True",
+            "type": null
+          },
+          {
+            "name": "apply_dropout",
+            "hasDefault": true,
+            "defaultRepr": "False",
+            "type": null
+          },
+          {
+            "name": "apply_specnorm",
+            "hasDefault": true,
+            "defaultRepr": "False",
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.upsample",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "get_generator_arch",
+        "docstring": "",
+        "params": [],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.get_generator_arch",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "resblock",
+        "docstring": "",
+        "params": [
+          {
+            "name": "filters",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "size",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "x",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "apply_specnorm",
+            "hasDefault": true,
+            "defaultRepr": "False",
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.resblock",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "class",
+        "name": "Self_Attention",
+        "docstring": "",
+        "ctorParams": [
+          {
+            "name": "in_dim",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          }
+        ],
+        "methods": [
+          {
+            "name": "call",
+            "docstring": "inputs:\n    x: input feature maps (B * C * W * H)\nreturns:\n    out: self-attention value + input feature\n    attention: B * N * N (N is Width*Height)",
+            "params": [
+              {
+                "name": "x",
+                "hasDefault": false,
+                "defaultRepr": null,
+                "type": null
+              },
+              {
+                "name": "batch_size",
+                "hasDefault": true,
+                "defaultRepr": "1",
+                "type": null
+              }
+            ]
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.Self_Attention",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "Generator",
+        "docstring": "",
+        "params": [
+          {
+            "name": "width",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "height",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "down_stack",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "up_stack",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "latitude",
+            "hasDefault": true,
+            "defaultRepr": "False",
+            "type": null
+          },
+          {
+            "name": "date",
+            "hasDefault": true,
+            "defaultRepr": "False",
+            "type": null
+          },
+          {
+            "name": "type",
+            "hasDefault": true,
+            "defaultRepr": "'unet'",
+            "type": null
+          },
+          {
+            "name": "attention",
+            "hasDefault": true,
+            "defaultRepr": "False",
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.Generator",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "Discriminator",
+        "docstring": "",
+        "params": [
+          {
+            "name": "width",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "height",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "latitude",
+            "hasDefault": true,
+            "defaultRepr": "False",
+            "type": null
+          },
+          {
+            "name": "date",
+            "hasDefault": true,
+            "defaultRepr": "False",
+            "type": null
+          },
+          {
+            "name": "type",
+            "hasDefault": true,
+            "defaultRepr": "'unet'",
+            "type": null
+          },
+          {
+            "name": "attention",
+            "hasDefault": true,
+            "defaultRepr": "False",
+            "type": null
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.Discriminator",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "class",
+        "name": "DeepShadow",
+        "docstring": "",
+        "ctorParams": [
+          {
+            "name": "width",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "height",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "down_stack",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "up_stack",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": null
+          },
+          {
+            "name": "latitude",
+            "hasDefault": true,
+            "defaultRepr": "True",
+            "type": null
+          },
+          {
+            "name": "date",
+            "hasDefault": true,
+            "defaultRepr": "True",
+            "type": null
+          },
+          {
+            "name": "loss_funcs",
+            "hasDefault": true,
+            "defaultRepr": "[l1_loss]",
+            "type": null
+          },
+          {
+            "name": "type",
+            "hasDefault": true,
+            "defaultRepr": "'unet'",
+            "type": null
+          },
+          {
+            "name": "attention",
+            "hasDefault": true,
+            "defaultRepr": "False",
+            "type": null
+          },
+          {
+            "name": "model_name",
+            "hasDefault": true,
+            "defaultRepr": "'deepshadow'",
+            "type": null
+          }
+        ],
+        "methods": [
+          {
+            "name": "compute_loss",
+            "docstring": "",
+            "params": [
+              {
+                "name": "test_ds",
+                "hasDefault": false,
+                "defaultRepr": null,
+                "type": null
+              }
+            ]
+          },
+          {
+            "name": "restore",
+            "docstring": "",
+            "params": [
+              {
+                "name": "checkpoint_path",
+                "hasDefault": false,
+                "defaultRepr": null,
+                "type": null
+              }
+            ]
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.DeepShadow",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "get_deep_shadow",
+        "docstring": "Return a singleton DeepShadow instance, creating it on first use.",
+        "params": [],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.get_deep_shadow",
+        "sourceFile": "scripts/deep_umbra.py"
+      },
+      {
+        "kind": "function",
+        "name": "run_shadow_model",
+        "docstring": "",
+        "params": [
+          {
+            "name": "rasters_in",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": "str"
+          },
+          {
+            "name": "season",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": "str"
+          },
+          {
+            "name": "rasters_out",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": "str"
+          },
+          {
+            "name": "metrics_out",
+            "hasDefault": false,
+            "defaultRepr": null,
+            "type": "str"
+          }
+        ],
+        "importPath": "accumulated_shadow_simulation.scripts.deep_umbra.run_shadow_model",
+        "sourceFile": "scripts/deep_umbra.py"
+      }
+    ],
+    "createdAt": "2026-09-10T16:30:09.232361+00:00"
   }
 }

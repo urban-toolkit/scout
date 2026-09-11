@@ -1,10 +1,10 @@
 // Reduces a param's raw annotation text (from the backend's AST unparse,
 // e.g. "int", "Optional[str]", "str | None") down to the handful of kinds
-// the config dialog gives special input controls/validation to. Anything
-// else - a custom class, a generic we don't recognize, or no annotation at
-// all - resolves to null, meaning "treat it like an unannotated param": a
-// freeform text field, nothing blocked. We only ever narrow behavior for
-// types we're confident about; an unrecognized type never becomes a wall.
+// the config dialog shows an example placeholder for. Anything else - a
+// custom class, a generic we don't recognize, or no annotation at all -
+// resolves to null, meaning "no example to offer" - never a wall: the
+// fixed-value field always accepts whatever raw Python literal the user
+// types, this only decides what hint text to show alongside it.
 export type SimpleParamType = "int" | "float" | "bool" | "str" | null;
 
 export function simplifyParamType(raw: string | null | undefined): SimpleParamType {
@@ -28,45 +28,21 @@ export function simplifyParamType(raw: string | null | undefined): SimpleParamTy
   }
 }
 
-// Validates a splice-ready literal (what actually ends up in the generated
-// code, e.g. "16" or "True") against the simplified type. Returns an error
-// message, or null if it's valid - or if the type isn't one we check (str
-// accepts any text, since pythonStringLiteral below can always quote it;
-// null/unrecognized types are never checked, same as today's behavior).
-export function validateFixedValue(type: SimpleParamType, literal: string): string | null {
-  const trimmed = literal.trim();
-  if (type === "int") {
-    return /^[-+]?\d+$/.test(trimmed) ? null : "Expected a whole number";
+// A one-line example of a real Python literal for this type - e.g. '"value"'
+// (quotes included, since the field holds splice-ready source text, not raw
+// content) - shown as the field's placeholder purely as a hint. The user is
+// free to type anything else; nothing here is validated or reformatted.
+export function exampleLiteralForType(type: SimpleParamType): string {
+  switch (type) {
+    case "str":
+      return '"value"';
+    case "int":
+      return "10";
+    case "float":
+      return "1.5";
+    case "bool":
+      return "False";
+    default:
+      return "value";
   }
-  if (type === "float") {
-    return /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(trimmed) ? null : "Expected a number";
-  }
-  if (type === "bool") {
-    return trimmed === "True" || trimmed === "False" ? null : "Expected True or False";
-  }
-  return null;
-}
-
-// str-typed params are edited as raw content ("chicago"), not Python literal
-// syntax ('"chicago"') - these two convert between the two representations
-// so the rest of the app (ParamChoice.fixedRepr, codegen) only ever sees
-// real Python source text, same as every other type.
-export function pythonStringLiteral(content: string): string {
-  return JSON.stringify(content);
-}
-
-// Best-effort unquote for displaying an existing literal (e.g. a default
-// value's source text) as raw content. Only strips a single matching pair of
-// quote characters - doesn't attempt full Python escape-sequence decoding,
-// which is unnecessary for the simple values these fields realistically hold.
-export function contentFromPythonStringLiteral(source: string): string {
-  const trimmed = source.trim();
-  if (trimmed.length >= 2) {
-    const first = trimmed[0];
-    const last = trimmed[trimmed.length - 1];
-    if ((first === '"' || first === "'") && first === last) {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
 }

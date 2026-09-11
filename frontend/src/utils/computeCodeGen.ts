@@ -41,15 +41,34 @@ function lowerFirst(name: string): string {
 // an otherwise-correctly-wired widget every time. If no widget is wired
 // yet, the call below simply raises a NameError - a clear, honest signal
 // rather than a silently-wrong None.
+// Short and greppable by design (see utils/requiredVariables.ts's parser) -
+// terse enough that a user is expected to type it by hand on a blank code
+// node to opt that variable into the same needs-widget nudge, not just
+// read it as a generated hint.
 function variableWireComment(choice: ParamChoice): string {
-  const typeNote = choice.type ? ` (type: ${choice.type})` : "";
-  return `# Wire a widget with variable name '${choice.name}'${typeNote} to set this parameter.`;
+  const typeNote = choice.type ? ` (${choice.type})` : "";
+  return `# Widget: '${choice.name}'${typeNote}`;
 }
 
 function callArg(choice: ParamChoice): string {
   if (choice.mode === "variable") return `${choice.name}=${choice.name}`;
   const literal = (choice.fixedRepr ?? "").trim();
   return `${choice.name}=${literal || "None"}`;
+}
+
+// Renders a call's parenthesized arg list one argument per line (no
+// trailing comma on the last one) rather than all on one line - a
+// generated call can easily have four or five params, and this is what
+// makes it easy for the user to scan and hand-edit afterward, e.g.:
+//   convert_raster(
+//       vector_in="computed/A_buildings.geojson",
+//       attribute="height",
+//   )
+// An empty arg list still collapses to a plain "()".
+function formatCallArgs(argsCode: string[]): string {
+  if (argsCode.length === 0) return "()";
+  const body = argsCode.map((a, i) => `    ${a}${i < argsCode.length - 1 ? "," : ""}`).join("\n");
+  return `(\n${body}\n)`;
 }
 
 export function generateComputeNodeCode(
@@ -69,8 +88,7 @@ export function generateComputeNodeCode(
     for (const arg of selection.args) {
       if (arg.mode === "variable") lines.push(variableWireComment(arg));
     }
-    const argsCode = selection.args.map(callArg).join(", ");
-    lines.push(`${callable.name}(${argsCode})`);
+    lines.push(`${callable.name}${formatCallArgs(selection.args.map(callArg))}`);
 
     return { code: lines.join("\n") + "\n", title: entry.displayName };
   }
@@ -88,14 +106,12 @@ export function generateComputeNodeCode(
   for (const arg of selection.ctorArgs) {
     if (arg.mode === "variable") lines.push(variableWireComment(arg));
   }
-  const ctorArgsCode = selection.ctorArgs.map(callArg).join(", ");
-  lines.push(`${instanceVar} = ${callable.name}(${ctorArgsCode})`);
+  lines.push(`${instanceVar} = ${callable.name}${formatCallArgs(selection.ctorArgs.map(callArg))}`);
 
   for (const arg of selection.methodArgs) {
     if (arg.mode === "variable") lines.push(variableWireComment(arg));
   }
-  const methodArgsCode = selection.methodArgs.map(callArg).join(", ");
-  lines.push(`${instanceVar}.${method.name}(${methodArgsCode})`);
+  lines.push(`${instanceVar}.${method.name}${formatCallArgs(selection.methodArgs.map(callArg))}`);
 
   return {
     code: lines.join("\n") + "\n",

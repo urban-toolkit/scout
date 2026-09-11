@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState, type ChangeEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import type { NodeProps, Node } from "@xyflow/react";
 import { Position, NodeResizer, useReactFlow, Handle } from "@xyflow/react";
 import "./PyCodeEditorNode.css";
@@ -11,6 +11,8 @@ import { appUrl } from "../../utils/runtimePaths";
 import PythonCodeEditor from "../../node-components/PythonCodeEditor";
 import { registerNodeAction } from "../../utils/nodeActionRegistry";
 import { useDataflowId } from "../../contexts/DataflowIdContext";
+import { parseRequiredVariables } from "../../utils/requiredVariables";
+import RequiredVariablesBadge from "../../node-components/RequiredVariablesBadge";
 
 export type PyCodeEditorNodeData = {
   title?: string;
@@ -57,6 +59,30 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
     stdout: "",
     stderr: "",
   });
+
+  // ---------- REQUIRED VARIABLES (needs-widget nudge) ----------
+  // Parsed straight from the code's own "Wire a widget..." comments (see
+  // computeCodeGen.ts) rather than tracked as separate metadata, so it
+  // works for hand-written code too and can never drift from what the code
+  // actually asks for.
+  const requiredVars = useMemo(
+    () => parseRequiredVariables(data?.code ?? ""),
+    [data?.code],
+  );
+  const resolvedByName = useMemo(
+    () => new Map((data?.widgetOutputs ?? []).map((w) => [w.variable, w])),
+    [data?.widgetOutputs],
+  );
+  const variableHighlights = useMemo(
+    () =>
+      requiredVars.map((v) => ({
+        name: v.name,
+        status: (resolvedByName.has(v.name) ? "resolved" : "unmet") as
+          | "resolved"
+          | "unmet",
+      })),
+    [requiredVars, resolvedByName],
+  );
 
   // ---------- TITLE CHANGE ----------
   const handleTitleChange = useCallback(
@@ -229,6 +255,13 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
         maxHeight={minimized ? NODE_MINIMIZED_HEIGHT : Infinity}
       />
 
+      {!minimized && (
+        <RequiredVariablesBadge
+          requiredVars={requiredVars}
+          resolvedByName={resolvedByName}
+        />
+      )}
+
       {minimized ? (
         <div className="pcenode__minimized">
           {/* Big run button */}
@@ -322,6 +355,7 @@ const PyCodeEditorNode = memo(function PyCodeEditorNode({
                 <PythonCodeEditor
                   value={data?.code ?? ""}
                   onChange={handleCodeChange}
+                  highlights={variableHighlights}
                 />
               </div>
             </div>
